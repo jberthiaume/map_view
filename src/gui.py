@@ -5,18 +5,21 @@ Created on May 30, 2013
 '''
 
 import os, time, shutil
+import math
 import wx 
 import listener as ls
 from zoompanel import ZoomPanel
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(240, 243),
+        wx.Frame.__init__(self, parent, title=title, size=(240, 340),
 #                           style=wx.STAY_ON_TOP
-                          )   
-              
+                        )
         self.leftDown = False           
-        self.ls = ls.listener(None, None)  
+        self.ls = ls.listener(None, None)                             
+        self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
+                       style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
+                       faceName="lucida sans")    
         
 #         # Create menu bar                 
 #         file_menu = wx.Menu()
@@ -101,7 +104,8 @@ class MainFrame(wx.Frame):
                 self.main_panel.zoom_panel.Show()             
                 
                 self.main_panel.btn_map.Enable(True)
-                self.main_panel.btn_save.Enable(True)       
+                self.main_panel.btn_save.Enable(True)
+                self.main_panel.btn_exp.Enable(True)       
                 self.main_panel.btn_map.SetLabel("Hide Map")
                             
             dlg.Destroy()
@@ -203,59 +207,78 @@ class MainPanel(wx.Panel):
                                   )  
         self.zoom_panel.Hide()
 #         self.zoom_panel.SetPosition((320,0))       
-        self.zoom_panel.SetPosition((550,0))                    
+        self.zoom_panel.SetPosition((550,0))
+               
                         
         # Refresh map button
-        hbox0 = wx.BoxSizer(wx.HORIZONTAL)     
-        hbox0.AddSpacer(20)
+        hbox00 = wx.BoxSizer(wx.HORIZONTAL)     
+        hbox00.AddSpacer(20)
         self.btn_rf = wx.Button(self, label="Update Map", size=(180,30))        
         self.btn_rf.Bind(wx.EVT_BUTTON, self.OnRefreshMap)
         self.buttons.append(self.btn_rf) 
-        hbox0.Add(self.btn_rf)        
-        self.sizer_menu.Add(hbox0,0,wx.TOP|wx.LEFT|wx.RIGHT,10) 
+        hbox00.Add(self.btn_rf)        
+        self.sizer_menu.Add(hbox00,0,wx.TOP|wx.LEFT|wx.RIGHT,10) 
 
         # Show/Hide map viewer button
-        hbox1 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox1.AddSpacer(20)
+        hbox03 = wx.BoxSizer(wx.HORIZONTAL)            
+        hbox03.AddSpacer(20)
         self.btn_map = wx.Button(self, label="Show Map", size=(180,30))        
         self.btn_map.Bind(wx.EVT_BUTTON, self.OnShowHideMap)   
         self.btn_map.Enable(False)   
         self.buttons.append(self.btn_map)   
-        hbox1.Add(self.btn_map)        
-        self.sizer_menu.Add(hbox1,0,
+        hbox03.Add(self.btn_map)        
+        self.sizer_menu.Add(hbox03,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
                             ,10) 
+        
+        # Explore button
+        hbox06 = wx.BoxSizer(wx.HORIZONTAL)     
+        hbox06.AddSpacer(20)
+        self.btn_exp = wx.Button(self, label="Explore", size=(180,30))        
+        self.btn_exp.Bind(wx.EVT_BUTTON, self.OnExplore)
+        self.btn_exp.Enable(False) 
+        self.buttons.append(self.btn_exp) 
+        hbox06.Add(self.btn_exp)        
+        self.sizer_menu.Add(hbox06,0,wx.TOP|wx.LEFT|wx.RIGHT,10)
+        
+        # Explore panel
+        hbox09 = wx.BoxSizer(wx.HORIZONTAL)     
+        hbox09.AddSpacer(20)       
+        self.exp_panel = ExplorePanel(self)
+        self.exp_panel.Hide()
+        hbox09.Add(self.exp_panel)   
+        self.sizer_menu.Add(hbox09,0,wx.TOP|wx.LEFT|wx.RIGHT,10) 
 
         # Open button
-        hbox2 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox2.AddSpacer(5)
+        hbox10 = wx.BoxSizer(wx.HORIZONTAL)            
+        hbox10.AddSpacer(5)
         self.btn_open = wx.Button(self, label="Open Map...", size=(180,30))   
         self.buttons.append(self.btn_open)        
         self.btn_open.Bind(wx.EVT_BUTTON, self.OnOpen)  
-        hbox2.Add(self.btn_open)           
-        self.sizer_menu.Add(hbox2,0,
+        hbox10.Add(self.btn_open)           
+        self.sizer_menu.Add(hbox10,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
                             ,25)  
         # Save button
-        hbox3 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox3.AddSpacer(20)
+        hbox13 = wx.BoxSizer(wx.HORIZONTAL)            
+        hbox13.AddSpacer(20)
         self.btn_save = wx.Button(self, label="Save Map...", size=(180,30)) 
         self.btn_save.Bind(wx.EVT_BUTTON, self.OnSaveAs)        
         self.btn_save.Enable(False)     
         self.buttons.append(self.btn_save)   
-        hbox3.Add(self.btn_save)           
-        self.sizer_menu.Add(hbox3,0,
+        hbox13.Add(self.btn_save)           
+        self.sizer_menu.Add(hbox13,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
                             ,10) 
         
         # Exit button
-        hbox9 = wx.BoxSizer(wx.HORIZONTAL)             
-        hbox9.AddSpacer(5)
+        hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
+        hbox20.AddSpacer(5)
         btn_exit = wx.Button(self, label="Exit", size=(180,30))  
         self.buttons.append(btn_exit)      
-        hbox9.Add(btn_exit)           
+        hbox20.Add(btn_exit)           
         btn_exit.Bind(wx.EVT_BUTTON, self.OnExit)
-        self.sizer_menu.Add(hbox9,0,wx.TOP|wx.LEFT|wx.RIGHT,25)   
+        self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,25)   
                       
         self.PaintButtons( (255,255,255),(65,65,60) )  
                 
@@ -298,10 +321,17 @@ class MainPanel(wx.Panel):
         self.ls.listen()        
         print "Creating map..."        
         
-        # Loop until the file has been updated
-        while(os.path.getmtime(self.ls.GetDefaultFilename()) < (time.time()-15)):
-            time.sleep(1)
-        
+        # Loop until the file has been correctly updated
+        done = False
+        while not done:            
+            try:
+                while(os.path.getmtime(self.ls.GetDefaultFilename()) < (time.time()-15)):
+                    time.sleep(1)
+                done = True
+                
+            except OSError:
+                time.sleep(1)
+                
         try:
             # Use an image file (png). Must be in the same folder as this file
             map_file = self.ls.GetDefaultFilename()
@@ -310,6 +340,7 @@ class MainPanel(wx.Panel):
             # Update some statuses
             self.btn_map.Enable(True)
             self.btn_save.Enable(True)
+            self.btn_exp.Enable(True)
             self.SetSaveStatus(False)            
             
             # Show the image panel                  
@@ -318,7 +349,7 @@ class MainPanel(wx.Panel):
             self.zoom_panel.SetImage(map_file)
             self.zoom_panel.Show()    
             
-        except ZeroDivisionError:
+        except IndexError:
             # Image not found in directory
             pass      
         
@@ -326,7 +357,7 @@ class MainPanel(wx.Panel):
         
         self.Layout()                
         wx.EndBusyCursor()
-        
+       
         
     def OnShowHideMap(self, event):
         if self.btn_map.GetLabel()[0]=='S':
@@ -335,6 +366,15 @@ class MainPanel(wx.Panel):
         else:
             self.zoom_panel.Hide()
             self.btn_map.SetLabel("Show Map")
+            
+    def OnExplore(self, event):
+        if self.exp_panel.IsShown():
+            self.exp_panel.Hide()
+            self.Layout()
+        else:
+            self.exp_panel.Show()
+            self.exp_panel.txt.Clear()
+            self.Layout()
             
     def OnOpen(self, event):
         self.parent_frame.OnOpen(event)
@@ -371,8 +411,122 @@ class MainPanel(wx.Panel):
         except wx._core.PyAssertionError:
             pass
         
+class ExplorePanel(wx.Panel):
+    def __init__(self, parent):        
+        wx.Panel.__init__(self, parent=parent)
+        
+        self.zoom_panel = self.GetParent().zoom_panel
+        
+        # Set the background colour
+        bmp = wx.EmptyBitmap(500, 500)
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        solidbrush = wx.Brush(wx.Colour(155,155,155), wx.SOLID)
+        dc.SetBrush(solidbrush)
+        dc.DrawRectangle(0, 0, 500, 500)
+        self.bg = wx.StaticBitmap(self, -1, bmp, (-2, -2))
+        
+        # Set parent frame value
+        self.parent_frame = parent 
+        while self.parent_frame.GetParent() is not None: 
+            self.parent_frame = self.parent_frame.GetParent()
+        
+        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        
+        # Node/Edge radio buttons
+        vbox03 = wx.BoxSizer(wx.VERTICAL)
+        self.radio_node = wx.RadioButton(self, -1, "Node", style=wx.RB_GROUP) 
+        self.radio_edge = wx.RadioButton(self, -1, "Edge")
+        vbox03.Add(self.radio_node) 
+        vbox03.Add(self.radio_edge) 
+        self.sizer.Add(vbox03,0,wx.TOP,5)    
+        self.radio_node.Bind(wx.EVT_RADIOBUTTON, self.OnSelectNode)
+        self.radio_edge.Bind(wx.EVT_RADIOBUTTON, self.OnSelectEdge)
+        
+        # Textbox
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt = wx.TextCtrl(self, size=(45,30), style=wx.NO_BORDER|wx.TE_RIGHT)
+        self.txt.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt.SetFont(self.parent_frame.font)
+        self.txt.SetForegroundColour((255,255,255))
+        self.txt.SetBackgroundColour((100,100,100))
+        vbox06.Add(self.txt)
+        self.sizer.Add(vbox06,1,wx.TOP|wx.LEFT,10)
+         
+        # Go button
+        vbox09 = wx.BoxSizer(wx.VERTICAL)     
+        vbox09.AddSpacer(5)
+        self.btn_go = wx.Button(self, label="Go", size=(50,30))        
+        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)
+        self.GetParent().buttons.append(self.btn_go) 
+        vbox09.Add(self.btn_go)        
+        self.sizer.Add(vbox09,1,wx.TOP|wx.LEFT,10)
+        
+        self.SetSizer(self.sizer)
+        
+    def OnSelectNode(self, event):
+        self.btn_go.Bind(wx.EVT_BUTTON, None)
+        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)
+        
+    def OnSelectEdge(self, event):
+        self.btn_go.Bind(wx.EVT_BUTTON, None)
+        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoEdge)
+        
+    # Selects a node and zooms in on it   
+    def OnGotoNode(self, event):
+        txt = self.txt.GetValue()           
+        try:
+            ID = int(txt)            
+            try:
+                node = self.zoom_panel.nodelist[ID]                
+                self.zoom_panel.SelectOneNode(self.zoom_panel.graphics_nodes[ID])
+                
+                self.zoom_panel.Canvas.ZoomToBB()
+                self.zoom_panel.Zoom(node.coords, 10.0)
+            except ValueError:
+                dlg = wx.MessageDialog(self,
+                "Node %s does not exist." % str(ID), "Error", wx.ICON_ERROR)
+                dlg.ShowModal() 
+                dlg.Destroy()
+            
+        except IndexError:
+            dlg = wx.MessageDialog(self,
+                "Please enter a positive integer value", "Error", wx.ICON_ERROR)
+            dlg.ShowModal() 
+            dlg.Destroy()
+            
+    # Selects an edge and zooms in on it    
+    def OnGotoEdge(self, event):
+        txt = self.txt.GetValue()            
+        try:
+            ID = int(txt)            
+            try:
+                edge = self.zoom_panel.edgelist[ID] 
+                self.zoom_panel.SelectOneEdge(self.zoom_panel.graphics_edges[ID])
+                end1 = self.zoom_panel.nodelist[int(edge.node1)].coords
+                end2 = self.zoom_panel.nodelist[int(edge.node2)].coords
+                
+                x = int( (math.fabs( end1[0]+end2[0])) /2 )   
+                y = int( (math.fabs( end1[1]+end2[1])) /2 ) 
+                
+                self.zoom_panel.Canvas.ZoomToBB()  
+                self.zoom_panel.Zoom((x,y), 10.0)
+            except IndexError:
+                dlg = wx.MessageDialog(self,
+                "Edge %s does not exist." % str(ID), "Error", wx.ICON_ERROR)
+                dlg.ShowModal() 
+                dlg.Destroy()
+            
+        except ValueError:
+            dlg = wx.MessageDialog(self,
+                "Please enter a positive integer value", "Error", wx.ICON_ERROR)
+            dlg.ShowModal() 
+            dlg.Destroy()
+    
 if __name__ == '__main__':
     app = wx.App(False)
+    wx.Log_SetActiveTarget(wx.LogStderr())
     frame = MainFrame(None, "Map Viewer")
     frame.Show()
     app.MainLoop()

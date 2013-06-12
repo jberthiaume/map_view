@@ -38,7 +38,8 @@ class ZoomPanel(wx.Frame):
         self.export = False
         self.origin = None
         self.image_width = 2000
-        self.last_sel_node = ""  
+        self.last_sel_node = "" 
+        self.current_zoom = 1.0 
         self.current_map = []
         
         self.nodelist = []
@@ -484,8 +485,26 @@ class ZoomPanel(wx.Frame):
         y2 = float(p2[1])
         dist = math.sqrt( (x2 - x1)**2 + (y2 - y1)**2 )  
         return dist  
+
     
+    # Selects one node and deselects everything else  
+    def SelectOneNode(self, obj):     
+        self.DeselectAll(event=None)
+        print "Selected Node #" + obj.Name      
+        self.sel_nodes.append(obj)           # Add the node to the list of currently selected nodes        
+        obj.SetFillColor(HIGHLIGHT_COLOR)    # Highlight the node
+        self.last_sel_node = obj.Name
+        self.Canvas.Draw(True)
+        
+    # Selects one edge and deselects everything else  
+    def SelectOneEdge(self, obj):     
+        self.DeselectAll(event=None)
+        print "Selected Edge #" + obj.Name     
+        self.sel_edges.append(obj)              # Add the edge to the list of currently selected edges        
+        obj.SetLineColor(HIGHLIGHT_COLOR)       # Highlight the edge
+        self.Canvas.Draw(True) 
             
+    # Selects all nodes        
     def SelectNodes(self, event):
         self.DeselectAll(event)
         
@@ -497,7 +516,7 @@ class ZoomPanel(wx.Frame):
         self.Canvas.Draw(True) 
         print "Selected all nodes"
         
-        
+    # Selects all edges   
     def SelectEdges(self, event):
         self.DeselectAll(event)
         
@@ -535,8 +554,8 @@ class ZoomPanel(wx.Frame):
         self.Canvas.Draw(True)                
         self.sel_nodes = []
         self.sel_edges = [] 
-        self.last_sel_node = ""        
-         
+        self.last_sel_node = ""   
+
 
     def OnClickNode(self, obj):
         if obj.Name != self.last_sel_node:             
@@ -609,7 +628,10 @@ class ZoomPanel(wx.Frame):
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
             self.CreateEdges(event=None)            
         self.GetParent().SetSaveStatus(True)
-            
+        
+    def Zoom(self, location, magnification): 
+        zoom_amt = magnification / self.current_zoom          
+        self.Canvas.Zoom(zoom_amt,location)   
 
     def Binding(self, event): 
         print "Writing a png file:" 
@@ -627,13 +649,13 @@ class ZoomPanel(wx.Frame):
         they are loaded onto the image. '''
     def SetImage(self, image_file):         
         self.Clear()   
-                    
-        # create the image: 
-        image = wx.Image(image_file)                
+        
+        # create the image 
+        image = wx.Image(image_file, wx.BITMAP_TYPE_ANY).ConvertToBitmap()     
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
-                                      Position = 'bl')
+                                      Position = 'bl')        
         self.LoadNodes()
         self.LoadEdges()
         self.GenerateConnectionMatrix()
@@ -645,10 +667,11 @@ class ZoomPanel(wx.Frame):
         
         # TODO: figure out a more precise way of zooming to the image
         #         also, remap the Zoom To Fit button to the above.
-        print str(self.image_width)
-        self.Canvas.Zoom(2,(self.image_width/2,self.image_width/2))
+        self.Zoom((self.image_width/2,self.image_width/2),2)
 
 if __name__ == '__main__':
     app = wx.App(False) 
+#     h = wx.PNGHandler()
+#     wx.InitAllImageHandlers()
     F = ZoomPanel(None, title="Map Viewer", size=(700,700) ) 
     app.MainLoop() 

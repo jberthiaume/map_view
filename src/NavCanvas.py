@@ -24,7 +24,7 @@ class NavCanvas(wx.Panel):
         wx.Panel.__init__(self, parent, id, size=size)
 
         self.Modes = [("Add Node", GUIMode.GUIMouse(),   Resources.getPointerBitmap()),
-                      ("Add Edge", GUIMode.GUIMouse2(),  Resources.getMoveRLCursorBitmap()),
+#                       ("Add Edge", GUIMode.GUIMouse2(),  Resources.getMoveRLCursorBitmap()),
                       ("Zoom In",  GUIMode.GUIZoomIn(),  Resources.getMagPlusBitmap()),
                       ("Zoom Out", GUIMode.GUIZoomOut(), Resources.getMagMinusBitmap()),
                       ("Pan",      GUIMode.GUIMove(),    Resources.getHandBitmap()),

@@ -80,7 +80,7 @@ class listener():
         # Rotate and flip image (otherwise it won't match the real map)
         img = img.rotate(180)
         img_mirror = ImageOps.mirror(img)
-    
+        
         try:
             os.remove(filename)
         except OSError:
@@ -88,7 +88,7 @@ class listener():
         
         img_mirror.save(filename)    
         
-        print "Map file created... %s" % filename
+        print "Map file created. (%s)" % filename
         
     
     ''' Translates an OccupancyGrid list into RGB values '''
