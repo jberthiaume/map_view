@@ -7,26 +7,26 @@ Created on May 30, 2013
 '''
 
 import wx 
-import os
 import pickle
 import math
-import time
 import NavCanvas, FloatCanvas
 import node as N
 import edge as E
 import numpy as NP
 
-NODE_FILL           = (225,0,0)
-NODE_BORDER         = (0,0,0)
-EDGE_COLOR          = (225,0,0)
+''' Global colors '''
+NODE_FILL           = (0,200,25)
+NODE_BORDER         = (25,25,180)
+EDGE_COLOR          = (25,25,180)
 HIGHLIGHT_COLOR     = (225,225,0)
+TEXT_COLOR          = (25,25,180)
 
+''' Global dimensions for graphical objects '''
 NODE_DIAM           = 9
-NODE_BORDER_WIDTH   = 1
+NODE_BORDER_WIDTH   = 2
 EDGE_WIDTH          = 7
 FONT_SIZE           = 7
 
-#TODO: fix Save/SaveAs/Open/etc.
 
 class ZoomPanel(wx.Frame): 
 
@@ -46,24 +46,14 @@ class ZoomPanel(wx.Frame):
         self.edgelist = []
         self.graphics_nodes = []
         self.graphics_edges = []
-        self.graphics_text = []       
+        self.graphics_text = []
+        
+        self.sel_nodes = []
+        self.sel_edges = []   
         
         
-        '''''''''''''''''''''''''''''''''''''''''
-        Connection matrix data structure
-        -----------------------------------------     
-           
-        If node A exists, then conn_matrix[A][A] is 0
-        
-        If node A doesn't exist, then conn_matrix[A][A] is -1
-        
-        If an edge exists between node A and node B, then conn_matrix[A][B] and conn_matrix[B][A]
-            both contain the ID of the edge which connects them.
-            
-        If no edge exists between node A and node B, then conn_matrix[A][B] and conn_matrix[B][A]
-            are both -1.       
-            
-        '''''''''''''''''''''''''''''''''''''''''
+        # Connection matrix data structure
+        # See 'GenerateConnectionMatrix()' for more info
         self.conn_matrix = NP.empty(shape=(40,40))
         self.conn_matrix[:] = -1
         NP.set_printoptions(edgeitems=10, linewidth=150)
@@ -77,9 +67,7 @@ class ZoomPanel(wx.Frame):
         Canvas.MaxScale=4 
         self.Canvas = Canvas
         
-        self.sel_nodes = []       # Placeholder for handling clicks. To be improved later.
-        self.sel_edges = []
-
+        # Bind canvas mouse events
         FloatCanvas.EVT_MOTION(self.Canvas, self.OnMove )        
         self.Canvas.Bind(FloatCanvas.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Canvas.Bind(FloatCanvas.EVT_RIGHT_DOWN, self.OnRightDown)
@@ -106,16 +94,20 @@ class ZoomPanel(wx.Frame):
                                               (wx.ACCEL_CTRL, ord('E'), id_create_edges),
                                               (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_del)
                                              ])
-        self.SetAcceleratorTable(self.accel_tbl)
-  
+        self.SetAcceleratorTable(self.accel_tbl)  
         self.Layout()
                 
 
+#---------------------------------------------------------------------------------------------#    
+#    Writes the current cursor coordinates to the status bar at the bottom                    #
+#---------------------------------------------------------------------------------------------#
     def OnMove(self, event): 
-        # Update the current cursor coordinates on the status bar
         self.SetStatusText("%i, %i"%tuple(event.Coords))
         
-        
+    
+#---------------------------------------------------------------------------------------------#    
+#    Mouse click handler: left button                                                         #
+#---------------------------------------------------------------------------------------------# 
     def OnLeftDown(self, event):
         current_mode = self.Canvas.GetMode()
         
@@ -123,8 +115,13 @@ class ZoomPanel(wx.Frame):
             self.CreateNode(event.Coords)
             
         elif current_mode=='GUIMouse2':
+            # Unimplemented for now
             pass
-        
+    
+    
+#---------------------------------------------------------------------------------------------#    
+#    Mouse click handler: right button                                                        #
+#---------------------------------------------------------------------------------------------#
     def OnRightDown(self, event):
         # Create the menu which appears on right click
         rc_menu = wx.Menu()
@@ -163,7 +160,11 @@ class ZoomPanel(wx.Frame):
         
         self.PopupMenu( rc_menu, (event.GetPosition()[0]+10, event.GetPosition()[1]+30) )
         rc_menu.Destroy() 
-         
+    
+
+#--------------------------------------------------------------------------------------------#    
+#     Creates a single node at the given coordinates                                         #
+#--------------------------------------------------------------------------------------------#    
     def CreateNode(self, coords):  
         
         # coords are in float, but we need int values for pixels
@@ -183,12 +184,12 @@ class ZoomPanel(wx.Frame):
                    
             # Draw the node on the canvas
             c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
-            c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'  circles
+            c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'
             self.graphics_nodes.append(c)
             c.Name = ID
             c.Coords = node_coords    
             
-            t = self.Canvas.AddText(ID, xy, Size=fs, Position="cc")
+            t = self.Canvas.AddText(ID, xy, Size=fs, Position="cc", Color=TEXT_COLOR)
             self.graphics_text.append(t)        
             
             # Assign the Circle to its node
@@ -216,7 +217,11 @@ class ZoomPanel(wx.Frame):
             print "Could not create node at (%s, %s). (Collision with node %s)" \
                     % (node_coords[0], node_coords[1], str(collision))
         
-    # TODO: consider updating conn_matrix in-process to stop double edges   
+
+#--------------------------------------------------------------------------------------------#    
+#    Creates edges between all selected nodes. Edges are be created in the order that the    #
+#    nodes were selected.                                                                    #
+#--------------------------------------------------------------------------------------------#         
     def CreateEdges(self, event):
         if len(self.sel_nodes) >= 2:
                         
@@ -243,10 +248,11 @@ class ZoomPanel(wx.Frame):
                 
             # Create the edges 
             lw = EDGE_WIDTH          
-            cl = NODE_FILL              
+            cl = EDGE_COLOR              
             for j in range(len(points)-1): 
                 
                 try:
+                    self.GenerateConnectionMatrix()
                     node1 = self.sel_nodes[j]
                     node2 = self.sel_nodes[j+1]
                     
@@ -255,12 +261,10 @@ class ZoomPanel(wx.Frame):
                         edge = E.Edge(len(self.edgelist), node1.Name, node2.Name, 
                                       self.Distance(node1.Coords, node2.Coords))
                         self.edgelist.append(edge)
-#                         self.conn_matrix[int(node1.Name)][int(node2.Name)] = edge.id
-#                         self.conn_matrix[int(node2.Name)][int(node1.Name)] = edge.id
                                
                         e = self.Canvas.AddLine([points[j], points[j+1]], 
                                                 LineWidth = lw, LineColor = cl)
-                        e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)    # Make the edge 'clickable'
+                        e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
                         self.graphics_edges.append(e)
                         
                         e.Name = str(edge.id)
@@ -295,13 +299,13 @@ class ZoomPanel(wx.Frame):
                                         
                     # Draw the node on the canvas
                     c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
-                    c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'  circles
+                    c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)
                     self.graphics_nodes[int(ID)] = c                     
                     c.Name = ID
                     c.Coords = node.coords            
                     
                     # Make the old text invisible and replace it in the data structure
-                    t = self.Canvas.AddText(ID, xy, Size=fs, Position="cc")
+                    t = self.Canvas.AddText(ID, xy, Size=fs, Position="cc", Color=TEXT_COLOR)
                     self.graphics_text[int(ID)].Visible = False
                     self.graphics_text[int(ID)] = t
             
@@ -312,9 +316,12 @@ class ZoomPanel(wx.Frame):
             self.Canvas.Draw(True)
             self.DeselectAll(event)
             self.GetParent().SetSaveStatus(False)
-            
+
+
+#--------------------------------------------------------------------------------------------#    
+#      Deletes all selected nodes and edges                                                  #
+#--------------------------------------------------------------------------------------------#           
     def DeleteSelection(self, event):        
-        self.ExportConnectionMatrix("conns.txt")
         for node in self.sel_nodes:
             self.RemoveNode(node)
         for edge in self.sel_edges:
@@ -324,16 +331,17 @@ class ZoomPanel(wx.Frame):
         self.RenumberEdges()
         self.GenerateConnectionMatrix()        
         
-        self.ExportConnectionMatrix("conns.txt")
         self.DeselectAll(event=None)
         self.GetParent().SetSaveStatus(False)
-        
+
+#--------------------------------------------------------------------------------------------#    
+#     Deletes a node.                                                                        #
+#     This function should not be called directly -> use DeleteSelection() instead           #
+#--------------------------------------------------------------------------------------------#        
     def RemoveNode(self, node):
         ID = int(node.Name)
         node_obj = self.nodelist[ID] # Pointer to the 'node.Node' data structure
-        
-#         self.graphics_nodes[ node_obj.graphic ].Visible = False
-#         self.graphics_text [ node_obj.graphic ].Visible = False
+
         self.graphics_nodes[ ID ].Visible = False
         self.graphics_text [ ID ].Visible = False
         
@@ -350,7 +358,10 @@ class ZoomPanel(wx.Frame):
         self.Canvas.Draw(True)
         self.GetParent().SetSaveStatus(False)
                 
-            
+#--------------------------------------------------------------------------------------------#    
+#     Deletes an edge.                                                                       #
+#     This function should not be called directly -> use DeleteSelection() instead           #
+#--------------------------------------------------------------------------------------------#           
     def RemoveEdge(self, edge):   
         try:     
             ID = int(edge.Name)
@@ -369,7 +380,10 @@ class ZoomPanel(wx.Frame):
             # Case where the edge has already been removed: do nothing
             pass
         
-            
+#--------------------------------------------------------------------------------------------#    
+#     Renumbers the nodes after a deletion                                                   #
+#     This function should not be called directly -> use DeleteSelection() instead           #
+#--------------------------------------------------------------------------------------------#            
     def RenumberNodes(self):
         nodes = []  # temporary variables
         graphics = []
@@ -392,7 +406,7 @@ class ZoomPanel(wx.Frame):
                 # Make the old text invisible and replace it in the data structure                
                 text[j].Visible = False
                 xy = (nodes[j].coords[0], nodes[j].coords[1])
-                t = self.Canvas.AddText(str(j), xy, Size=FONT_SIZE, Position="cc")
+                t = self.Canvas.AddText(str(j), xy, Size=FONT_SIZE, Position="cc", Color=TEXT_COLOR)
                 text[j] = t
                 
                 for edge in self.edgelist:
@@ -407,7 +421,10 @@ class ZoomPanel(wx.Frame):
         self.graphics_nodes= graphics
         self.graphics_text = text
         
-        
+#--------------------------------------------------------------------------------------------#    
+#     Renumbers the edges after a deletion                                                   #
+#     This function should not be called directly -> use DeleteSelection() instead           #
+#--------------------------------------------------------------------------------------------#        
     def RenumberEdges(self):
         edges = [] # temporary variables
         graphics = []
@@ -426,7 +443,22 @@ class ZoomPanel(wx.Frame):
         self.edgelist = edges
         self.graphics_edges = graphics
     
-       
+
+#--------------------------------------------------------------------------------------------#    
+#     Generates the connection matrix data structure                                         #
+#--------------------------------------------------------------------------------------------#     
+#                                                                                            #
+#     - If node A exists, then conn_matrix[A][A] is 0                                        #
+#                                                                                            #
+#     - If node A doesn't exist, then conn_matrix[A][A] is -1                                #
+#                                                                                            #
+#     - If an edge exists between node A and node B, then conn_matrix[A][B] and              #
+#       conn_matrix[B][A] both contain the ID of the edge which connects them.               #
+#                                                                                            #
+#     - If no edge exists between node A and node B, then conn_matrix[A][B] and              #
+#       conn_matrix[B][A] are both -1.                                                       #
+#                                                                                            #
+#--------------------------------------------------------------------------------------------#       
     def GenerateConnectionMatrix(self):        
         Shape = self.conn_matrix.shape
         conn_mtx = NP.empty(shape=Shape)        
@@ -445,7 +477,9 @@ class ZoomPanel(wx.Frame):
 #         return conn_mtx
         
     
-    # For debugging purposes. Writes the connection matrix to a file.   
+#--------------------------------------------------------------------------------------------#    
+#     For debugging purposes. Writes the connection matrix to a text file                    #
+#--------------------------------------------------------------------------------------------#    
     def ExportConnectionMatrix(self, filename):        
         if self.export is False:
             conn_file = open(filename, "w")
@@ -460,24 +494,27 @@ class ZoomPanel(wx.Frame):
         conn_file.write("\n\n")
         conn_file.close()            
             
+
+#--------------------------------------------------------------------------------------------#    
+#     Returns -1 if there is no collision with another node. If there is a collision,        #
+#     returns the ID of the first node there was a collision with.                           #
+#--------------------------------------------------------------------------------------------#     
     
-    # Returns -1 if there is no collision with another node. If there is a collision,
-    #    returns the ID of the first node there was a collision with.
     def DetectCollision(self, new_node): 
         for existing_node in self.nodelist:
             try:
                 if self.Distance(new_node.coords, existing_node.coords) <= NODE_DIAM:
                     return existing_node.id
             except AttributeError:
-                # Entry is None
-                # TODO: this will need to be removed if node renumbering is implemented
                 pass
         return -1  
     
 #     def SetOrigin(self, origin):
 #         self.origin = origin
     
-    # Returns the distance between two points
+#--------------------------------------------------------------------------------------------#    
+#     Basic distance formula. Returns the distance between two points.                       #
+#--------------------------------------------------------------------------------------------# 
     def Distance(self, p1, p2): 
         x1 = float(p1[0])
         x2 = float(p2[0])
@@ -487,24 +524,30 @@ class ZoomPanel(wx.Frame):
         return dist  
 
     
-    # Selects one node and deselects everything else  
+#--------------------------------------------------------------------------------------------#    
+#     Selects a single node and deselects everything else.                                    #
+#--------------------------------------------------------------------------------------------#   
     def SelectOneNode(self, obj):     
         self.DeselectAll(event=None)
         print "Selected Node #" + obj.Name      
-        self.sel_nodes.append(obj)           # Add the node to the list of currently selected nodes        
-        obj.SetFillColor(HIGHLIGHT_COLOR)    # Highlight the node
+        self.sel_nodes.append(obj)          
+        obj.SetFillColor(HIGHLIGHT_COLOR)    
         self.last_sel_node = obj.Name
         self.Canvas.Draw(True)
         
-    # Selects one edge and deselects everything else  
+#--------------------------------------------------------------------------------------------#    
+#     Selects a single edge and deselects everything else.                                   #
+#--------------------------------------------------------------------------------------------#   
     def SelectOneEdge(self, obj):     
         self.DeselectAll(event=None)
         print "Selected Edge #" + obj.Name     
-        self.sel_edges.append(obj)              # Add the edge to the list of currently selected edges        
-        obj.SetLineColor(HIGHLIGHT_COLOR)       # Highlight the edge
+        self.sel_edges.append(obj)    
+        obj.SetLineColor(HIGHLIGHT_COLOR)
         self.Canvas.Draw(True) 
             
-    # Selects all nodes        
+#--------------------------------------------------------------------------------------------#    
+#     Selects all nodes and deselects everything else.                                       #
+#--------------------------------------------------------------------------------------------#        
     def SelectNodes(self, event):
         self.DeselectAll(event)
         
@@ -516,7 +559,9 @@ class ZoomPanel(wx.Frame):
         self.Canvas.Draw(True) 
         print "Selected all nodes"
         
-    # Selects all edges   
+#--------------------------------------------------------------------------------------------#    
+#     Selects all edges and deselects everything else.                                       #
+#--------------------------------------------------------------------------------------------#    
     def SelectEdges(self, event):
         self.DeselectAll(event)
         
@@ -528,7 +573,9 @@ class ZoomPanel(wx.Frame):
         self.Canvas.Draw(True) 
         print "Selected all edges"
         
-            
+#--------------------------------------------------------------------------------------------#    
+#     Select/deselect everything                                                             #
+#--------------------------------------------------------------------------------------------#             
     def SelectAll(self, event):                       
         self.DeselectAll(event) 
         
@@ -542,8 +589,7 @@ class ZoomPanel(wx.Frame):
                 
         self.Canvas.Draw(True) 
         print "Selected all nodes and edges"
-        
-    
+            
     def DeselectAll(self, event):
         # Reset to original colour
         for obj in self.sel_nodes:
@@ -556,56 +602,64 @@ class ZoomPanel(wx.Frame):
         self.sel_edges = [] 
         self.last_sel_node = ""   
 
-
+#--------------------------------------------------------------------------------------------#    
+#     Event when a node is left-clicked.                                                     #
+#     Adds the node to the selection list and highlights it on the canvas                    #
+#--------------------------------------------------------------------------------------------# 
     def OnClickNode(self, obj):
         if obj.Name != self.last_sel_node:             
             print "Selected Node #" + obj.Name      
-            self.sel_nodes.append(obj)           # Add the node to the list of currently selected nodes        
-            obj.SetFillColor(HIGHLIGHT_COLOR)    # Highlight the node
+            self.sel_nodes.append(obj)       
+            obj.SetFillColor(HIGHLIGHT_COLOR)    
             self.last_sel_node = obj.Name
             self.Canvas.Draw(True)       
         
-            
+#--------------------------------------------------------------------------------------------#    
+#     Event when an edge is left-clicked.                                                    #
+#     Adds the node to the selection list and highlights it on the canvas                    #
+#--------------------------------------------------------------------------------------------#            
     def OnClickEdge(self, obj):         
         print "Selected Edge #" + obj.Name     
-        self.sel_edges.append(obj)              # Add the edge to the list of currently selected edges        
-        obj.SetLineColor(HIGHLIGHT_COLOR)       # Highlight the edge
+        self.sel_edges.append(obj)        
+        obj.SetLineColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True) 
 
-    ''' Returns the path of the map file currently in use '''      
-    def GetCurrentMapPath(self):
-        return self.current_map
-            
+#--------------------------------------------------------------------------------------------#    
+#     "Setter" functions for file paths and data structures                                  #
+#--------------------------------------------------------------------------------------------#            
     def SetCurrentMapPath(self, map_file):
         self.current_map = map_file
-    
-    # TODO: phase out these next four methods (redundant)
-    def GetNodeList(self):
-        return self.nodelist
     
     def SetNodeList(self, new_list):
         self.nodelist = []
         self.nodelist = new_list
-        
-    def GetEdgeList(self):
-        return self.edgelist
     
     def SetEdgeList(self, new_list):
         self.edgelist=[]
         self.edgelist = new_list
-        
+
+#--------------------------------------------------------------------------------------------#    
+#     Pickles the NodeList and EdgeList data structures and saves them on the file system    #
+#--------------------------------------------------------------------------------------------#        
     def ExportGraph(self, f):
         g = [self.nodelist, self.edgelist]
         pickle.dump(g,f)
         self.SetNodeList([])
         self.SetEdgeList([])
-        
+
+#--------------------------------------------------------------------------------------------#    
+#     Unpickles an existing graph file from the file system.                                 #
+#     NodeList is in slot 0, EdgeList is in slot 1.                                          #
+#--------------------------------------------------------------------------------------------#       
     def ImportGraph(self, f):
         g = pickle.load(f)
         self.SetNodeList( g[0] )   
         self.SetEdgeList( g[1] )     
-        
-    # Iterates through an imported node list and creates the nodes           
+
+#--------------------------------------------------------------------------------------------#    
+#     Iterates through an imported node list and creates the nodes.                          #
+#     This function should not be called on its own, but rather as a part of SetImage()      #
+#--------------------------------------------------------------------------------------------#                   
     def LoadNodes(self):
         tmp_nodelist = self.nodelist
         self.nodelist = []           
@@ -616,7 +670,10 @@ class ZoomPanel(wx.Frame):
         self.GetParent().SetSaveStatus(True)
             
     
-    # Iterates through an imported edge list and creates the edges       
+#--------------------------------------------------------------------------------------------#    
+#     Iterates through an imported edge list and creates the edges.                          #
+#     This function should not be called on its own, but rather as a part of SetImage()      #
+#--------------------------------------------------------------------------------------------#       
     def LoadEdges(self):
         tmp_edgelist = self.edgelist
         self.edgelist = []        
@@ -628,25 +685,37 @@ class ZoomPanel(wx.Frame):
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
             self.CreateEdges(event=None)            
         self.GetParent().SetSaveStatus(True)
-        
+
+#--------------------------------------------------------------------------------------------#    
+#     Zooms to a given location with a given floating-point magnification.                   #
+#--------------------------------------------------------------------------------------------#        
     def Zoom(self, location, magnification): 
         zoom_amt = magnification / self.current_zoom          
         self.Canvas.Zoom(zoom_amt,location)   
 
+#--------------------------------------------------------------------------------------------#    
+#     Saves the canvas as an image. (unused)                                                 #
+#--------------------------------------------------------------------------------------------#
     def Binding(self, event): 
         print "Writing a png file:" 
-        self.Canvas.SaveAsImage("junk.png") 
+        self.Canvas.SaveAsImage("zzzz.png") 
         print "Writing a jpeg file:" 
-        self.Canvas.SaveAsImage("junk.jpg",wx.BITMAP_TYPE_JPEG) 
+        self.Canvas.SaveAsImage("zzzz.jpg",wx.BITMAP_TYPE_JPEG) 
         
     
-    ''' Clears the canvas'''   
+#--------------------------------------------------------------------------------------------#    
+#     Clears the canvas                                                                      #
+#--------------------------------------------------------------------------------------------#   
     def Clear(self):
         self.Canvas.InitAll()
         
     
     ''' Sets the image to display on the canvas. If there are nodes and/or edges saved,
         they are loaded onto the image. '''
+#--------------------------------------------------------------------------------------------#    
+#     Sets the image to display on the canvas. If the map has an associated graph file,      #
+#     the corresponding nodes and edges are loaded and drawn onto the canvas.                #
+#--------------------------------------------------------------------------------------------#
     def SetImage(self, image_file):         
         self.Clear()   
         
@@ -671,7 +740,5 @@ class ZoomPanel(wx.Frame):
 
 if __name__ == '__main__':
     app = wx.App(False) 
-#     h = wx.PNGHandler()
-#     wx.InitAllImageHandlers()
     F = ZoomPanel(None, title="Map Viewer", size=(700,700) ) 
     app.MainLoop() 

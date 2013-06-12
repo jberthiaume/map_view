@@ -10,9 +10,17 @@ import wx
 import listener as ls
 from zoompanel import ZoomPanel
 
+#TODO: if current filename != map.png erase nodes on refresh
+
+#TODO: warn user if tries to save as 'map.png'
+
+#TODO: think about getting rid of savestatus (unnecessary complexity)
+
+#TODO: disallow nodes in dark grey areas
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(240, 340),
+        wx.Frame.__init__(self, parent, title=title, size=(240, 370),
 #                           style=wx.STAY_ON_TOP
                         )
         self.leftDown = False           
@@ -20,24 +28,6 @@ class MainFrame(wx.Frame):
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
                        style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
                        faceName="lucida sans")    
-        
-#         # Create menu bar                 
-#         file_menu = wx.Menu()
-#         file_menu.Append(101, '&Open...\t')
-#         file_menu.Append(102, '&Save\tCtrl+S')        
-#         file_menu.Append(103, '&Save As...\tCtrl+Shift+S')
-#         file_menu.AppendSeparator()
-#         file_menu.Append(109, 'E&xit\tCtrl+Q')
-#                
-#         menu_bar = wx.MenuBar()
-#         menu_bar.Append(file_menu, '&File')
-#         self.SetMenuBar(menu_bar)
-#         
-#         # Menu event binders
-#         wx.EVT_MENU(self,101,self.OnOpen)
-#         wx.EVT_MENU(self,102,self.OnSave)        
-#         wx.EVT_MENU(self,103,self.OnSaveAs)
-#         wx.EVT_MENU(self,109,self.OnExit)
          
         self.main_panel = MainPanel(self)  
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -73,8 +63,7 @@ class MainFrame(wx.Frame):
                 dlg.Destroy()
                 self.main_panel.SetSaveStatus(True)
                 self.OnOpen(event)
-                
-        #TODO: case for Save (not Save As)       
+                      
         else:
             # Open a file dialog for the user to select a file            
             filters = 'Image files (*.png)|*.png'
@@ -104,22 +93,33 @@ class MainFrame(wx.Frame):
                 self.main_panel.zoom_panel.Show()             
                 
                 self.main_panel.btn_map.Enable(True)
-                self.main_panel.btn_save.Enable(True)
+                self.main_panel.btn_sv.Enable(True)
+                self.main_panel.btn_svas.Enable(True)
                 self.main_panel.btn_exp.Enable(True)       
                 self.main_panel.btn_map.SetLabel("Hide Map")
                             
             dlg.Destroy()
+     
             
-        
-    def OnSave(self, event):
-        # Save the file         
-        current_map = self.main_panel.zoom_panel.GetCurrentMapPath() 
+    # Saves the map as a ".png" file and dumps the graph data into a "*.graph" file    
+    def OnSave(self, event):    
+        current_map = self.main_panel.zoom_panel.current_map 
         if current_map is [] or os.path.basename(current_map)==self.ls.GetDefaultFilename():
             self.OnSaveAs(event)  
         else:
-            shutil.move(current_map,current_map) 
+            shutil.move(current_map,current_map)
+            
+            # The graph filename must be the same as the map filename (except the extension)
+            graph_filename = "%sgraph" % current_map.rstrip("png")
+            graph_file = open(graph_filename, "w")
+            self.main_panel.zoom_panel.ExportGraph(graph_file)
+            graph_file.close()
+            
+            print "Saved: %s" % current_map
             self.main_panel.SetSaveStatus(True) 
     
+    
+    # Saves the map as a ".png" file and dumps the graph data into a "*.graph" file 
     def OnSaveAs(self, event):
         filters = 'Image files (*.png)|*.png'
         dlg = wx.FileDialog(self, message="Save Map File", defaultDir=os.getcwd(), 
@@ -128,17 +128,21 @@ class MainFrame(wx.Frame):
         
         if dlg.ShowModal() == wx.ID_OK:   
             # Save the file to the path given by the user         
-            current_map = self.main_panel.zoom_panel.GetCurrentMapPath()
+            current_map = self.main_panel.zoom_panel.current_map
             filename = dlg.GetPath()
-            shutil.copy(current_map,filename)            
             
-            # Export the node data into its own file. The node filename is the same as the map
-            # filename, but with the extension ".graph"
+            try:
+                shutil.copy(current_map,filename) 
+            except shutil.Error:
+                shutil.move(filename, filename)           
+            
+            # The graph filename must be the same as the map filename (except the extension)
             graph_filename = "%sgraph" % filename.rstrip("png")
             graph_file = open(graph_filename, "w")
             self.main_panel.zoom_panel.ExportGraph(graph_file)
             graph_file.close()
-                        
+            
+            print "Saved: %s" % filename            
             self.main_panel.SetSaveStatus(True) 
             self.SetTitle("%s" % dlg.GetFilename())
                         
@@ -147,7 +151,7 @@ class MainFrame(wx.Frame):
     def OnExit(self, event):
         self.main_panel.zoom_panel.Close()
         self.Close()
-        #TODO: check unsaved status
+        #TODO: check unsaved status (everywhere)
         
     def OnMouse(self, event):
         if event.Dragging() and self.leftDown:
@@ -247,12 +251,12 @@ class MainPanel(wx.Panel):
         self.exp_panel = ExplorePanel(self)
         self.exp_panel.Hide()
         hbox09.Add(self.exp_panel)   
-        self.sizer_menu.Add(hbox09,0,wx.TOP|wx.LEFT|wx.RIGHT,10) 
+        self.sizer_menu.Add(hbox09,0,wx.LEFT|wx.RIGHT,10) 
 
         # Open button
         hbox10 = wx.BoxSizer(wx.HORIZONTAL)            
         hbox10.AddSpacer(5)
-        self.btn_open = wx.Button(self, label="Open Map...", size=(180,30))   
+        self.btn_open = wx.Button(self, label="Open", size=(180,30))   
         self.buttons.append(self.btn_open)        
         self.btn_open.Bind(wx.EVT_BUTTON, self.OnOpen)  
         hbox10.Add(self.btn_open)           
@@ -262,14 +266,26 @@ class MainPanel(wx.Panel):
         # Save button
         hbox13 = wx.BoxSizer(wx.HORIZONTAL)            
         hbox13.AddSpacer(20)
-        self.btn_save = wx.Button(self, label="Save Map...", size=(180,30)) 
-        self.btn_save.Bind(wx.EVT_BUTTON, self.OnSaveAs)        
-        self.btn_save.Enable(False)     
-        self.buttons.append(self.btn_save)   
-        hbox13.Add(self.btn_save)           
+        self.btn_sv = wx.Button(self, label="Save", size=(180,30)) 
+        self.btn_sv.Bind(wx.EVT_BUTTON, self.OnSave)        
+        self.btn_sv.Enable(False)     
+        self.buttons.append(self.btn_sv)   
+        hbox13.Add(self.btn_sv)           
         self.sizer_menu.Add(hbox13,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10) 
+                            ,10)
+        
+        # Save As button
+        hbox16 = wx.BoxSizer(wx.HORIZONTAL)            
+        hbox16.AddSpacer(20)
+        self.btn_svas = wx.Button(self, label="Save As", size=(180,30)) 
+        self.btn_svas.Bind(wx.EVT_BUTTON, self.OnSaveAs)        
+        self.btn_svas.Enable(False)     
+        self.buttons.append(self.btn_svas)   
+        hbox16.Add(self.btn_svas)           
+        self.sizer_menu.Add(hbox16,0,
+                            wx.TOP|wx.LEFT|wx.RIGHT
+                            ,10)  
         
         # Exit button
         hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
@@ -314,7 +330,6 @@ class MainPanel(wx.Panel):
                 
                 
     def OnRefreshMap(self, event):  
-        #TODO: unsaved case  
         
         wx.BeginBusyCursor()    
         # Start listening for a map
@@ -339,7 +354,8 @@ class MainPanel(wx.Panel):
             
             # Update some statuses
             self.btn_map.Enable(True)
-            self.btn_save.Enable(True)
+            self.btn_sv.Enable(True)
+            self.btn_svas.Enable(True)
             self.btn_exp.Enable(True)
             self.SetSaveStatus(False)            
             
