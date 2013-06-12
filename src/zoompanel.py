@@ -37,7 +37,7 @@ class ZoomPanel(wx.Frame):
         # Initialize data structures   
         self.export = False
         self.origin = None
-        self.image_width = 1000
+        self.image_width = 2000
         self.last_sel_node = ""  
         self.current_map = []
         
