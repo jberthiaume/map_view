@@ -16,7 +16,7 @@ from zoompanel import ZoomPanel
 
 #TODO: think about getting rid of savestatus (unnecessary complexity)
 
-#TODO: disallow nodes in dark grey areas
+#TODO: disallow nodes in dark grey areas?
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -39,15 +39,12 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp) 
         
         self.SetPosition((0,0))        
-        self.Layout()    
-    
-        
-    def SetSaveStatus(self, bool_save):
-        self.main_panel.SetSaveStatus(bool_save)       
-        
-    def GetSaveStatus(self):
-        return self.main_panel.GetSaveStatus()  
-        
+        self.Layout()  
+
+
+#---------------------------------------------------------------------------------------------#    
+#    Shows a file dialog allowing the user to select a map file (.png format)                 #
+#---------------------------------------------------------------------------------------------#    
     def OnOpen(self, event):   
         if self.main_panel.GetSaveStatus() == False:
             dlg = wx.MessageDialog(self,
@@ -101,7 +98,9 @@ class MainFrame(wx.Frame):
             dlg.Destroy()
      
             
-    # Saves the map as a ".png" file and dumps the graph data into a "*.graph" file    
+#---------------------------------------------------------------------------------------------#    
+#    Saves the current map, overwriting the old version.                                      #
+#---------------------------------------------------------------------------------------------#   
     def OnSave(self, event):    
         current_map = self.main_panel.zoom_panel.current_map 
         if current_map is [] or os.path.basename(current_map)==self.ls.GetDefaultFilename():
@@ -119,7 +118,10 @@ class MainFrame(wx.Frame):
             self.main_panel.SetSaveStatus(True) 
     
     
-    # Saves the map as a ".png" file and dumps the graph data into a "*.graph" file 
+#---------------------------------------------------------------------------------------------#    
+#    Opens a file dialog and lets the user save a map. The map file is stored as a *.png      #
+#    image, and the graph data is stored as a *.graph file with the same name as the map.     #
+#---------------------------------------------------------------------------------------------# 
     def OnSaveAs(self, event):
         filters = 'Image files (*.png)|*.png'
         dlg = wx.FileDialog(self, message="Save Map File", defaultDir=os.getcwd(), 
@@ -147,12 +149,26 @@ class MainFrame(wx.Frame):
             self.SetTitle("%s" % dlg.GetFilename())
                         
         dlg.Destroy()
-    
+        
+#---------------------------------------------------------------------------------------------#    
+#    Accessor functions for the current save state (Saved/Unsaved)                            #
+#---------------------------------------------------------------------------------------------#         
+    def SetSaveStatus(self, bool_save):
+        self.main_panel.SetSaveStatus(bool_save)       
+    def GetSaveStatus(self):
+        return self.main_panel.GetSaveStatus()
+
+#---------------------------------------------------------------------------------------------#    
+#    Exits the application. If the current map is unsaved, user is asked to save first.       #
+#---------------------------------------------------------------------------------------------#    
     def OnExit(self, event):
         self.main_panel.zoom_panel.Close()
         self.Close()
         #TODO: check unsaved status (everywhere)
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Mouse capturing functions to allow dragging of the control panel around the screen.      #
+#---------------------------------------------------------------------------------------------#        
     def OnMouse(self, event):
         if event.Dragging() and self.leftDown:
             pos = self.ClientToScreen(event.GetPosition()) 
@@ -174,6 +190,8 @@ class MainFrame(wx.Frame):
             self.leftDown = False
         except wx._core.PyAssertionError:
             pass  
+        
+        
         
 class MainPanel(wx.Panel):
     def __init__(self, parent):        
@@ -233,8 +251,7 @@ class MainPanel(wx.Panel):
         hbox03.Add(self.btn_map)        
         self.sizer_menu.Add(hbox03,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10) 
-        
+                            ,10)         
         # Explore button
         hbox06 = wx.BoxSizer(wx.HORIZONTAL)     
         hbox06.AddSpacer(20)
@@ -273,8 +290,7 @@ class MainPanel(wx.Panel):
         hbox13.Add(self.btn_sv)           
         self.sizer_menu.Add(hbox13,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10)
-        
+                            ,10)        
         # Save As button
         hbox16 = wx.BoxSizer(wx.HORIZONTAL)            
         hbox16.AddSpacer(20)
@@ -285,8 +301,7 @@ class MainPanel(wx.Panel):
         hbox16.Add(self.btn_svas)           
         self.sizer_menu.Add(hbox16,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10)  
-        
+                            ,10)        
         # Exit button
         hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
         hbox20.AddSpacer(5)
@@ -311,7 +326,10 @@ class MainPanel(wx.Panel):
         self.SetSizer(self.sizer_main)
         
         self.Layout()
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Sets the foreground and background color of all buttons on the control panel             #
+#---------------------------------------------------------------------------------------------#        
     def PaintButtons(self, foreground, background):
         try:
             for btn in self.buttons:
@@ -323,12 +341,14 @@ class MainPanel(wx.Panel):
             
     def SetSaveStatus(self, bool_save):
         self.saved = bool_save
-        
-        
+                
     def GetSaveStatus(self):
         return self.saved
                 
-                
+#---------------------------------------------------------------------------------------------#    
+#    Starts a listener process which listens on the "/map" topic. Once the listener has       #
+#    exported the map file, it is passed to ZoomPanel, which sets the image in the viewer     #
+#---------------------------------------------------------------------------------------------#                
     def OnRefreshMap(self, event):  
         
         wx.BeginBusyCursor()    
@@ -342,8 +362,7 @@ class MainPanel(wx.Panel):
             try:
                 while(os.path.getmtime(self.ls.GetDefaultFilename()) < (time.time()-15)):
                     time.sleep(1)
-                done = True
-                
+                done = True                
             except OSError:
                 time.sleep(1)
                 
@@ -369,12 +388,13 @@ class MainPanel(wx.Panel):
             # Image not found in directory
             pass      
         
-        self.btn_map.SetLabel("Hide Map") 
-        
+        self.btn_map.SetLabel("Hide Map")         
         self.Layout()                
         wx.EndBusyCursor()
        
-        
+#---------------------------------------------------------------------------------------------#    
+#    Shows or hides the map, depending on the map's current state.                            #
+#---------------------------------------------------------------------------------------------#        
     def OnShowHideMap(self, event):
         if self.btn_map.GetLabel()[0]=='S':
             self.zoom_panel.Show()
@@ -382,7 +402,10 @@ class MainPanel(wx.Panel):
         else:
             self.zoom_panel.Hide()
             self.btn_map.SetLabel("Show Map")
-            
+
+#---------------------------------------------------------------------------------------------#    
+#    Shows the "explore" panel, which allows the user to find specific nodes and edges.       #
+#---------------------------------------------------------------------------------------------#            
     def OnExplore(self, event):
         if self.exp_panel.IsShown():
             self.exp_panel.Hide()
@@ -393,18 +416,18 @@ class MainPanel(wx.Panel):
             self.Layout()
             
     def OnOpen(self, event):
-        self.parent_frame.OnOpen(event)
-    
+        self.parent_frame.OnOpen(event)    
     def OnSave(self, event):
-        self.parent_frame.OnSave(event)
-        
+        self.parent_frame.OnSave(event)        
     def OnSaveAs(self, event):
-        self.parent_frame.OnSaveAs(event)
-        
+        self.parent_frame.OnSaveAs(event)        
     def OnExit(self, event):
         self.zoom_panel.Close()
         self.GetParent().Close(force=True)
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Mouse capturing functions to allow dragging of the control panel around the screen.      #
+#---------------------------------------------------------------------------------------------#        
     def OnMouse(self, event):
         if event.Dragging() and self.leftDown:
             pos = self.ClientToScreen(event.GetPosition()) 
@@ -480,16 +503,20 @@ class ExplorePanel(wx.Panel):
         self.sizer.Add(vbox09,1,wx.TOP|wx.LEFT,10)
         
         self.SetSizer(self.sizer)
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Functions for the radio buttons. Determines if we're looking for nodes or edges.         #
+#---------------------------------------------------------------------------------------------#         
     def OnSelectNode(self, event):
         self.btn_go.Bind(wx.EVT_BUTTON, None)
-        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)
-        
+        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)        
     def OnSelectEdge(self, event):
         self.btn_go.Bind(wx.EVT_BUTTON, None)
         self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoEdge)
         
-    # Selects a node and zooms in on it   
+#---------------------------------------------------------------------------------------------#    
+#    Selects a node and zooms in on it.                                                       #
+#---------------------------------------------------------------------------------------------#    
     def OnGotoNode(self, event):
         txt = self.txt.GetValue()           
         try:
@@ -512,7 +539,9 @@ class ExplorePanel(wx.Panel):
             dlg.ShowModal() 
             dlg.Destroy()
             
-    # Selects an edge and zooms in on it    
+#---------------------------------------------------------------------------------------------#    
+#    Selects an edge and zooms in on it.                                                      #
+#---------------------------------------------------------------------------------------------#     
     def OnGotoEdge(self, event):
         txt = self.txt.GetValue()            
         try:

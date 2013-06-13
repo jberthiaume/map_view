@@ -2,8 +2,8 @@
 
 import os, time
 import rospy
-from nav_msgs.msg import OccupancyGrid
 import numpy as np
+from nav_msgs.msg import OccupancyGrid
 #import scipy.misc.pilutil as smp
 import Image
 import ImageOps
@@ -36,11 +36,12 @@ class listener():
         if refresh==False:
             self.ProcessCallback(data)
             refresh=True
-            
-            # Kill this listener
-    #         pid = os.getpid()
-    #         os.kill(pid,1)
-            #rospy.loginfo(rospy.get_name() + "\nMESSAGE:\n%s" % str(data.info))
+
+### only enable this block if running listener as main ###           
+#              Kill this listener
+#              pid = os.getpid()
+#              os.kill(pid,1)
+#              rospy.loginfo(rospy.get_name() + "\nMESSAGE:\n%s" % str(data.info))
         
         
     def listen(self):
@@ -48,7 +49,9 @@ class listener():
         refresh = False
         rospy.init_node('listener', anonymous=True)
         rospy.Subscriber("map", OccupancyGrid, self.callback)
-#         rospy.spin()
+        
+### only enable this line if running listener as main
+#         rospy.spin()       
         
     
     ''' Turns the OccupancyGrid pixel data into a map image'''    
@@ -60,17 +63,17 @@ class listener():
         self.pos = data.info.origin.position
         self.orient = data.info.origin.orientation        
         
-    ###   DEBUG    ### 
+###  DEBUG  ### 
 #         print "\nData received:\n%s" % str(data.info.origin)
-    #   
-    #     print "\nMap array size:%s " % str(array_length)  
-    #    
-    #     for element in data.data:
-    #         if element != -1:
-    #             unknown+=1             
-    #    
-    #     print "Known elements: %s" % unknown    
-    #     print "Unknown elements: %s" % (array_length-unknown)    
+#        
+#         print "\nMap array size:%s " % str(array_length)  
+#         
+#         for element in data.data:
+#             if element != -1:
+#                 unknown+=1             
+#         
+#         print "Known elements: %s" % unknown    
+#         print "Unknown elements: %s" % (array_length-unknown)    
         
         color_data = self.TranslateToRGB(data.data) 
             
