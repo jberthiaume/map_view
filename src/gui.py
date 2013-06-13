@@ -353,7 +353,7 @@ class MainPanel(wx.Panel):
         
         wx.BeginBusyCursor()    
         # Start listening for a map
-        self.ls.listen()        
+        self.ls.Listen()        
         print "Creating map..."        
         
         # Loop until the file has been correctly updated

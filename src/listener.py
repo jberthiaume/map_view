@@ -3,15 +3,15 @@
 import os, time
 import rospy
 import numpy as np
-from nav_msgs.msg import OccupancyGrid
-#import scipy.misc.pilutil as smp
+from nav_msgs.msg import OccupancyGrid as og
+from geometry_msgs.msg import PoseWithCovarianceStamped as pwc
+# from move_base_msgs.msg import MoveBaseActionGoal    ##incompatible with catkin##
 import Image
 import ImageOps
 
 # TODO: self-ize everything to get rid of global calls
     
-refresh=False
-filename = "map.png"
+FILENAME = "map.png"
 
 class listener():
     
@@ -29,35 +29,51 @@ class listener():
         #     float64 w 
         self.orient = orientation 
           
-        self.image_width = 1000   
+        self.image_width = 1000
+        self.refresh = False
+        self.filename = FILENAME   
     
-    
-    def callback(self, data):
-        global refresh
-        if refresh==False:
-            self.ProcessCallback(data)
-            refresh=True
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/map" topic                                                   #
+#---------------------------------------------------------------------------------------------#       
+    def MapCB(self, data):
+        if self.refresh==False:
+            self.ProcessMapCB(data)
+            self.refresh=True
 
-            if __name__ == '__main__':              
-                print "Ending process."
-                pid = os.getpid()
-                os.kill(pid,1)
-        
+#             if __name__ == '__main__':              
+#                 print "Ending process."
+#                 pid = os.getpid()
+#                 os.kill(pid,1)
+
+
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/move_base/goal" topic                                        #
+#---------------------------------------------------------------------------------------------#                
+    def GoalCB(self, data):
+        print "callback recv'd: Goal ID %s" % str(data.goal_id) 
+               
+
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/amcl_pose" topic                                             #
+#---------------------------------------------------------------------------------------------#    
+    def PoseCB(self, data):
+        print "pose: %s" % str(data.pose.pose)
     
-    def listen(self):
-        global refresh
-        refresh = False
+    def Listen(self):
+        self.refresh = False
         rospy.init_node('listener', anonymous=True)
-        rospy.Subscriber("map", OccupancyGrid, self.callback)
+        rospy.Subscriber("map", og, self.MapCB)
+        rospy.Subscriber("amcl_pose", pwc, self.PoseCB)
         
         if __name__ == '__main__':
             rospy.spin()       
         
     
 #---------------------------------------------------------------------------------------------#    
-#    Turns the OccupancyGrid data into a map image                                            #
+#    Turns the OccupancyGrid data received from "/map" into an image file.                    #
 #---------------------------------------------------------------------------------------------#   
-    def ProcessCallback(self, data):  
+    def ProcessMapCB(self, data):  
         unknown=0
         array_length = len(data.data)
         self.image_width = int(np.sqrt(array_length))
@@ -84,13 +100,13 @@ class listener():
         img_mirror = ImageOps.mirror(img)
         
         try:
-            os.remove(filename)
+            os.remove(self.filename)
         except OSError:
             pass
         
-        img_mirror.save(filename)    
+        img_mirror.save(self.filename)    
         
-        print "Map file created. (%s)" % filename
+        print "Map file created. (%s)" % self.filename
         
     
 #---------------------------------------------------------------------------------------------#    
@@ -115,9 +131,9 @@ class listener():
 #    Returns the filename used by this listener when exporting map files.                     #
 #---------------------------------------------------------------------------------------------#    
     def GetDefaultFilename(self):
-        return filename   
+        return self.filename   
     
     
 if __name__ == '__main__':
     ls = listener(None, None)
-    ls.listen()
+    ls.Listen()
