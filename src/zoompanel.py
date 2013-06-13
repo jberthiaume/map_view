@@ -9,22 +9,29 @@ Created on May 30, 2013
 import wx 
 import pickle
 import math
+import time
 import NavCanvas, FloatCanvas
 import node as N
 import edge as E
 import numpy as NP
+import listener as ls
 
-''' Global colors '''
+#----- Global colors -----#
 NODE_FILL           = (0,200,25)
 NODE_BORDER         = (25,25,180)
 EDGE_COLOR          = (25,25,180)
+ROBOT_FILL_1        = (100,100,100)
+ROBOT_FILL_2        = (180,0,0)
+ROBOT_BORDER        = (0,0,0)
 HIGHLIGHT_COLOR     = (225,225,0)
 TEXT_COLOR          = (25,25,180)
 
-''' Global dimensions for graphical objects '''
+#----- Global dimensions for graphical objects -----#
 NODE_DIAM           = 9
 NODE_BORDER_WIDTH   = 2
 EDGE_WIDTH          = 7
+ROBOT_DIAM          = 9
+ROBOT_BORDER_WIDTH  = 2
 FONT_SIZE           = 7
 
 
@@ -37,6 +44,7 @@ class ZoomPanel(wx.Frame):
         # Initialize data structures   
         self.export = False
         self.origin = None
+        self.robot = None
         self.image_width = 2000
         self.last_sel_node = "" 
         self.current_zoom = 1.0 
@@ -49,14 +57,19 @@ class ZoomPanel(wx.Frame):
         self.graphics_text = []
         
         self.sel_nodes = []
-        self.sel_edges = []   
-        
+        self.sel_edges = []         
         
         # Connection matrix data structure
-        # See 'GenerateConnectionMatrix()' for more info
+        # See "GenerateConnectionMatrix()" for more info
         self.conn_matrix = NP.empty(shape=(40,40))
         self.conn_matrix[:] = -1
-        NP.set_printoptions(edgeitems=10, linewidth=150)
+        NP.set_printoptions(edgeitems=10, linewidth=150)       
+        
+        try:
+            self.ls = self.GetParent().ls
+        except AttributeError:
+            print "Warning: GUI listener object not found"
+            self.ls = ls.listener() 
         
         
         # Add the Canvas 
@@ -115,15 +128,13 @@ class ZoomPanel(wx.Frame):
             self.CreateNode(event.Coords)
             
         elif current_mode=='GUIMouse2':
-            # Unimplemented for now
-            pass
+            pass    # Only 1 mode for now, skip the others
     
     
 #---------------------------------------------------------------------------------------------#    
-#    Mouse click handler: right button                                                        #
+#    Mouse click handler: right button (opening the menu)                                     #
 #---------------------------------------------------------------------------------------------#
     def OnRightDown(self, event):
-        # Create the menu which appears on right click
         rc_menu = wx.Menu()
         
         rc_menu.Append(11, "(%s, %s)" % (int(event.Coords[0]), int(event.Coords[1])))
@@ -159,8 +170,80 @@ class ZoomPanel(wx.Frame):
         rc_menu.AppendMenu(31, '&Select..', rc_submenu1)
         
         self.PopupMenu( rc_menu, (event.GetPosition()[0]+10, event.GetPosition()[1]+30) )
-        rc_menu.Destroy() 
+        rc_menu.Destroy()
+  
+              
+#---------------------------------------------------------------------------------------------#    
+#    Adds a representation of the robot to the canvas. A grey robot means that its pose info  #
+#    is not accurate. When accurate pose info is received, the robot graphic turns red.       #
+#---------------------------------------------------------------------------------------------#    
+    def AddRobot(self, coords):
+        # If no coords are specified, just put the robot at the centre of the map
+        if coords == -1:
+            xy = (self.image_width/2, self.image_width/2)
+        else:
+            xy = coords            
+        diam = ROBOT_DIAM
+        lw = ROBOT_BORDER_WIDTH
+        lc = ROBOT_BORDER    
+        fc = ROBOT_FILL_1  
+        
+        r = self.Canvas.AddCircle(xy, diam, LineWidth = lw,
+                                  LineColor = lc, FillColor = fc, InForeground = True)
+        r.Coords = xy
+        self.robot = r
+        r.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+        
+        self.Timer = wx.PyTimer(self.ShowFrame)
+        self.FrameDelay = 16        ## 16ms per frame = framerate of 60 FPS
+        self.Canvas.Draw(True)
+
+
+#---------------------------------------------------------------------------------------------#    
+#    Sets a destination for the robot graphic and determines the distance to travel per frame #
+#---------------------------------------------------------------------------------------------#  
+    def MoveRobotTo(self, dest):
+        self.robot.SetFillColor(ROBOT_FILL_2)
+        
+        self.destination = dest
+        obj = self.robot
+        obj.Coords=( int(dest[0]), int(dest[1]) )
+        self.NumTimeSteps = 25  
+        
+        self.dx = (dest[0]-obj.XY[0]) / self.NumTimeSteps
+        self.dy = (dest[1]-obj.XY[1]) / self.NumTimeSteps
+
+        self.TimeStep = 1
+        self.Timer.Start(self.FrameDelay)  
+              
+              
+#---------------------------------------------------------------------------------------------#    
+#    Moves the robot graphic forward 1 frame until the frame limit (NumTimeSteps) is reached. #
+#---------------------------------------------------------------------------------------------#        
+    def ShowFrame(self):
+        obj = self.robot
+        dest = self.destination
+        
+        if  self.TimeStep < self.NumTimeSteps:
+            x,y = obj.XY
+            if ( x+self.dx >= dest[0] and self.dx > 0 or
+                 x+self.dx <= dest[0] and self.dx < 0 ):
+                self.dx = 0
+            if ( y+self.dy >= dest[1] and self.dy > 0 or
+                 y+self.dy <= dest[1] and self.dy < 0 ):
+                self.dy = 0
+                
+            obj.Move( (self.dx,self.dy) )
+            self.Canvas.Draw()
+            wx.GetApp().Yield(True)
+        
+        else:
+            self.Timer.Stop()
+            
     
+    def OnClickRobot(self, obj):
+        print "Robot location: (%s, %s)" % (obj.Coords[0], obj.Coords[1])
+              
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -728,6 +811,8 @@ class ZoomPanel(wx.Frame):
         self.LoadNodes()
         self.LoadEdges()
         self.GenerateConnectionMatrix()
+        
+        self.AddRobot(-1)
     
         self.SetCurrentMapPath(image_file)
         self.Show() 

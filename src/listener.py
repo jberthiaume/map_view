@@ -9,56 +9,35 @@ from geometry_msgs.msg import PoseWithCovarianceStamped as pwc
 import Image
 import ImageOps
 
-# TODO: self-ize everything to get rid of global calls
+# TODO: pass png file directly instead of saving?
     
 FILENAME = "map.png"
+RESOLUTION = 0.05
 
 class listener():
     
-    def __init__(self, position, orientation): 
+    def __init__(self, parent): 
         # pos -> geometry_msgs/Point: 
         #     float64 x
         #     float64 y
         #     float64 z       
-        self.pos = position
+        self.origin_pos = None
+        self.pose_pos = None
         
         # orient -> geometry_msgs/Quaternion: 
         #     float64 x
         #     float64 y
         #     float64 z
         #     float64 w 
-        self.orient = orientation 
-          
+        self.origin_orient = None        
+        self.pose_orient = None 
+                 
         self.image_width = 1000
         self.refresh = False
-        self.filename = FILENAME   
-    
-#---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/map" topic                                                   #
-#---------------------------------------------------------------------------------------------#       
-    def MapCB(self, data):
-        if self.refresh==False:
-            self.ProcessMapCB(data)
-            self.refresh=True
+        self.filename = FILENAME       
+        
+        self.parent = parent
 
-#             if __name__ == '__main__':              
-#                 print "Ending process."
-#                 pid = os.getpid()
-#                 os.kill(pid,1)
-
-
-#---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/move_base/goal" topic                                        #
-#---------------------------------------------------------------------------------------------#                
-    def GoalCB(self, data):
-        print "callback recv'd: Goal ID %s" % str(data.goal_id) 
-               
-
-#---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/amcl_pose" topic                                             #
-#---------------------------------------------------------------------------------------------#    
-    def PoseCB(self, data):
-        print "pose: %s" % str(data.pose.pose)
     
     def Listen(self):
         self.refresh = False
@@ -67,9 +46,38 @@ class listener():
         rospy.Subscriber("amcl_pose", pwc, self.PoseCB)
         
         if __name__ == '__main__':
-            rospy.spin()       
+            rospy.spin()  
+                
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/map" topic                                                   #
+#---------------------------------------------------------------------------------------------#       
+    def MapCB(self, data):
+        if self.refresh==False:
+            self.ProcessMapCB(data)
+            self.refresh=True
+
+        #             if __name__ == '__main__':              
+        #                 print "Ending process."
+        #                 pid = os.getpid()
+        #                 os.kill(pid,1)
+
+
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/move_base/goal" topic                                        #
+#---------------------------------------------------------------------------------------------#                
+    def GoalCB(self, data):
+        pass               
+
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/amcl_pose" topic                                             #
+#---------------------------------------------------------------------------------------------#    
+    def PoseCB(self, data):
+        self.pose_pos = data.pose.pose.position
+        self.pose_orient = data.pose.pose.orientation
         
-    
+        destination = self.ConvertToPixels((self.pose_pos.x, self.pose_pos.y))        
+        self.zoom_panel.MoveRobotTo(destination)
+            
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #
 #---------------------------------------------------------------------------------------------#   
@@ -78,17 +86,17 @@ class listener():
         array_length = len(data.data)
         self.image_width = int(np.sqrt(array_length))
         
-        self.pos = data.info.origin.position
-        self.orient = data.info.origin.orientation        
+        self.origin_pos = data.info.origin.position
+        self.origin_orient = data.info.origin.orientation        
         
-        if __name__ == '__main__':
-            print "\nData received:\n%s" % str(data.info.origin)            
-            print "\nMap array size:%s " % str(array_length)               
-            for element in data.data:
-                if element != -1:
-                    unknown+=1                          
-            print "Known elements: %s" % unknown    
-            print "Unknown elements: %s" % (array_length-unknown)    
+#         if __name__ == '__main__':
+#             print "\nData received:\n%s" % str(data.info.origin)            
+#             print "\nMap array size:%s " % str(array_length)               
+#             for element in data.data:
+#                 if element != -1:
+#                     unknown+=1                          
+#             print "Known elements: %s" % unknown    
+#             print "Unknown elements: %s" % (array_length-unknown)    
         
         color_data = self.TranslateToRGB(data.data) 
             
@@ -126,14 +134,23 @@ class listener():
                 pass #unexpected value
                     
         return output_array
+    
+    
+    def ConvertToPixels(self, m_coords):
+        x = m_coords[0] / RESOLUTION
+        y = m_coords[1] / RESOLUTION
+        return (x,y)
         
 #---------------------------------------------------------------------------------------------#    
 #    Returns the filename used by this listener when exporting map files.                     #
 #---------------------------------------------------------------------------------------------#    
     def GetDefaultFilename(self):
-        return self.filename   
+        return self.filename     
+    
+    def SetAttributes(self):        
+        self.zoom_panel = self.parent.main_panel.zoom_panel  
     
     
 if __name__ == '__main__':
-    ls = listener(None, None)
+    ls = listener()
     ls.Listen()

@@ -23,15 +23,18 @@ class MainFrame(wx.Frame):
         wx.Frame.__init__(self, parent, title=title, size=(240, 370),
 #                           style=wx.STAY_ON_TOP
                         )
-        self.leftDown = False           
-        self.ls = ls.listener(None, None)                             
+        self.leftDown = False                                 
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
                        style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
                        faceName="lucida sans")    
-         
+        
+        
+        self.ls = ls.listener(self)        
         self.main_panel = MainPanel(self)  
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.main_panel, 1, wx.EXPAND)
+        
+        self.ls.SetAttributes()
         
         # Mouse capturing events      
         self.Bind(wx.EVT_MOTION, self.OnMouse)
@@ -351,7 +354,7 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#                
     def OnRefreshMap(self, event):  
         
-        wx.BeginBusyCursor()    
+#         wx.BeginBusyCursor()    
         # Start listening for a map
         self.ls.Listen()        
         print "Creating map..."        
@@ -380,7 +383,7 @@ class MainPanel(wx.Panel):
             
             # Show the image panel                  
             self.zoom_panel.image_width = self.ls.image_width
-            self.zoom_panel.origin = (self.ls.pos, self.ls.orient)
+            self.zoom_panel.origin = (self.ls.origin_pos, self.ls.origin_orient)
             self.zoom_panel.SetImage(map_file)
             self.zoom_panel.Show()    
             
@@ -390,7 +393,7 @@ class MainPanel(wx.Panel):
         
         self.btn_map.SetLabel("Hide Map")         
         self.Layout()                
-        wx.EndBusyCursor()
+#         wx.EndBusyCursor()
        
 #---------------------------------------------------------------------------------------------#    
 #    Shows or hides the map, depending on the map's current state.                            #
