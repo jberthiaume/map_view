@@ -31,30 +31,32 @@ class listener():
           
         self.image_width = 1000   
     
+    
     def callback(self, data):
         global refresh
         if refresh==False:
             self.ProcessCallback(data)
             refresh=True
 
-### only enable this block if running listener as main ###           
-#              Kill this listener
-#              pid = os.getpid()
-#              os.kill(pid,1)
-#              rospy.loginfo(rospy.get_name() + "\nMESSAGE:\n%s" % str(data.info))
+            if __name__ == '__main__':              
+                print "Ending process."
+                pid = os.getpid()
+                os.kill(pid,1)
         
-        
+    
     def listen(self):
         global refresh
         refresh = False
         rospy.init_node('listener', anonymous=True)
         rospy.Subscriber("map", OccupancyGrid, self.callback)
         
-### only enable this line if running listener as main
-#         rospy.spin()       
+        if __name__ == '__main__':
+            rospy.spin()       
         
     
-    ''' Turns the OccupancyGrid pixel data into a map image'''    
+#---------------------------------------------------------------------------------------------#    
+#    Turns the OccupancyGrid data into a map image                                            #
+#---------------------------------------------------------------------------------------------#   
     def ProcessCallback(self, data):  
         unknown=0
         array_length = len(data.data)
@@ -63,17 +65,14 @@ class listener():
         self.pos = data.info.origin.position
         self.orient = data.info.origin.orientation        
         
-###  DEBUG  ### 
-#         print "\nData received:\n%s" % str(data.info.origin)
-#        
-#         print "\nMap array size:%s " % str(array_length)  
-#         
-#         for element in data.data:
-#             if element != -1:
-#                 unknown+=1             
-#         
-#         print "Known elements: %s" % unknown    
-#         print "Unknown elements: %s" % (array_length-unknown)    
+        if __name__ == '__main__':
+            print "\nData received:\n%s" % str(data.info.origin)            
+            print "\nMap array size:%s " % str(array_length)               
+            for element in data.data:
+                if element != -1:
+                    unknown+=1                          
+            print "Known elements: %s" % unknown    
+            print "Unknown elements: %s" % (array_length-unknown)    
         
         color_data = self.TranslateToRGB(data.data) 
             
@@ -94,7 +93,9 @@ class listener():
         print "Map file created. (%s)" % filename
         
     
-    ''' Translates an OccupancyGrid list into RGB values '''
+#---------------------------------------------------------------------------------------------#    
+#    Translates an OccupancyGrid into pixel colors for the map                                #
+#---------------------------------------------------------------------------------------------#
     def TranslateToRGB(self, input_array): 
         output_array=[]
         
@@ -110,8 +111,9 @@ class listener():
                     
         return output_array
         
-    
-    
+#---------------------------------------------------------------------------------------------#    
+#    Returns the filename used by this listener when exporting map files.                     #
+#---------------------------------------------------------------------------------------------#    
     def GetDefaultFilename(self):
         return filename   
     
