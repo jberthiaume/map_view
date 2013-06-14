@@ -4,24 +4,25 @@
 Created on May 30, 2013
 '''
 
+import wx
 import os, time, shutil
 import math
-import wx 
 import listener as ls
 from zoompanel import ZoomPanel
 
-#TODO: if current filename != map.png erase nodes on refresh
-
-#TODO: warn user if tries to save as 'map.png'
-
-#TODO: think about getting rid of savestatus (unnecessary complexity)
-
-#TODO: disallow nodes in dark grey areas?
+APP_SIZE        = (240, 372)
+BUTTON_COLOR    = (119,41,83)
+BUTTON_SIZE     = (180,30)
+BG_COLOR        = (175,175,165)
+H_SPACER_WIDTH  = 20
+V_SPACER_SMALL  = 10
+V_SPACER_LARGE  = 15
+SIZER_BORDER    = 10
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=(240, 370),
-#                           style=wx.STAY_ON_TOP
+        wx.Frame.__init__(self, parent, title=title, size=APP_SIZE,
+                        style=wx.FRAME_SHAPED
                         )
         self.leftDown = False                                 
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
@@ -30,9 +31,9 @@ class MainFrame(wx.Frame):
         
         
         self.ls = ls.listener(self)        
-        self.main_panel = MainPanel(self)  
+        self.mp = MainPanel(self)  
         self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.main_panel, 1, wx.EXPAND)
+        self.sizer.Add(self.mp, 1, wx.EXPAND)
         
         self.ls.SetAttributes()
         
@@ -45,129 +46,6 @@ class MainFrame(wx.Frame):
         self.Layout()  
 
 
-#---------------------------------------------------------------------------------------------#    
-#    Shows a file dialog allowing the user to select a map file (.png format)                 #
-#---------------------------------------------------------------------------------------------#    
-    def OnOpen(self, event):   
-        if self.main_panel.GetSaveStatus() == False:
-            dlg = wx.MessageDialog(self,
-            "The current map is unsaved.\nWould you like to save it before opening a new one?", 
-            "Notice", wx.YES_NO)
-            
-            if dlg.ShowModal() == wx.ID_YES:
-                # User has chosen to save the map
-                self.OnSaveAs(event)
-                dlg.Destroy()
-            else:                
-                # User has chosen not to save
-                dlg.Destroy()
-                self.main_panel.SetSaveStatus(True)
-                self.OnOpen(event)
-                      
-        else:
-            # Open a file dialog for the user to select a file            
-            filters = 'Image files (*.png)|*.png'
-            dlg = wx.FileDialog(self, message="Open Map File", defaultDir=os.getcwd(), 
-                                defaultFile="", wildcard=filters, style=wx.FD_OPEN)
-            
-            if dlg.ShowModal() == wx.ID_OK:
-                self.main_panel.zoom_panel.SetNodeList([])
-                self.main_panel.zoom_panel.SetEdgeList([])
-                
-                # Set the viewer image to the selected file
-                filename = dlg.GetPath()  
-                self.SetTitle("%s" % dlg.GetFilename()) 
-                
-                # Import the node data. For this to work, the node file must have the same
-                # name as the map file, but with the extension ".graph"
-                try:
-                    graph_filename = "%sgraph" % filename.rstrip("png")
-                    graph_file = open(graph_filename, "r")
-                    self.main_panel.zoom_panel.ImportGraph(graph_file)
-                    graph_file.close()
-                except IOError:
-                    self.main_panel.zoom_panel.SetNodeList([])
-                    self.main_panel.zoom_panel.SetEdgeList([])
-                
-                self.main_panel.zoom_panel.SetImage(filename)  
-                self.main_panel.zoom_panel.Show()             
-                
-                self.main_panel.btn_map.Enable(True)
-                self.main_panel.btn_sv.Enable(True)
-                self.main_panel.btn_svas.Enable(True)
-                self.main_panel.btn_exp.Enable(True)       
-                self.main_panel.btn_map.SetLabel("Hide Map")
-                            
-            dlg.Destroy()
-     
-            
-#---------------------------------------------------------------------------------------------#    
-#    Saves the current map, overwriting the old version.                                      #
-#---------------------------------------------------------------------------------------------#   
-    def OnSave(self, event):    
-        current_map = self.main_panel.zoom_panel.current_map 
-        if current_map is [] or os.path.basename(current_map)==self.ls.GetDefaultFilename():
-            self.OnSaveAs(event)  
-        else:
-            shutil.move(current_map,current_map)
-            
-            # The graph filename must be the same as the map filename (except the extension)
-            graph_filename = "%sgraph" % current_map.rstrip("png")
-            graph_file = open(graph_filename, "w")
-            self.main_panel.zoom_panel.ExportGraph(graph_file)
-            graph_file.close()
-            
-            print "Saved: %s" % current_map
-            self.main_panel.SetSaveStatus(True) 
-    
-    
-#---------------------------------------------------------------------------------------------#    
-#    Opens a file dialog and lets the user save a map. The map file is stored as a *.png      #
-#    image, and the graph data is stored as a *.graph file with the same name as the map.     #
-#---------------------------------------------------------------------------------------------# 
-    def OnSaveAs(self, event):
-        filters = 'Image files (*.png)|*.png'
-        dlg = wx.FileDialog(self, message="Save Map File", defaultDir=os.getcwd(), 
-                            defaultFile="", wildcard=filters, style=wx.FD_SAVE|
-                            wx.FD_OVERWRITE_PROMPT)
-        
-        if dlg.ShowModal() == wx.ID_OK:   
-            # Save the file to the path given by the user         
-            current_map = self.main_panel.zoom_panel.current_map
-            filename = dlg.GetPath()
-            
-            try:
-                shutil.copy(current_map,filename) 
-            except shutil.Error:
-                shutil.move(filename, filename)           
-            
-            # The graph filename must be the same as the map filename (except the extension)
-            graph_filename = "%sgraph" % filename.rstrip("png")
-            graph_file = open(graph_filename, "w")
-            self.main_panel.zoom_panel.ExportGraph(graph_file)
-            graph_file.close()
-            
-            print "Saved: %s" % filename            
-            self.main_panel.SetSaveStatus(True) 
-            self.SetTitle("%s" % dlg.GetFilename())
-                        
-        dlg.Destroy()
-        
-#---------------------------------------------------------------------------------------------#    
-#    Accessor functions for the current save state (Saved/Unsaved)                            #
-#---------------------------------------------------------------------------------------------#         
-    def SetSaveStatus(self, bool_save):
-        self.main_panel.SetSaveStatus(bool_save)       
-    def GetSaveStatus(self):
-        return self.main_panel.GetSaveStatus()
-
-#---------------------------------------------------------------------------------------------#    
-#    Exits the application. If the current map is unsaved, user is asked to save first.       #
-#---------------------------------------------------------------------------------------------#    
-    def OnExit(self, event):
-        self.main_panel.zoom_panel.Close()
-        self.Close()
-        #TODO: check unsaved status (everywhere)
 
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -201,12 +79,19 @@ class MainPanel(wx.Panel):
         wx.Panel.__init__(self, parent=parent)
         
         # Set the app background colour
-        bmp = wx.EmptyBitmap(1920, 1080)
+        x = APP_SIZE[0]
+        y = APP_SIZE[1]
+        bmp = wx.EmptyBitmap(x,y)
         dc = wx.MemoryDC()
         dc.SelectObject(bmp)
-        solidbrush = wx.Brush(wx.Colour(155,155,155), wx.SOLID)
-        dc.SetBrush(solidbrush)
-        dc.DrawRectangle(0, 0, 1920, 1080)
+        
+        solidbrush = wx.Brush(BUTTON_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(-1, -1, x+2, y+2)
+        solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(3, 3, x-6, y-6)
+        
         self.bg = wx.StaticBitmap(self, -1, bmp, (0, 0)) 
         
         self.leftDown = False
@@ -226,95 +111,104 @@ class MainPanel(wx.Panel):
         self.sizer_display = wx.BoxSizer(wx.VERTICAL)
         
         # The image panel     
-        self.zoom_panel=ZoomPanel(self, title="Map View",
+        self.zp=ZoomPanel(self, title="Map View",
                                   size=((1024,1024)), 
-                                  style=wx.FRAME_SHAPED
+#                                   style=wx.FRAME_SHAPED
                                   )  
-        self.zoom_panel.Hide()
-#         self.zoom_panel.SetPosition((320,0))       
-        self.zoom_panel.SetPosition((550,0))
-               
+        self.zp.Hide()
+#         self.zp.SetPosition((320,0))       
+        self.zp.SetPosition((550,0))
+        
+        self.sizer_menu.AddSpacer(V_SPACER_SMALL)  
                         
         # Refresh map button
         hbox00 = wx.BoxSizer(wx.HORIZONTAL)     
-        hbox00.AddSpacer(20)
-        self.btn_rf = wx.Button(self, label="Update Map", size=(180,30))        
+        hbox00.AddSpacer(H_SPACER_WIDTH)
+        self.btn_rf = wx.Button(self, label="Update Map", size=BUTTON_SIZE)        
         self.btn_rf.Bind(wx.EVT_BUTTON, self.OnRefreshMap)
         self.buttons.append(self.btn_rf) 
         hbox00.Add(self.btn_rf)        
-        self.sizer_menu.Add(hbox00,0,wx.TOP|wx.LEFT|wx.RIGHT,10) 
+        self.sizer_menu.Add(hbox00,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER) 
 
         # Show/Hide map viewer button
         hbox03 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox03.AddSpacer(20)
-        self.btn_map = wx.Button(self, label="Show Map", size=(180,30))        
+        hbox03.AddSpacer(H_SPACER_WIDTH)
+        self.btn_map = wx.Button(self, label="Show Map", size=BUTTON_SIZE)        
         self.btn_map.Bind(wx.EVT_BUTTON, self.OnShowHideMap)   
         self.btn_map.Enable(False)   
         self.buttons.append(self.btn_map)   
         hbox03.Add(self.btn_map)        
         self.sizer_menu.Add(hbox03,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10)         
-        # Explore button
-        hbox06 = wx.BoxSizer(wx.HORIZONTAL)     
-        hbox06.AddSpacer(20)
-        self.btn_exp = wx.Button(self, label="Explore", size=(180,30))        
-        self.btn_exp.Bind(wx.EVT_BUTTON, self.OnExplore)
-        self.btn_exp.Enable(False) 
-        self.buttons.append(self.btn_exp) 
-        hbox06.Add(self.btn_exp)        
-        self.sizer_menu.Add(hbox06,0,wx.TOP|wx.LEFT|wx.RIGHT,10)
+                            ,SIZER_BORDER)  
+               
+#         # Explore button
+#         hbox06 = wx.BoxSizer(wx.HORIZONTAL)     
+#         hbox06.AddSpacer(H_SPACER_WIDTH)
+#         self.btn_exp = wx.Button(self, label="Explore", size=BUTTON_SIZE)        
+#         self.btn_exp.Bind(wx.EVT_BUTTON, self.OnExplore)
+#         self.btn_exp.Enable(False) 
+#         self.buttons.append(self.btn_exp) 
+#         hbox06.Add(self.btn_exp)        
+#         self.sizer_menu.Add(hbox06,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)
+        
+        self.sizer_menu.AddSpacer(V_SPACER_LARGE)
         
         # Explore panel
         hbox09 = wx.BoxSizer(wx.HORIZONTAL)     
-        hbox09.AddSpacer(20)       
-        self.exp_panel = ExplorePanel(self)
-        self.exp_panel.Hide()
-        hbox09.Add(self.exp_panel)   
-        self.sizer_menu.Add(hbox09,0,wx.LEFT|wx.RIGHT,10) 
+        hbox09.AddSpacer(H_SPACER_WIDTH)       
+        self.ep = ExplorePanel(self)
+#         self.ep.Hide()
+        hbox09.Add(self.ep)   
+        self.sizer_menu.Add(hbox09,0,wx.LEFT|wx.RIGHT,SIZER_BORDER)
+        
+        self.sizer_menu.AddSpacer(V_SPACER_LARGE) 
 
         # Open button
         hbox10 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox10.AddSpacer(5)
-        self.btn_open = wx.Button(self, label="Open", size=(180,30))   
+        hbox10.AddSpacer(H_SPACER_WIDTH)
+        self.btn_open = wx.Button(self, label="Open", size=BUTTON_SIZE)   
         self.buttons.append(self.btn_open)        
         self.btn_open.Bind(wx.EVT_BUTTON, self.OnOpen)  
         hbox10.Add(self.btn_open)           
         self.sizer_menu.Add(hbox10,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,25)  
+                            ,SIZER_BORDER)  
         # Save button
         hbox13 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox13.AddSpacer(20)
-        self.btn_sv = wx.Button(self, label="Save", size=(180,30)) 
+        hbox13.AddSpacer(H_SPACER_WIDTH)
+        self.btn_sv = wx.Button(self, label="Save", size=BUTTON_SIZE) 
         self.btn_sv.Bind(wx.EVT_BUTTON, self.OnSave)        
         self.btn_sv.Enable(False)     
         self.buttons.append(self.btn_sv)   
         hbox13.Add(self.btn_sv)           
         self.sizer_menu.Add(hbox13,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10)        
+                            ,SIZER_BORDER)        
         # Save As button
         hbox16 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox16.AddSpacer(20)
-        self.btn_svas = wx.Button(self, label="Save As", size=(180,30)) 
+        hbox16.AddSpacer(H_SPACER_WIDTH)
+        self.btn_svas = wx.Button(self, label="Save As", size=BUTTON_SIZE) 
         self.btn_svas.Bind(wx.EVT_BUTTON, self.OnSaveAs)        
         self.btn_svas.Enable(False)     
         self.buttons.append(self.btn_svas)   
         hbox16.Add(self.btn_svas)           
         self.sizer_menu.Add(hbox16,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,10)        
+                            ,SIZER_BORDER)  
+        
+        self.sizer_menu.AddSpacer(V_SPACER_LARGE)
+              
         # Exit button
         hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
-        hbox20.AddSpacer(5)
-        btn_exit = wx.Button(self, label="Exit", size=(180,30))  
+        hbox20.AddSpacer(H_SPACER_WIDTH)
+        btn_exit = wx.Button(self, label="Exit", size=BUTTON_SIZE)  
         self.buttons.append(btn_exit)      
         hbox20.Add(btn_exit)           
         btn_exit.Bind(wx.EVT_BUTTON, self.OnExit)
-        self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,25)   
+        self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)   
                       
-        self.PaintButtons( (255,255,255),(65,65,60) )  
+        self.PaintButtons( (255,255,255),BUTTON_COLOR )  
                 
         # Mouse capturing events
         self.bg.Bind(wx.EVT_MOTION, self.OnMouse)
@@ -340,19 +234,38 @@ class MainPanel(wx.Panel):
                 btn.SetBackgroundColour(background)
         except IOError:
             print "Invalid argument: expected (R,G,B) value"
-            
-            
-    def SetSaveStatus(self, bool_save):
-        self.saved = bool_save
-                
-    def GetSaveStatus(self):
-        return self.saved
                 
 #---------------------------------------------------------------------------------------------#    
 #    Starts a listener process which listens on the "/map" topic. Once the listener has       #
 #    exported the map file, it is passed to ZoomPanel, which sets the image in the viewer     #
 #---------------------------------------------------------------------------------------------#                
-    def OnRefreshMap(self, event):  
+    def OnRefreshMap(self, event):
+        
+        if self.saved is False:
+            
+            dlg = wx.MessageDialog(self,
+            "The current map is unsaved.\nWould you like to save it?", 
+            "Notice", wx.YES_NO)
+            
+            if dlg.ShowModal() == wx.ID_YES:
+                # User has chosen to save the map
+                self.OnSaveAs(event)
+                dlg.Destroy()
+            else:                
+                # User has chosen not to save
+                dlg.Destroy()
+                self.SetSaveStatus(True)
+        
+        if len(self.zp.nodelist) > 0:
+            dlg = wx.MessageDialog(self,
+            "Do you want to keep the current\nnodes and edges on the updated map?", 
+            "Map", wx.YES_NO)
+                        
+            if dlg.ShowModal() == wx.ID_NO:
+                self.zp.SetNodeList([])
+                self.zp.SetEdgeList([])
+            dlg.Destroy()
+                
         
 #         wx.BeginBusyCursor()    
         # Start listening for a map
@@ -360,17 +273,16 @@ class MainPanel(wx.Panel):
         print "Creating map..."        
         
         # Loop until the file has been correctly updated
-        done = False
-        while not done:            
-            try:
-                while(os.path.getmtime(self.ls.GetDefaultFilename()) < (time.time()-15)):
-                    time.sleep(1)
-                done = True                
-            except OSError:
-                time.sleep(1)
+#         done = False
+#         while not done:            
+#             try:
+#                 while(os.path.getmtime(self.ls.GetDefaultFilename()) < (time.time()-15)):
+#                     time.sleep(1)
+#                 done = True                
+#             except OSError:
+#                 time.sleep(1)
                 
         try:
-            # Use an image file (png). Must be in the same folder as this file
             map_file = self.ls.GetDefaultFilename()
             self.parent_frame.SetTitle("%s" % map_file)
             
@@ -378,14 +290,17 @@ class MainPanel(wx.Panel):
             self.btn_map.Enable(True)
             self.btn_sv.Enable(True)
             self.btn_svas.Enable(True)
-            self.btn_exp.Enable(True)
+            self.ep.btn_go.Enable(True)
             self.SetSaveStatus(False)            
             
             # Show the image panel                  
-            self.zoom_panel.image_width = self.ls.image_width
-            self.zoom_panel.origin = (self.ls.origin_pos, self.ls.origin_orient)
-            self.zoom_panel.SetImage(map_file)
-            self.zoom_panel.Show()    
+            self.zp.origin = (self.ls.origin_pos, self.ls.origin_orient)
+#             self.zp.SetImage(map_file)
+            while self.ls.image is None:
+                time.sleep(0.5)
+                
+            self.zp.SetImage(self.ls.image)
+            self.zp.Show()    
             
         except IndexError:
             # Image not found in directory
@@ -400,33 +315,157 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#        
     def OnShowHideMap(self, event):
         if self.btn_map.GetLabel()[0]=='S':
-            self.zoom_panel.Show()
+            self.zp.Show()
             self.btn_map.SetLabel("Hide Map")
         else:
-            self.zoom_panel.Hide()
+            self.zp.Hide()
             self.btn_map.SetLabel("Show Map")
 
 #---------------------------------------------------------------------------------------------#    
 #    Shows the "explore" panel, which allows the user to find specific nodes and edges.       #
 #---------------------------------------------------------------------------------------------#            
     def OnExplore(self, event):
-        if self.exp_panel.IsShown():
-            self.exp_panel.Hide()
+        if self.ep.IsShown():
+            self.ep.Hide()
             self.Layout()
         else:
-            self.exp_panel.Show()
-            self.exp_panel.txt.Clear()
+            self.ep.Show()
+            self.ep.txt.Clear()
             self.Layout()
             
-    def OnOpen(self, event):
-        self.parent_frame.OnOpen(event)    
-    def OnSave(self, event):
-        self.parent_frame.OnSave(event)        
+
+#---------------------------------------------------------------------------------------------#    
+#    Shows a file dialog allowing the user to select a map file (.png format)                 #
+#---------------------------------------------------------------------------------------------#    
+    def OnOpen(self, event):   
+        if self.saved is False:
+            dlg = wx.MessageDialog(self,
+            "The current map is unsaved.\nWould you like to save it before opening a new one?", 
+            "Notice", wx.YES_NO)
+            
+            if dlg.ShowModal() == wx.ID_YES:
+                # User has chosen to save the map
+                self.OnSaveAs(event)
+                dlg.Destroy()
+            else:                
+                # User has chosen not to save
+                dlg.Destroy()
+                self.SetSaveStatus(True)
+                self.OnOpen(event)
+                      
+        else:
+            # Open a file dialog for the user to select a file            
+            filters = 'Image files (*.png)|*.png'
+            dlg = wx.FileDialog(self, message="Open Map File", defaultDir=os.getcwd(), 
+                                defaultFile="", wildcard=filters, style=wx.FD_OPEN)
+            
+            if dlg.ShowModal() == wx.ID_OK:
+                self.zp.SetNodeList([])
+                self.zp.SetEdgeList([])
+                
+                # Set the viewer image to the selected file
+                filename = dlg.GetPath()  
+                self.parent_frame.SetTitle("%s" % dlg.GetFilename()) 
+                
+                # Import the node data. For this to work, the node file must have the same
+                # name as the map file, but with the extension ".graph"
+                try:
+                    graph_filename = "%sgraph" % filename.rstrip("png")
+                    graph_file = open(graph_filename, "r")
+                    self.zp.ImportGraph(graph_file)
+                    graph_file.close()
+                except IOError:
+                    self.zp.SetNodeList([])
+                    self.zp.SetEdgeList([])
+                
+                self.zp.SetImage(filename)  
+                self.zp.Show()             
+                
+                self.btn_map.Enable(True)
+                self.btn_sv.Enable(True)
+                self.btn_svas.Enable(True)
+                self.ep.btn_go.Enable(True)                 
+                self.SetSaveStatus(True)      
+                self.btn_map.SetLabel("Hide Map")
+                            
+            dlg.Destroy()
+     
+            
+#---------------------------------------------------------------------------------------------#    
+#    Saves the current map, overwriting the old version.                                      #
+#---------------------------------------------------------------------------------------------#   
+    def OnSave(self, event):    
+        current_map = self.zp.current_map 
+        if current_map is [] or os.path.basename(current_map)==self.ls.GetDefaultFilename():
+            self.OnSaveAs(event)  
+        else:
+            shutil.move(current_map,current_map)
+            
+            # The graph filename must be the same as the map filename (except the extension)
+            graph_filename = "%sgraph" % current_map.rstrip("png")
+            graph_file = open(graph_filename, "w")
+            self.zp.ExportGraph(graph_file)
+            graph_file.close()
+            
+            print "Saved: %s" % current_map
+            self.SetSaveStatus(True) 
+    
+    
+#---------------------------------------------------------------------------------------------#    
+#    Opens a file dialog and lets the user save a map. The map file is stored as a *.png      #
+#    image, and the graph data is stored as a *.graph file with the same name as the map.     #
+#---------------------------------------------------------------------------------------------# 
     def OnSaveAs(self, event):
-        self.parent_frame.OnSaveAs(event)        
+        filters = 'Image files (*.png)|*.png'
+        dlg = wx.FileDialog(self, message="Save Map File", defaultDir=os.getcwd(), 
+                            defaultFile="", wildcard=filters, style=wx.FD_SAVE|
+                            wx.FD_OVERWRITE_PROMPT)
+        
+        if dlg.ShowModal() == wx.ID_OK:   
+            # Save the file to the path given by the user         
+            current_map = self.zp.current_map
+            filename = dlg.GetPath()
+            
+            try:
+                shutil.copy(current_map,filename) 
+            except shutil.Error:
+                shutil.move(filename, filename)           
+            
+            # The graph filename must be the same as the map filename (except the extension)
+            graph_filename = "%sgraph" % filename.rstrip("png")
+            graph_file = open(graph_filename, "w")
+            self.zp.ExportGraph(graph_file)
+            graph_file.close()
+            
+            print "Saved: %s" % filename            
+            self.SetSaveStatus(True) 
+            self.parent_frame.SetTitle("%s" % dlg.GetFilename())
+                        
+        dlg.Destroy()
+        
+#---------------------------------------------------------------------------------------------#    
+#    Accessor function for the current save state (Saved/Unsaved)                            #
+#---------------------------------------------------------------------------------------------#         
+    def SetSaveStatus(self, bool_save):
+        self.saved = bool_save
+
+#---------------------------------------------------------------------------------------------#    
+#    Exits the application. If the current map is unsaved, user is asked to save first.       #
+#---------------------------------------------------------------------------------------------#    
     def OnExit(self, event):
-        self.zoom_panel.Close()
-        self.GetParent().Close(force=True)
+        if self.saved is False:
+            dlg = wx.MessageDialog(self,
+            "The current map is unsaved.\nWould you like to save it before exiting?", 
+            "Warning", wx.YES_NO)
+            
+            if dlg.ShowModal() == wx.ID_YES:
+                # User has chosen to save the map
+                self.OnSaveAs(event)
+            dlg.Destroy()
+                
+        self.zp.Close()
+        self.parent_frame.Close()
+                
 
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -457,13 +496,13 @@ class ExplorePanel(wx.Panel):
     def __init__(self, parent):        
         wx.Panel.__init__(self, parent=parent)
         
-        self.zoom_panel = self.GetParent().zoom_panel
+        self.zp = self.GetParent().zp
         
         # Set the background colour
         bmp = wx.EmptyBitmap(500, 500)
         dc = wx.MemoryDC()
         dc.SelectObject(bmp)
-        solidbrush = wx.Brush(wx.Colour(155,155,155), wx.SOLID)
+        solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
         dc.SetBrush(solidbrush)
         dc.DrawRectangle(0, 0, 500, 500)
         self.bg = wx.StaticBitmap(self, -1, bmp, (-2, -2))
@@ -488,11 +527,11 @@ class ExplorePanel(wx.Panel):
         # Textbox
         vbox06 = wx.BoxSizer(wx.VERTICAL)     
         vbox06.AddSpacer(5)
-        self.txt = wx.TextCtrl(self, size=(45,30), style=wx.NO_BORDER|wx.TE_RIGHT)
+        self.txt = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt.SetMaxLength(3)    #Maximum of 3 characters
         self.txt.SetFont(self.parent_frame.font)
-        self.txt.SetForegroundColour((255,255,255))
-        self.txt.SetBackgroundColour((100,100,100))
+        self.txt.SetForegroundColour((255,106,54))
+        self.txt.SetBackgroundColour((85,85,80))
         vbox06.Add(self.txt)
         self.sizer.Add(vbox06,1,wx.TOP|wx.LEFT,10)
          
@@ -501,6 +540,7 @@ class ExplorePanel(wx.Panel):
         vbox09.AddSpacer(5)
         self.btn_go = wx.Button(self, label="Go", size=(50,30))        
         self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)
+        self.btn_go.Enable(False)
         self.GetParent().buttons.append(self.btn_go) 
         vbox09.Add(self.btn_go)        
         self.sizer.Add(vbox09,1,wx.TOP|wx.LEFT,10)
@@ -519,47 +559,49 @@ class ExplorePanel(wx.Panel):
         
 #---------------------------------------------------------------------------------------------#    
 #    Selects a node and zooms in on it.                                                       #
+#    Accepts an integer X from user input. If X is positive, zooms in on Node #X. If X is     #
+#    negative, zooms in on Node #(NumTotalNodes - X)                                          #
 #---------------------------------------------------------------------------------------------#    
     def OnGotoNode(self, event):
         txt = self.txt.GetValue()           
         try:
             ID = int(txt)            
             try:
-                node = self.zoom_panel.nodelist[ID]                
-                self.zoom_panel.SelectOneNode(self.zoom_panel.graphics_nodes[ID])
-                
-                self.zoom_panel.Canvas.ZoomToBB()
-                self.zoom_panel.Zoom(node.coords, 10.0)
-            except ValueError:
+                magnification = self.zp.image_width / 250
+                node = self.zp.nodelist[ID]                
+                self.zp.SelectOneNode(self.zp.graphics_nodes[ID])                
+                self.zp.Zoom(node.coords, magnification)
+            except IndexError:
                 dlg = wx.MessageDialog(self,
                 "Node %s does not exist." % str(ID), "Error", wx.ICON_ERROR)
                 dlg.ShowModal() 
                 dlg.Destroy()
             
-        except IndexError:
+        except ValueError:
             dlg = wx.MessageDialog(self,
-                "Please enter a positive integer value", "Error", wx.ICON_ERROR)
+                "Please enter an integer value", "Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()
             
 #---------------------------------------------------------------------------------------------#    
 #    Selects an edge and zooms in on it.                                                      #
+#    Accepts an integer X from user input. If X is positive, zooms in on Edge #X. If X is     #
+#    negative, zooms in on Edge #(NumTotalEdges - X)                                          #
 #---------------------------------------------------------------------------------------------#     
     def OnGotoEdge(self, event):
         txt = self.txt.GetValue()            
         try:
             ID = int(txt)            
             try:
-                edge = self.zoom_panel.edgelist[ID] 
-                self.zoom_panel.SelectOneEdge(self.zoom_panel.graphics_edges[ID])
-                end1 = self.zoom_panel.nodelist[int(edge.node1)].coords
-                end2 = self.zoom_panel.nodelist[int(edge.node2)].coords
+                magnification = self.zp.image_width / 250                
+                edge = self.zp.edgelist[ID] 
+                self.zp.SelectOneEdge(self.zp.graphics_edges[ID])
+                end1 = self.zp.nodelist[int(edge.node1)].coords
+                end2 = self.zp.nodelist[int(edge.node2)].coords
                 
                 x = int( (math.fabs( end1[0]+end2[0])) /2 )   
-                y = int( (math.fabs( end1[1]+end2[1])) /2 ) 
-                
-                self.zoom_panel.Canvas.ZoomToBB()  
-                self.zoom_panel.Zoom((x,y), 10.0)
+                y = int( (math.fabs( end1[1]+end2[1])) /2 )                  
+                self.zp.Zoom((x,y), magnification)
             except IndexError:
                 dlg = wx.MessageDialog(self,
                 "Edge %s does not exist." % str(ID), "Error", wx.ICON_ERROR)

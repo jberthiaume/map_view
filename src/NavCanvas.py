@@ -50,7 +50,9 @@ class NavCanvas(wx.Panel):
         """
         This is here so it can be over-ridden in a subclass, to add extra tools, etc
         """
-        tb = wx.ToolBar(self)
+        tb = wx.ToolBar(self, style=wx.TB_HORIZONTAL | wx.NO_BORDER | 
+        wx.TB_FLAT | wx.TB_TEXT)
+#         tb.SetBackgroundColour((155,155,145))
         self.ToolBar = tb
         tb.SetToolBitmapSize((24,24))
         self.AddToolbarModeButtons(tb, self.Modes)
@@ -71,10 +73,20 @@ class NavCanvas(wx.Panel):
     def AddToolbarZoomButton(self, tb):
         tb.AddSeparator()
 
-        self.ZoomButton = wx.Button(tb, label="Zoom To Fit")
+        self.ZoomButton = wx.Button(tb, label="Zoom To Fit", size=(110,30))
         tb.AddControl(self.ZoomButton)
         self.ZoomButton.Bind(wx.EVT_BUTTON, self.ZoomToFit)
-
+        
+        tb.AddSeparator()
+        
+        self.CanvasButton = wx.Button(tb, label="View Canvas", size=(110,30))
+        tb.AddControl(self.CanvasButton)       
+        self.CanvasButton.Bind(wx.EVT_BUTTON, self.ZoomToCanvas)
+        try:            
+            self.GetParent().GetParent().buttons.append(self.ZoomButton)
+            self.GetParent().GetParent().buttons.append(self.CanvasButton)
+        except AttributeError:
+            pass
 
     def HideShowHack(self):
         ##fixme: remove this when the bug is fixed!
@@ -89,7 +101,16 @@ class NavCanvas(wx.Panel):
         Mode = self.ModesDict[event.GetId()]
         self.Canvas.SetMode(Mode)
 
-    def ZoomToFit(self,Event):
+    def ZoomToFit(self,event):
+        self.Canvas.GetMode()
+        try:
+            iw = self.GetParent().image_width
+            self.GetParent().Zoom((iw/2,iw/2), (iw/1000.0))
+        except IndexError:
+            pass
+        self.Canvas.SetFocus() # Otherwise the focus stays on the Button, and wheel events are lost.
+
+    def ZoomToCanvas(self,event):
         self.Canvas.GetMode()
         self.Canvas.ZoomToBB()
         self.Canvas.SetFocus() # Otherwise the focus stays on the Button, and wheel events are lost.

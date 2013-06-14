@@ -9,22 +9,23 @@ Created on May 30, 2013
 import wx 
 import pickle
 import math
-import time
-import NavCanvas, FloatCanvas
 import node as N
 import edge as E
 import numpy as NP
-import listener as ls
+import listener as LS
+import NavCanvas, FloatCanvas
+from wx.lib.floatcanvas.Utilities import BBox
+from datetime import datetime
 
 #----- Global colors -----#
-NODE_FILL           = (0,200,25)
-NODE_BORDER         = (25,25,180)
-EDGE_COLOR          = (25,25,180)
+NODE_FILL           = (240,240,240)
+NODE_BORDER         = (119,41,83)
+EDGE_COLOR          = (119,41,83)
 ROBOT_FILL_1        = (100,100,100)
 ROBOT_FILL_2        = (180,0,0)
 ROBOT_BORDER        = (0,0,0)
-HIGHLIGHT_COLOR     = (225,225,0)
-TEXT_COLOR          = (25,25,180)
+HIGHLIGHT_COLOR     = (255,106,54)
+TEXT_COLOR          = (119,41,83)
 
 #----- Global dimensions for graphical objects -----#
 NODE_DIAM           = 9
@@ -32,7 +33,8 @@ NODE_BORDER_WIDTH   = 2
 EDGE_WIDTH          = 7
 ROBOT_DIAM          = 9
 ROBOT_BORDER_WIDTH  = 2
-FONT_SIZE           = 7
+FONT_SIZE_1         = 5
+FONT_SIZE_2         = 4
 
 
 class ZoomPanel(wx.Frame): 
@@ -62,14 +64,13 @@ class ZoomPanel(wx.Frame):
         # Connection matrix data structure
         # See "GenerateConnectionMatrix()" for more info
         self.conn_matrix = NP.empty(shape=(40,40))
-        self.conn_matrix[:] = -1
-        NP.set_printoptions(edgeitems=10, linewidth=150)       
+        self.conn_matrix[:] = -1     
         
         try:
             self.ls = self.GetParent().ls
         except AttributeError:
             print "Warning: GUI listener object not found"
-            self.ls = ls.listener() 
+            self.ls = LS.listener() 
         
         
         # Add the Canvas 
@@ -178,9 +179,9 @@ class ZoomPanel(wx.Frame):
 #    is not accurate. When accurate pose info is received, the robot graphic turns red.       #
 #---------------------------------------------------------------------------------------------#    
     def AddRobot(self, coords):
-        # If no coords are specified, just put the robot at the centre of the map
+        # If no coords are specified, just put the robot at the origin
         if coords == -1:
-            xy = (self.image_width/2, self.image_width/2)
+            xy = (0,0)
         else:
             xy = coords            
         diam = ROBOT_DIAM
@@ -259,8 +260,11 @@ class ZoomPanel(wx.Frame):
         diam = NODE_DIAM
         lw = NODE_BORDER_WIDTH
         lc = NODE_BORDER    
-        fc = NODE_FILL  
-        fs = FONT_SIZE   
+        fc = NODE_FILL
+        if int(ID) < 10:  
+            fs = FONT_SIZE_1
+        else:
+            fs = FONT_SIZE_2   
         
         collision = self.DetectCollision(node)
         if collision < 0:  
@@ -272,7 +276,8 @@ class ZoomPanel(wx.Frame):
             c.Name = ID
             c.Coords = node_coords    
             
-            t = self.Canvas.AddText(ID, xy, Size=fs, Position="cc", Color=TEXT_COLOR)
+            t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
+                                    Color=TEXT_COLOR, Weight=wx.BOLD)
             self.graphics_text.append(t)        
             
             # Assign the Circle to its node
@@ -378,7 +383,10 @@ class ZoomPanel(wx.Frame):
                     lw = NODE_BORDER_WIDTH
                     lc = NODE_BORDER    
                     fc = NODE_FILL 
-                    fs = FONT_SIZE          
+                    if int(ID) < 10:  
+                        fs = FONT_SIZE_1
+                    else:
+                        fs = FONT_SIZE_2          
                                         
                     # Draw the node on the canvas
                     c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
@@ -388,7 +396,8 @@ class ZoomPanel(wx.Frame):
                     c.Coords = node.coords            
                     
                     # Make the old text invisible and replace it in the data structure
-                    t = self.Canvas.AddText(ID, xy, Size=fs, Position="cc", Color=TEXT_COLOR)
+                    t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
+                                                  Color=TEXT_COLOR, Weight=wx.BOLD)
                     self.graphics_text[int(ID)].Visible = False
                     self.graphics_text[int(ID)] = t
             
@@ -439,7 +448,6 @@ class ZoomPanel(wx.Frame):
         
         print "Removed node #" + str(ID)
         self.Canvas.Draw(True)
-        self.GetParent().SetSaveStatus(False)
                 
 #--------------------------------------------------------------------------------------------#    
 #     Deletes an edge.                                                                       #
@@ -457,7 +465,6 @@ class ZoomPanel(wx.Frame):
             
             print "Removed edge #" + str(ID)
             self.Canvas.Draw(True)
-            self.GetParent().SetSaveStatus(False)
             
         except AttributeError:
             # Case where the edge has already been removed: do nothing
@@ -485,11 +492,16 @@ class ZoomPanel(wx.Frame):
                 nodes[j].id = j
                 nodes[j].graphic = j
                 graphics[j].Name = str(j)
+                if j < 10:  
+                    fs = FONT_SIZE_1
+                else:
+                    fs = FONT_SIZE_2
                 
                 # Make the old text invisible and replace it in the data structure                
                 text[j].Visible = False
                 xy = (nodes[j].coords[0], nodes[j].coords[1])
-                t = self.Canvas.AddText(str(j), xy, Size=FONT_SIZE, Position="cc", Color=TEXT_COLOR)
+                t = self.Canvas.AddScaledText(str(j), xy, Size=fs, Position="cc", 
+                                              Color=TEXT_COLOR, Weight=wx.BOLD)
                 text[j] = t
                 
                 for edge in self.edgelist:
@@ -528,7 +540,7 @@ class ZoomPanel(wx.Frame):
     
 
 #--------------------------------------------------------------------------------------------#    
-#     Generates the connection matrix data structure                                         #
+#     Generates the connection matrix data structure.                                        #
 #--------------------------------------------------------------------------------------------#     
 #                                                                                            #
 #     - If node A exists, then conn_matrix[A][A] is 0                                        #
@@ -561,9 +573,11 @@ class ZoomPanel(wx.Frame):
         
     
 #--------------------------------------------------------------------------------------------#    
-#     For debugging purposes. Writes the connection matrix to a text file                    #
+#     For debugging purposes. Writes the connection matrix to a text file.                   #
 #--------------------------------------------------------------------------------------------#    
-    def ExportConnectionMatrix(self, filename):        
+    def ExportConnectionMatrix(self, filename, edgeitems, linewidth):         
+        NP.set_printoptions(edgeitems=edgeitems, linewidth=linewidth)  
+              
         if self.export is False:
             conn_file = open(filename, "w")
             self.export = True
@@ -660,9 +674,7 @@ class ZoomPanel(wx.Frame):
 #     Select/deselect everything                                                             #
 #--------------------------------------------------------------------------------------------#             
     def SelectAll(self, event):                       
-        self.DeselectAll(event) 
-        
-        # Set highlighted colour
+        self.DeselectAll(event)         
         for node in self.nodelist:
             self.graphics_nodes[ node.graphic ].SetFillColor(HIGHLIGHT_COLOR)
             self.sel_nodes.append(self.graphics_nodes[node.graphic])
@@ -674,7 +686,6 @@ class ZoomPanel(wx.Frame):
         print "Selected all nodes and edges"
             
     def DeselectAll(self, event):
-        # Reset to original colour
         for obj in self.sel_nodes:
             obj.SetFillColor(NODE_FILL)
         for obj in self.sel_edges:
@@ -749,8 +760,7 @@ class ZoomPanel(wx.Frame):
         self.graphics_nodes = []
              
         for node in tmp_nodelist:
-            self.CreateNode((node.coords[0],node.coords[1]))        
-        self.GetParent().SetSaveStatus(True)
+            self.CreateNode((node.coords[0],node.coords[1]))
             
     
 #--------------------------------------------------------------------------------------------#    
@@ -766,15 +776,60 @@ class ZoomPanel(wx.Frame):
         for edge in tmp_edgelist:
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node1) ] )
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
-            self.CreateEdges(event=None)            
-        self.GetParent().SetSaveStatus(True)
+            self.CreateEdges(event=None)     
+        
+#--------------------------------------------------------------------------------------------#    
+#     (incomplete)                                                                           #
+#--------------------------------------------------------------------------------------------#
+    def FindImageLimit(self, image_data):
+#         st = datetime.now()   
+        
+        w      = self.image_width
+        mid    = w/2        
+        found_vert = 0
+        found_horz = 0
+        
+        for i in range(w):
+            if found_vert is 0:
+                if image_data[ (w*i)+mid ] == chr(205):
+#                     print "Found top edge at row %s (%s)" % (str(i), str(w-i))
+                    top = w
+                    found_vert = 1
+            elif found_vert is 1:
+                if image_data[ (w*i)+mid ] == chr(100):
+#                     print "Found bottom edge at row %s (%s)" % (str(i), str(w-i))
+                    bot = w
+                    found_vert = 2
+                          
+            if found_horz is 0:
+                if image_data[ (w*mid)+i ] == chr(205):
+#                     print "Found left edge at column %s (%s)" % (str(i), str(w-i))
+                    left = w
+                    found_horz = 1
+            elif found_horz is 1:
+                if image_data[ (w*mid)+i ] == chr(100):
+#                     print "Found right edge at column %s (%s)" % (str(i), str(w-i))
+                    right = w
+                    found_horz = 2  
+                                      
+            if found_vert is 2 and found_horz is 2:
+                break                    
+#             et = datetime.now()
+#         print "Total time: %s" % str(et-st)
 
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to a given location with a given floating-point magnification.                   #
 #--------------------------------------------------------------------------------------------#        
     def Zoom(self, location, magnification): 
-        zoom_amt = magnification / self.current_zoom          
-        self.Canvas.Zoom(zoom_amt,location)   
+        iw = self.image_width/2
+        x = location[0]
+        y = location[1]
+        m = magnification
+        
+        tl = ( x-(iw/m), y+(iw/m) )
+        br = ( x+(iw/m), y-(iw/m) )
+               
+        self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
 
 #--------------------------------------------------------------------------------------------#    
 #     Saves the canvas as an image. (unused)                                                 #
@@ -793,21 +848,28 @@ class ZoomPanel(wx.Frame):
         self.Canvas.InitAll()
         
     
-    ''' Sets the image to display on the canvas. If there are nodes and/or edges saved,
-        they are loaded onto the image. '''
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #
 #     the corresponding nodes and edges are loaded and drawn onto the canvas.                #
 #--------------------------------------------------------------------------------------------#
-    def SetImage(self, image_file):         
-        self.Clear()   
-        
-        # create the image 
-        image = wx.Image(image_file, wx.BITMAP_TYPE_ANY).ConvertToBitmap()     
+    def SetImage(self, image_obj):         
+        self.Clear()       
+         
+        try:
+            # Creates the image from a .png file (used when loading a .png map file)
+            image = wx.Image(image_obj, wx.BITMAP_TYPE_ANY)
+            image_file = image_obj
+            
+        except TypeError:
+            # Creates the image directly from a wx.Image object (used when refreshing a live map)
+            image = image_obj
+            image_file = self.ls.GetDefaultFilename()
+           
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
-                                      Position = 'bl')        
+                                      Position = 'bl')  
+        self.image_width = image.GetHeight()      
         self.LoadNodes()
         self.LoadEdges()
         self.GenerateConnectionMatrix()
@@ -817,11 +879,8 @@ class ZoomPanel(wx.Frame):
         self.SetCurrentMapPath(image_file)
         self.Show() 
         self.Layout()
-        self.Canvas.ZoomToBB()
-        
-        # TODO: figure out a more precise way of zooming to the image
-        #         also, remap the Zoom To Fit button to the above.
-        self.Zoom((self.image_width/2,self.image_width/2),2)
+
+        self.Zoom((self.image_width/2,self.image_width/2),(self.image_width/1000.0))
 
 if __name__ == '__main__':
     app = wx.App(False) 
