@@ -7,6 +7,7 @@ import numpy as np
 from datetime import datetime
 from nav_msgs.msg import OccupancyGrid as og
 from geometry_msgs.msg import PoseWithCovarianceStamped as pwc
+from geometry_msgs.msg import Twist as t
 # from move_base_msgs.msg import MoveBaseActionGoal    ##incompatible with catkin##
 import Image
 import ImageOps
@@ -31,6 +32,9 @@ class listener():
         #     float64 w 
         self.origin_orient = None        
         self.pose_orient = None 
+        
+        self.vel_lin = None
+        self.vel_ang = None
                  
         self.image_width = 1000
         self.refresh = False
@@ -45,6 +49,7 @@ class listener():
         rospy.init_node('listener', anonymous=True)
         rospy.Subscriber("map", og, self.MapCB)
         rospy.Subscriber("amcl_pose", pwc, self.PoseCB)
+        rospy.Subscriber("cmd_vel", t, self.VelocityCB)
         
         if __name__ == '__main__':
             rospy.spin()  
@@ -74,9 +79,21 @@ class listener():
     def PoseCB(self, data):
         self.pose_pos = data.pose.pose.position
         self.pose_orient = data.pose.pose.orientation
+                
+        destination = self.ConvertToPixels((self.pose_pos.x, self.pose_pos.y))
+        orient = self.pose_orient
         
-        destination = self.ConvertToPixels((self.pose_pos.x, self.pose_pos.y))        
-        self.zp.MoveRobotTo(destination)
+        try:        
+            self.zp.MoveRobotTo(destination, orient)
+        except AttributeError:
+            pass
+        
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "/cmd_vel" topic                                             #
+#---------------------------------------------------------------------------------------------#    
+    def VelocityCB(self, data):
+        self.vel_lin = data.linear
+        self.vel_ang = data.angular
             
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #
