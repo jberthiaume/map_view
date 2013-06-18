@@ -231,12 +231,18 @@ class ZoomPanel(wx.Frame):
         self.destination = dest        
         self.dest_theta = self.ToDegrees( self.Angle(orient) ) 
         
+        
         r = self.robot
         r.Coords = ( int(dest[0]), int(dest[1]) )
         a = self.arrow
-        a.Coords = r.Coords            
+        a.Coords = r.Coords 
         
-        self.NumTimeSteps = 20  
+#         print "rXY  " + str(r.XY)
+#         print "dest " + str(dest)
+#         print "deg dest " + str(self.dest_theta)
+#         print "rad dest " + str(self.Angle(orient) )         
+        
+        self.NumTimeSteps = 30  
         
         self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
@@ -250,6 +256,7 @@ class ZoomPanel(wx.Frame):
 #             self.dt = (self.dest_theta - a.Theta + 360) / self.NumTimeSteps
 #         print "dt after " + str(self.dt)
         
+        self.arrow_drawn = False
         self.TimeStep = 1
         self.Timer.Start(self.FrameDelay) 
          
@@ -311,54 +318,36 @@ class ZoomPanel(wx.Frame):
         r = self.robot
         a = self.arrow
         dest = self.destination
-        dest_theta = self.dest_theta
+        dest_theta = self.dest_theta       
+        
+        x,y = r.XY
+        theta = a.Theta           
+#         if ((x+self.dx >= dest[0] and self.dx > 0 or
+#              x+self.dx <= dest[0] and self.dx < 0 ) and
+#            ( y+self.dy >= dest[1] and self.dy > 0 or
+#              y+self.dy <= dest[1] and self.dy < 0 ) and
+#             ( theta+self.dt >= dest_theta and self.dt > 0 or
+#               theta+self.dt <= dest_theta and self.dt < 0) 
+#             ):            
+#             print "stopped"
+#             self.TimeStep = self.NumTimeSteps
         
         if  self.TimeStep < self.NumTimeSteps:
-            
-            x,y = r.XY
-            theta = a.Theta
-#             if not self.arrow_drawn:
-#                 self.Canvas.RemoveObject(self.arrow)
-#                  
-#                 theta_rad = self.ToRadians(theta)
-#                 xy2 = ( x + (ROBOT_DIAM * math.sin(theta_rad)), y + ROBOT_DIAM * math.cos(theta_rad) )                
-# #                 print "Drew arrow from %s to %s. Angle: %s" % (str(dest), str(xy2), self.theta)
-#                  
-#                 a = self.Canvas.AddArrowLine((dest,xy2), LineWidth = ROBOT_BORDER_WIDTH,
-#                                      LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
-#                 a.Coords = r.XY
-#                 a.Theta  = theta    ##fixme -> rad
-#                 self.arrow = a
-#                 a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-#                 self.arrow_drawn = True
-
             xy1 = (x+self.dx, y+self.dy) 
-                       
-            if ( x+self.dx >= dest[0] and self.dx > 0 or
-                 x+self.dx <= dest[0] and self.dx < 0 ):
-                self.dx = 0
-            if ( y+self.dy >= dest[1] and self.dy > 0 or
-                 y+self.dy <= dest[1] and self.dy < 0 ):
-                self.dy = 0
-            if ( theta+self.dt >= dest_theta and self.dt > 0 or
-                 theta+self.dt <= dest_theta and self.dt < 0):
-                self.dt = 0
                 
-            r.Move( (self.dx,self.dy) )
-            
+            r.Move( (self.dx,self.dy) )            
             try:
                 self.Canvas.RemoveObject(self.arrow)
             except ValueError:
                 pass
-            
-            new_theta = theta + self.dt
-            
+             
+            new_theta = theta + self.dt             
             new_theta_rad = self.ToRadians(new_theta)
             xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
-            
-            print "rad " + str(new_theta_rad)
+             
+#             print "rad " + str(new_theta_rad)
             print "deg " + str(new_theta)
-            
+             
             a = self.Canvas.AddArrowLine((xy1,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                                     LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
             a.Coords = xy1
@@ -366,6 +355,7 @@ class ZoomPanel(wx.Frame):
             a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
             self.arrow = a
             
+            self.TimeStep += 1
             self.Canvas.Draw()
             wx.GetApp().Yield(True)
         

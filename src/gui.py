@@ -13,7 +13,7 @@ from zoompanel import ZoomPanel
 APP_SIZE        = (240, 372)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
-BG_COLOR        = (175,175,165)
+BG_COLOR        = (205,205,205)
 H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15

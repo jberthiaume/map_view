@@ -78,15 +78,18 @@ class listener():
 #---------------------------------------------------------------------------------------------#    
     def PoseCB(self, data):
         self.pose_pos = data.pose.pose.position
-        self.pose_orient = data.pose.pose.orientation
+        self.pose_orient = data.pose.pose.orientation 
+           
+#         print data.pose.pose.position
+#         print ""
                 
         destination = self.ConvertToPixels((self.pose_pos.x, self.pose_pos.y))
         orient = self.pose_orient
         
-        try:        
-            self.zp.MoveRobotTo(destination, orient)
-        except AttributeError:
-            pass
+#         try:        
+        self.zp.MoveRobotTo(destination, orient)
+#         except AttributeError:
+#             print "Unexpected error while issuing move command"
         
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/cmd_vel" topic                                             #
@@ -205,8 +208,8 @@ class listener():
 #    Converts metric coordinates to pixel coordinates.                                        #
 #---------------------------------------------------------------------------------------------#    
     def ConvertToPixels(self, m_coords):
-        x = m_coords[0] / RESOLUTION
-        y = m_coords[1] / RESOLUTION
+        x = (m_coords[0] / RESOLUTION)
+        y = (m_coords[1] / RESOLUTION)
         return (x,y)
         
 #---------------------------------------------------------------------------------------------#    
