@@ -33,8 +33,8 @@ class listener():
         self.origin_orient = None        
         self.pose_orient = None 
         
-        self.vel_lin = None
-        self.vel_ang = None
+        self.vel_linear = None
+        self.vel_angular = None
                  
         self.image_width = 1000
         self.refresh = False
@@ -95,8 +95,8 @@ class listener():
 #    Callback function for the "/cmd_vel" topic                                             #
 #---------------------------------------------------------------------------------------------#    
     def VelocityCB(self, data):
-        self.vel_lin = data.linear
-        self.vel_ang = data.angular
+        self.vel_linear = (data.linear.x, data.linear.y)
+        self.vel_angular = (data.angular.z)
             
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #

@@ -11,6 +11,7 @@ import listener as ls
 from zoompanel import ZoomPanel
 
 APP_SIZE        = (240, 372)
+APP_SIZE_EXP    = (240, 422)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BG_COLOR        = (205,205,205)
@@ -19,9 +20,15 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
+#TODO: check variables on save
+
+#TODO: opening a file while nodes still on canvas = bug
+
+#TODO: robot doesn't appear if open before update
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
-        wx.Frame.__init__(self, parent, title=title, size=APP_SIZE,
+        wx.Frame.__init__(self, parent, title=title, size=APP_SIZE_EXP,
                         style=wx.FRAME_SHAPED
                         )
         self.leftDown = False                                 
@@ -76,27 +83,13 @@ class MainFrame(wx.Frame):
         
 class MainPanel(wx.Panel):
     def __init__(self, parent):        
-        wx.Panel.__init__(self, parent=parent)
-        
-        # Set the app background colour
-        x = APP_SIZE[0]
-        y = APP_SIZE[1]
-        bmp = wx.EmptyBitmap(x,y)
-        dc = wx.MemoryDC()
-        dc.SelectObject(bmp)
-        
-        solidbrush = wx.Brush(BUTTON_COLOR, wx.SOLID)
-        dc.SetBrush(solidbrush)        
-        dc.DrawRectangle(-1, -1, x+2, y+2)
-        solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
-        dc.SetBrush(solidbrush)        
-        dc.DrawRectangle(3, 3, x-6, y-6)
-        
-        self.bg = wx.StaticBitmap(self, -1, bmp, (0, 0)) 
+        wx.Panel.__init__(self, parent=parent)        
+        self.bg = self.DrawBG(APP_SIZE_EXP)
         
         self.leftDown = False
         self.saved = True
         self.buttons = []
+        self.contents = []
         
         # Set parent frame value
         self.parent_frame = parent 
@@ -116,8 +109,8 @@ class MainPanel(wx.Panel):
 #                                   style=wx.FRAME_SHAPED
                                   )  
         self.zp.Hide()
-#         self.zp.SetPosition((320,0))       
-        self.zp.SetPosition((550,0))
+        self.zp.SetPosition((320,0))       
+#         self.zp.SetPosition((550,0))
         
         self.sizer_menu.AddSpacer(V_SPACER_SMALL)  
                         
@@ -145,7 +138,7 @@ class MainPanel(wx.Panel):
 #         # Explore button
 #         hbox06 = wx.BoxSizer(wx.HORIZONTAL)     
 #         hbox06.AddSpacer(H_SPACER_WIDTH)
-#         self.btn_exp = wx.Button(self, label="Explore", size=BUTTON_SIZE)        
+#         self.btn_exp = wx.Button(self, label="Explore...", size=BUTTON_SIZE)        
 #         self.btn_exp.Bind(wx.EVT_BUTTON, self.OnExplore)
 #         self.btn_exp.Enable(False) 
 #         self.buttons.append(self.btn_exp) 
@@ -162,6 +155,7 @@ class MainPanel(wx.Panel):
         hbox09.Add(self.ep)   
         self.sizer_menu.Add(hbox09,0,wx.LEFT|wx.RIGHT,SIZER_BORDER)
         
+        self.sizer_menu.AddSpacer(V_SPACER_LARGE) 
         self.sizer_menu.AddSpacer(V_SPACER_LARGE) 
 
         # Open button
@@ -225,6 +219,25 @@ class MainPanel(wx.Panel):
         self.Layout()
 
 #---------------------------------------------------------------------------------------------#    
+#    Draws the background for the control panel                                               #
+#---------------------------------------------------------------------------------------------#       
+    def DrawBG(self, size):
+        x = size[0]
+        y = size[1]
+        bmp = wx.EmptyBitmap(x,y)
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        
+        solidbrush = wx.Brush(BUTTON_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(-1, -1, x+2, y+2)
+        solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(3, 3, x-6, y-6)
+        
+        return wx.StaticBitmap(self, -1, bmp, (0, 0)) 
+
+#---------------------------------------------------------------------------------------------#    
 #    Sets the foreground and background color of all buttons on the control panel             #
 #---------------------------------------------------------------------------------------------#        
     def PaintButtons(self, foreground, background):
@@ -267,7 +280,7 @@ class MainPanel(wx.Panel):
             dlg.Destroy()
                 
         
-#         wx.BeginBusyCursor()    
+        wx.BeginBusyCursor()    
         # Start listening for a map
         self.ls.Listen()        
         print "Creating map..."        
@@ -287,10 +300,9 @@ class MainPanel(wx.Panel):
             self.parent_frame.SetTitle("%s" % map_file)
             
             # Update some statuses
-            self.btn_map.Enable(True)
-            self.btn_sv.Enable(True)
-            self.btn_svas.Enable(True)
-            self.ep.btn_go.Enable(True)
+            for b in self.buttons:
+                if b.Enabled == False:
+                    b.Enable(True)
             self.SetSaveStatus(False)            
             
             # Show the image panel                  
@@ -308,7 +320,7 @@ class MainPanel(wx.Panel):
         
         self.btn_map.SetLabel("Hide Map")         
         self.Layout()                
-#         wx.EndBusyCursor()
+        wx.EndBusyCursor()
        
 #---------------------------------------------------------------------------------------------#    
 #    Shows or hides the map, depending on the map's current state.                            #
@@ -327,10 +339,17 @@ class MainPanel(wx.Panel):
     def OnExplore(self, event):
         if self.ep.IsShown():
             self.ep.Hide()
+            self.parent_frame.SetSize(APP_SIZE)            
+            self.bg = self.DrawBG(APP_SIZE)
+            self.Show()
             self.Layout()
         else:
+            self.ep.txt.Clear()            
+            self.parent_frame.SetSize(APP_SIZE_EXP)
+            self.bg = self.DrawBG(APP_SIZE_EXP)
+            for b in self.buttons:
+                b.Show()
             self.ep.Show()
-            self.ep.txt.Clear()
             self.Layout()
             
 
@@ -381,10 +400,9 @@ class MainPanel(wx.Panel):
                 self.zp.SetImage(filename)  
                 self.zp.Show()             
                 
-                self.btn_map.Enable(True)
-                self.btn_sv.Enable(True)
-                self.btn_svas.Enable(True)
-                self.ep.btn_go.Enable(True)                 
+                for b in self.buttons:
+                    if b.Enabled == False:
+                        b.Enable(True)                 
                 self.SetSaveStatus(True)      
                 self.btn_map.SetLabel("Hide Map")
                             
@@ -512,7 +530,8 @@ class ExplorePanel(wx.Panel):
         while self.parent_frame.GetParent() is not None: 
             self.parent_frame = self.parent_frame.GetParent()
         
-        self.sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.hbox01 = wx.BoxSizer(wx.HORIZONTAL)
         
         # Node/Edge radio buttons
         vbox03 = wx.BoxSizer(wx.VERTICAL)
@@ -520,7 +539,7 @@ class ExplorePanel(wx.Panel):
         self.radio_edge = wx.RadioButton(self, -1, "Edge")
         vbox03.Add(self.radio_node) 
         vbox03.Add(self.radio_edge) 
-        self.sizer.Add(vbox03,0,wx.TOP,5)    
+        self.hbox01.Add(vbox03,0,wx.TOP,5)    
         self.radio_node.Bind(wx.EVT_RADIOBUTTON, self.OnSelectNode)
         self.radio_edge.Bind(wx.EVT_RADIOBUTTON, self.OnSelectEdge)
         
@@ -533,7 +552,7 @@ class ExplorePanel(wx.Panel):
         self.txt.SetForegroundColour((255,106,54))
         self.txt.SetBackgroundColour((85,85,80))
         vbox06.Add(self.txt)
-        self.sizer.Add(vbox06,1,wx.TOP|wx.LEFT,10)
+        self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,10)
          
         # Go button
         vbox09 = wx.BoxSizer(wx.VERTICAL)     
@@ -543,7 +562,18 @@ class ExplorePanel(wx.Panel):
         self.btn_go.Enable(False)
         self.GetParent().buttons.append(self.btn_go) 
         vbox09.Add(self.btn_go)        
-        self.sizer.Add(vbox09,1,wx.TOP|wx.LEFT,10)
+        self.hbox01.Add(vbox09,1,wx.TOP|wx.LEFT,10)        
+        
+        self.sizer.Add(self.hbox01)
+        
+        # Go button
+        vbox10 = wx.BoxSizer(wx.VERTICAL)   
+        self.btn_tour = wx.Button(self, label="Do Tour", size=BUTTON_SIZE)        
+        self.btn_tour.Bind(wx.EVT_BUTTON, self.OnGotoNode)
+        self.btn_tour.Enable(False)
+        self.GetParent().buttons.append(self.btn_tour) 
+        vbox10.Add(self.btn_tour)        
+        self.sizer.Add(vbox10,1,wx.TOP,10)
         
         self.SetSizer(self.sizer)
 

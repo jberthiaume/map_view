@@ -17,13 +17,15 @@ import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
 
+RESOLUTION = 0.05
+
 #----- Global colors -----#
 NODE_FILL           = (240,240,240)
 NODE_BORDER         = (119,41,83)
 EDGE_COLOR          = (119,41,83)
 ROBOT_FILL_1        = (100,100,100)
 ROBOT_FILL_2        = (180,0,0)
-ROBOT_BORDER        = (0,0,0)
+ROBOT_BORDER        = (50,0,0)
 HIGHLIGHT_COLOR     = (255,106,54)
 TEXT_COLOR          = (119,41,83)
 
@@ -84,6 +86,7 @@ class ZoomPanel(wx.Frame):
         self.Canvas = Canvas
         
         # Bind canvas mouse events
+        self.Bind(wx.EVT_CLOSE, self.OnClose)
         FloatCanvas.EVT_MOTION(self.Canvas, self.OnMove )        
         self.Canvas.Bind(FloatCanvas.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Canvas.Bind(FloatCanvas.EVT_RIGHT_DOWN, self.OnRightDown)
@@ -112,7 +115,10 @@ class ZoomPanel(wx.Frame):
                                              ])
         self.SetAcceleratorTable(self.accel_tbl)  
         self.Layout()
-                
+        
+    
+    def OnClose(self, event):
+        self.GetParent().OnShowHideMap(event)            
 
 #---------------------------------------------------------------------------------------------#    
 #    Writes the current cursor coordinates to the status bar at the bottom                    #
@@ -215,22 +221,21 @@ class ZoomPanel(wx.Frame):
         a.Coords = xy
         a.Theta  = theta
         self.arrow = a
+        a.Visible = False
         a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
         
         self.Timer = wx.PyTimer(self.ShowFrame)
         self.FrameDelay = 16        ## 16ms per frame = framerate of 60 FPS
         self.Canvas.Draw(True)
+#         return r
 
 
 #---------------------------------------------------------------------------------------------#    
 #    Sets a destination for the robot graphic and determines the distance to travel per frame #
 #---------------------------------------------------------------------------------------------#  
     def MoveRobotTo(self, dest, orient):
-        self.robot.SetFillColor(ROBOT_FILL_2)
-        
         self.destination = dest        
-        self.dest_theta = self.ToDegrees( self.Angle(orient) ) 
-        
+        self.dest_theta = self.ToDegrees( self.Angle(orient) )         
         
         r = self.robot
         r.Coords = ( int(dest[0]), int(dest[1]) )
@@ -242,24 +247,21 @@ class ZoomPanel(wx.Frame):
 #         print "deg dest " + str(self.dest_theta)
 #         print "rad dest " + str(self.Angle(orient) )         
         
-        self.NumTimeSteps = 30  
+        self.NumTimeSteps = 24  
         
         self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
-        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps
-#         print "dt before " + str(self.dt)
-#         if self.dt > 6:
-#             print "pos"
-#             self.dt = (self.dest_theta - a.Theta - 360) / self.NumTimeSteps
-#         elif self.dt < -6:
-#             print "neg"
-#             self.dt = (self.dest_theta - a.Theta + 360) / self.NumTimeSteps
-#         print "dt after " + str(self.dt)
+        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps        
+        
+        self.arrow_drawn = False
+        if self.dt > 6 or self.dt <-6:
+            self.workaround = True
+        else:
+            self.workaround = False
         
         self.arrow_drawn = False
         self.TimeStep = 1
         self.Timer.Start(self.FrameDelay) 
-         
         
 #---------------------------------------------------------------------------------------------#    
 #    Returns an angle (in radians) from an input orientation quaternion                       #
@@ -270,8 +272,8 @@ class ZoomPanel(wx.Frame):
             w = orient.w
         except AttributeError:
             z = 0.0
-            w = 1.0
-        
+            w = 1.0        
+        w=w     #placeholder
         theta = 2*math.asin(z)    
         return theta % (2*math.pi)
     
@@ -279,15 +281,15 @@ class ZoomPanel(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Converts a degree angle to radians and transforms it into the robot's coordinate plane   #
 #---------------------------------------------------------------------------------------------#
-#     FloatCanvas Coordinate System        Robot Coordinate System                            #
+#     FloatCanvas Coordinate Plane         Robot Coordinate Plane                             #
 #                                                                                             #
-#                  0                                90                                        #
+#                  0                               pi/2                                       #
 #                  :                                 :                                        #
 #                  :                                 :                                        #
-#         -90 -----+----- 90      --->      180 -----+-----  0                                #
+#         270 -----+----- 90      --->       pi -----+----- 0                                 #
 #                  :                                 :                                        #
 #                  :                                 :                                        #
-#                 180                               -90                                       #
+#                 180                              3pi/2                                      #
 #                                                                                             #
 #---------------------------------------------------------------------------------------------# 
     def ToRadians(self, angle):
@@ -296,15 +298,15 @@ class ZoomPanel(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Converts a radian angle to degrees and transforms it into the FC coordinate plane        #
 #---------------------------------------------------------------------------------------------#  
-#     FloatCanvas Coordinate System        Robot Coordinate System                            #
+#     FloatCanvas Coordinate Plane         Robot Coordinate Plane                             #
 #                                                                                             #
-#                  0                                90                                        #
+#                  0                               pi/2                                       #
 #                  :                                 :                                        #
 #                  :                                 :                                        #
-#         -90 -----+----- 90      <---      180 -----+-----  0                                #
+#         270 -----+----- 90      <---       pi -----+----- 0                                 #
 #                  :                                 :                                        #
 #                  :                                 :                                        #
-#                 180                               -90                                       #
+#                 180                              3pi/2                                      #
 #                                                                                             #
 #---------------------------------------------------------------------------------------------#   
     def ToDegrees(self, angle):
@@ -340,27 +342,47 @@ class ZoomPanel(wx.Frame):
                 self.Canvas.RemoveObject(self.arrow)
             except ValueError:
                 pass
-             
-            new_theta = theta + self.dt             
-            new_theta_rad = self.ToRadians(new_theta)
-            xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
-             
-#             print "rad " + str(new_theta_rad)
-            print "deg " + str(new_theta)
-             
-            a = self.Canvas.AddArrowLine((xy1,xy2), LineWidth = ROBOT_BORDER_WIDTH,
-                                    LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
-            a.Coords = xy1
-            a.Theta  = new_theta   ##fixme
-            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-            self.arrow = a
             
-            self.TimeStep += 1
-            self.Canvas.Draw()
-            wx.GetApp().Yield(True)
+            if self.workaround is True and self.arrow_drawn is False:
+                new_theta = dest_theta
+                new_theta_rad = self.ToRadians(new_theta)
+                xy2 = ( x + (ROBOT_DIAM * math.sin(new_theta_rad)), 
+                        y + ROBOT_DIAM * math.cos(new_theta_rad) )                
+#                 print "Drew arrow from %s to %s. Angle: %s" % (str(dest), str(xy2), self.theta)
+                  
+                a = self.Canvas.AddArrowLine((dest,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                                     LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
+                a.Coords = r.XY
+                a.Theta  = new_theta
+                self.arrow = a
+                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+                self.arrow_drawn = True
+             
+            elif self.workaround is False:    
+                new_theta = theta + self.dt             
+                new_theta_rad = self.ToRadians(new_theta)
+                xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
+                 
+#                 print "rad " + str(new_theta_rad)
+#                 print "deg " + str(new_theta)
+                 
+                a = self.Canvas.AddArrowLine((xy1,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                                        LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
+                a.Coords = xy1
+                a.Theta  = new_theta   ##fixme
+                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+                self.arrow = a
+                
+                self.TimeStep += 1
+                self.Canvas.Draw(True)
+                wx.GetApp().Yield(True)
         
         else:
+#             print "stopped (timer)"            
+            self.robot.SetFillColor(ROBOT_FILL_2)
+            self.arrow.Visible = True
             self.Timer.Stop()
+            self.Canvas.Draw(True)
             
     
     def OnClickRobot(self, obj):
@@ -822,8 +844,9 @@ class ZoomPanel(wx.Frame):
 #     Adds the node to the selection list and highlights it on the canvas                    #
 #--------------------------------------------------------------------------------------------# 
     def OnClickNode(self, obj):
-        if obj.Name != self.last_sel_node:             
-            print "Selected Node #" + obj.Name      
+        if obj.Name != self.last_sel_node:  
+            coords = self.nodelist[int(obj.Name)].coords           
+            print "Selected Node #%s  (%s, %s)" % (obj.Name, coords[0], coords[1])     
             self.sel_nodes.append(obj)       
             obj.SetFillColor(HIGHLIGHT_COLOR)    
             self.last_sel_node = obj.Name
