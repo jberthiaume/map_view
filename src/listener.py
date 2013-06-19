@@ -5,9 +5,10 @@ import os, time
 import rospy
 import numpy as np
 from datetime import datetime
-from nav_msgs.msg import OccupancyGrid as og
-from geometry_msgs.msg import PoseWithCovarianceStamped as pwc
-from geometry_msgs.msg import Twist as t
+from std_msgs.msg import String
+from nav_msgs.msg import OccupancyGrid
+from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import Twist
 # from move_base_msgs.msg import MoveBaseActionGoal    ##incompatible with catkin##
 import Image
 import ImageOps
@@ -46,10 +47,11 @@ class listener():
     
     def Listen(self):
         self.refresh = False
-        rospy.init_node('listener', anonymous=True)
-        rospy.Subscriber("map", og, self.MapCB)
-        rospy.Subscriber("amcl_pose", pwc, self.PoseCB)
-        rospy.Subscriber("cmd_vel", t, self.VelocityCB)
+        rospy.init_node('map_view', anonymous=False)
+        rospy.Subscriber("map", OccupancyGrid, self.MapCB)
+        rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, self.PoseCB)
+        rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
+        rospy.Subscriber("tour", String, self.TourCB)
         
         if __name__ == '__main__':
             rospy.spin()  
@@ -61,11 +63,7 @@ class listener():
         if self.refresh==False:
             self.ProcessMapCB(data)
             self.refresh=True
-        #             if __name__ == '__main__':              
-        #                 print "Ending process."
-        #                 pid = os.getpid()
-        #                 os.kill(pid,1)
-
+            
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/move_base/goal" topic                                        #
@@ -94,6 +92,10 @@ class listener():
     def VelocityCB(self, data):
         self.vel_linear = (data.linear.x, data.linear.y)
         self.vel_angular = (data.angular.z)
+        
+    def TourCB(self, data):
+        print "received tour message"
+        print data
             
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #
@@ -104,36 +106,24 @@ class listener():
         
         self.origin_pos = data.info.origin.position
         self.origin_orient = data.info.origin.orientation        
-        
-#         if __name__ == '__main__':            
-#             unknown=0
-#             print "\nData received:\n%s" % str(data.info.origin)            
-#             print "\nMap array size:%s " % str(array_length)               
-#             for element in data.data:
-#                 if element != -1:
-#                     unknown+=1                          
-#             print "Known elements: %s" % unknown    
-#             print "Unknown elements: %s" % (array_length-unknown)    
-        
-#         self.FindEdges(data.data)
-        color_data = self.TranslateToRGB(data.data) 
-            
+
+        color_data = self.TranslateToRGB(data.data)             
         img=Image.new('RGB', (self.image_width,self.image_width))
-        img.putdata(color_data)
-        
+        img.putdata(color_data)        
         # Rotate and flip image (otherwise it won't match the real map)
         img = img.rotate(180)
         img_mirror = ImageOps.mirror(img)
         
-#         try:
-#             os.remove(self.filename)
-#         except OSError:
-#             pass        
-#         img_mirror.save(self.filename)         
+        try:
+            os.remove(self.filename)
+        except OSError:
+            pass        
+        img_mirror.save(self.filename)         
 #         print "Map file created. (%s)" % self.filename
 
         # Creates the wx.Image to be passed to the ZoomPanel
-        self.image = self.PilImageToWxImage(img_mirror) 
+        self.image = self.PilImageToWxImage(img_mirror)
+         
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #

@@ -8,6 +8,7 @@ import wx
 import os, time, shutil
 import math
 import listener as ls
+import publisher as pb
 from zoompanel import ZoomPanel
 
 APP_SIZE        = (240, 372)
@@ -20,11 +21,10 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TODO: check variables on save
+#TODO: check variables on save (new nodes start at ID 0 even if nodes were loaded??)
 
-#TODO: opening a file while nodes still on canvas = bug
-
-#TODO: .Visible -> ObjectRemove()
+#TODO: opening a file while nodes still on canvas = some node numbers invisible
+#      (doesn't seem to break functionality) 
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -38,7 +38,8 @@ class MainFrame(wx.Frame):
                        faceName="lucida sans")    
         
         
-        self.ls = ls.listener(self)        
+        self.ls = ls.listener(self)
+        self.pb = pb.publisher(self)        
         self.mp = MainPanel(self)  
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.mp, 1, wx.EXPAND)
@@ -51,6 +52,7 @@ class MainFrame(wx.Frame):
         
         self.SetPosition((0,0))        
         self.Layout()  
+        self.mp.ep.size = self.mp.ep.GetSize()
 
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -95,6 +97,7 @@ class MainPanel(wx.Panel):
             self.parent_frame = self.parent_frame.GetParent()
         
         self.ls = self.parent_frame.ls
+        self.pb = self.parent_frame.pb
         
         # Create the sizers 
         self.sizer_main = wx.BoxSizer(wx.HORIZONTAL)         
@@ -447,7 +450,7 @@ class MainPanel(wx.Panel):
             try:
                 shutil.copy(current_map,filename) 
             except shutil.Error:
-                shutil.move(filename, filename)           
+                shutil.move(filename, filename)   
             
             # The graph filename must be the same as the map filename (except the extension)
             graph_filename = "%sgraph" % filename.rstrip("png")
@@ -510,11 +513,11 @@ class MainPanel(wx.Panel):
         except wx._core.PyAssertionError:
             pass
         
+        
 class ExplorePanel(wx.Panel):
     def __init__(self, parent):        
         wx.Panel.__init__(self, parent=parent)
-        
-        self.zp = self.GetParent().zp
+        self.zp = self.GetParent().zp     
         
         # Set the background colour
         bmp = wx.EmptyBitmap(500, 500)
@@ -566,16 +569,36 @@ class ExplorePanel(wx.Panel):
         
         self.sizer.Add(self.hbox01)
         
-        # Go button
+        # Tour button
         vbox10 = wx.BoxSizer(wx.VERTICAL)   
         self.btn_tour = wx.Button(self, label="Do Tour", size=BUTTON_SIZE)        
-        self.btn_tour.Bind(wx.EVT_BUTTON, self.OnGotoNode)
+        self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
         self.btn_tour.Enable(False)
         self.GetParent().buttons.append(self.btn_tour) 
         vbox10.Add(self.btn_tour)        
         self.sizer.Add(vbox10,1,wx.TOP,10)
         
-        self.SetSizer(self.sizer)
+        self.SetSizer(self.sizer)  
+        self.Layout()        
+        
+#---------------------------------------------------------------------------------------------#    
+#    Draws the background for the 'explore' panel  (unused for now)                           #
+#---------------------------------------------------------------------------------------------#       
+    def DrawBG(self, size):
+        x = size[0]
+        y = size[1]
+        bmp = wx.EmptyBitmap(x,y)
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        
+        solidbrush = wx.Brush(BUTTON_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(-1, -1, x+2, y+2)
+        solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(3, 3, x-6, y-6)
+        
+        return wx.StaticBitmap(self, -1, bmp, (0, 0))
 
 #---------------------------------------------------------------------------------------------#    
 #    Functions for the radio buttons. Determines if we're looking for nodes or edges.         #
@@ -643,6 +666,12 @@ class ExplorePanel(wx.Panel):
                 "Please enter a positive integer value", "Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()
+                   
+#---------------------------------------------------------------------------------------------#    
+#    TODO: Publish some stuff                                                                 #
+#---------------------------------------------------------------------------------------------#             
+    def OnTour(self, event):        
+        self.parent_frame.pb.PublishTour()
     
 if __name__ == '__main__':
     app = wx.App(False)

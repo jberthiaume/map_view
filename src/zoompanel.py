@@ -13,6 +13,7 @@ import node as N
 import edge as E
 import numpy as NP
 import listener as LS
+import publisher as PB
 import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
@@ -72,8 +73,12 @@ class ZoomPanel(wx.Frame):
         except AttributeError:
             print "Warning: GUI listener object not found"
             self.ls = LS.listener() 
-        
-        
+        try:
+            self.pb = self.GetParent().pb
+        except AttributeError:
+            print "Warning: GUI publisher object not found"
+            self.pb = PB.publisher() 
+            
         # Add the Canvas 
         Canvas = NavCanvas.NavCanvas(self, 
                                      ProjectionFun = None, 
@@ -379,7 +384,7 @@ class ZoomPanel(wx.Frame):
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
                 print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
-                print "\tMetric -> (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
                 
             except IndexError:
                 # Out of space in the connection matrix - expand it by 20 nodes
