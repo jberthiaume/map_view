@@ -78,10 +78,7 @@ class listener():
 #---------------------------------------------------------------------------------------------#    
     def PoseCB(self, data):
         self.pose_pos = data.pose.pose.position
-        self.pose_orient = data.pose.pose.orientation 
-           
-#         print data.pose.pose.position
-#         print ""
+        self.pose_orient = data.pose.pose.orientation
                 
         destination = self.ConvertToPixels((self.pose_pos.x, self.pose_pos.y))
         orient = self.pose_orient

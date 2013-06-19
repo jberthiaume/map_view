@@ -38,13 +38,10 @@ ROBOT_BORDER_WIDTH  = 2
 FONT_SIZE_1         = 4     # for single-digit numbers
 FONT_SIZE_2         = 4     # for double-digit numbers
 
-#TODO change x.Visible to RemoveObject(x)
-
-
 class ZoomPanel(wx.Frame): 
 
     def __init__(self, *args, **kwargs): 
-        wx.Frame.__init__(self, *args, **kwargs)
+        wx.Frame.__init__(self, *args, **kwargs) 
         self.CreateStatusBar() 
         
         # Initialize data structures   
@@ -263,54 +260,7 @@ class ZoomPanel(wx.Frame):
         self.TimeStep = 1
         self.Timer.Start(self.FrameDelay) 
         
-#---------------------------------------------------------------------------------------------#    
-#    Returns an angle (in radians) from an input orientation quaternion                       #
-#---------------------------------------------------------------------------------------------#    
-    def Angle(self, orient):
-        try:
-            z = orient.z
-            w = orient.w
-        except AttributeError:
-            z = 0.0
-            w = 1.0        
-        w=w     #placeholder
-        theta = 2*math.asin(z)    
-        return theta % (2*math.pi)
-    
-    
-#---------------------------------------------------------------------------------------------#    
-#    Converts a degree angle to radians and transforms it into the robot's coordinate plane   #
-#---------------------------------------------------------------------------------------------#
-#     FloatCanvas Coordinate Plane         Robot Coordinate Plane                             #
-#                                                                                             #
-#                  0                               pi/2                                       #
-#                  :                                 :                                        #
-#                  :                                 :                                        #
-#         270 -----+----- 90      --->       pi -----+----- 0                                 #
-#                  :                                 :                                        #
-#                  :                                 :                                        #
-#                 180                              3pi/2                                      #
-#                                                                                             #
-#---------------------------------------------------------------------------------------------# 
-    def ToRadians(self, angle):
-        return ( ((-angle+90) * math.pi) / 180 ) % (2*math.pi)
 
-#---------------------------------------------------------------------------------------------#    
-#    Converts a radian angle to degrees and transforms it into the FC coordinate plane        #
-#---------------------------------------------------------------------------------------------#  
-#     FloatCanvas Coordinate Plane         Robot Coordinate Plane                             #
-#                                                                                             #
-#                  0                               pi/2                                       #
-#                  :                                 :                                        #
-#                  :                                 :                                        #
-#         270 -----+----- 90      <---       pi -----+----- 0                                 #
-#                  :                                 :                                        #
-#                  :                                 :                                        #
-#                 180                              3pi/2                                      #
-#                                                                                             #
-#---------------------------------------------------------------------------------------------#   
-    def ToDegrees(self, angle):
-        return ( 90 - (angle*(180/math.pi)) ) % 360   
 
              
 #---------------------------------------------------------------------------------------------#    
@@ -544,7 +494,7 @@ class ZoomPanel(wx.Frame):
                     self.graphics_text[int(ID)] = t
             
             for obj in self.sel_nodes:
-                obj.Visible = False
+                self.Canvas.RemoveObject(obj)
             
             self.GenerateConnectionMatrix()   
             self.Canvas.Draw(True)
@@ -576,7 +526,7 @@ class ZoomPanel(wx.Frame):
         ID = int(node.Name)
         node_obj = self.nodelist[ID] # Pointer to the 'node.Node' data structure
 
-        self.graphics_nodes[ ID ].Visible = False
+        self.Canvas.RemoveObject(self.graphics_nodes[ ID ])
         self.graphics_text [ ID ].Visible = False
         
         for i in range(len(self.conn_matrix[ID])):
@@ -601,7 +551,7 @@ class ZoomPanel(wx.Frame):
             edge_obj = self.edgelist[ID]  # Pointer to the 'edge.Edge' data structure
             
 #             self.graphics_edges[ edge_obj.graphic ].Visible = False   
-            self.graphics_edges[ID].Visible = False                     
+            self.Canvas.RemoveObject(self.graphics_edges[ID])                   
             self.edgelist[ID] = None
             self.graphics_edges[ID] = None        
             
@@ -762,6 +712,54 @@ class ZoomPanel(wx.Frame):
         dist = math.sqrt( (x2 - x1)**2 + (y2 - y1)**2 )  
         return dist  
     
+#---------------------------------------------------------------------------------------------#    
+#    Returns an angle (in radians) from an input orientation quaternion                       #
+#---------------------------------------------------------------------------------------------#    
+    def Angle(self, orient):
+        try:
+            z = orient.z
+            w = orient.w
+        except AttributeError:
+            z = 0.0
+            w = 1.0        
+        w=w     #placeholder
+        theta = 2*math.asin(z)    
+        return theta % (2*math.pi)
+    
+    
+#---------------------------------------------------------------------------------------------#    
+#    Converts a degree angle to radians and transforms it into the robot's coordinate plane   #
+#---------------------------------------------------------------------------------------------#
+#     FloatCanvas Coordinate Plane         Robot Coordinate Plane                             #
+#                                                                                             #
+#                  0                               pi/2                                       #
+#                  :                                 :                                        #
+#                  :                                 :                                        #
+#         270 -----+----- 90      --->       pi -----+----- 0                                 #
+#                  :                                 :                                        #
+#                  :                                 :                                        #
+#                 180                              3pi/2                                      #
+#                                                                                             #
+#---------------------------------------------------------------------------------------------# 
+    def ToRadians(self, angle):
+        return ( ((-angle+90) * math.pi) / 180 ) % (2*math.pi)
+
+#---------------------------------------------------------------------------------------------#    
+#    Converts a radian angle to degrees and transforms it into the FC coordinate plane        #
+#---------------------------------------------------------------------------------------------#  
+#     FloatCanvas Coordinate Plane         Robot Coordinate Plane                             #
+#                                                                                             #
+#                  0                               pi/2                                       #
+#                  :                                 :                                        #
+#                  :                                 :                                        #
+#         270 -----+----- 90      <---       pi -----+----- 0                                 #
+#                  :                                 :                                        #
+#                  :                                 :                                        #
+#                 180                              3pi/2                                      #
+#                                                                                             #
+#---------------------------------------------------------------------------------------------#   
+    def ToDegrees(self, angle):
+        return ( 90 - (angle*(180/math.pi)) ) % 360   
 
     
 #--------------------------------------------------------------------------------------------#    
@@ -1024,7 +1022,7 @@ class ZoomPanel(wx.Frame):
         self.Show() 
         self.Layout()
 
-        self.Zoom((self.image_width/2,self.image_width/2),(self.image_width/1000.0))
+        self.Zoom((self.image_width/2,self.image_width/2),(self.image_width/750.0))
 
 if __name__ == '__main__':
     app = wx.App(False) 

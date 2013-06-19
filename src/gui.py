@@ -24,13 +24,14 @@ SIZER_BORDER    = 10
 
 #TODO: opening a file while nodes still on canvas = bug
 
-#TODO: robot doesn't appear if open before update
+#TODO: .Visible -> ObjectRemove()
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE_EXP,
                         style=wx.FRAME_SHAPED
                         )
+        self.resolution = wx.GetDisplaySize()
         self.leftDown = False                                 
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
                        style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
@@ -43,16 +44,13 @@ class MainFrame(wx.Frame):
         self.sizer.Add(self.mp, 1, wx.EXPAND)
         
         self.ls.SetAttributes()
-        
-        # Mouse capturing events      
+          
         self.Bind(wx.EVT_MOTION, self.OnMouse)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp) 
         
         self.SetPosition((0,0))        
         self.Layout()  
-
-
 
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -103,9 +101,10 @@ class MainPanel(wx.Panel):
         self.sizer_menu = wx.BoxSizer(wx.VERTICAL)      
         self.sizer_display = wx.BoxSizer(wx.VERTICAL)
         
-        # The image panel     
+        # The map viewer panel
+        zp_size = self.parent_frame.resolution[1]-60     
         self.zp=ZoomPanel(self, title="Map View",
-                                  size=((1024,1024)), 
+                                  size=((zp_size,zp_size)), 
 #                                   style=wx.FRAME_SHAPED
                                   )  
         self.zp.Hide()
@@ -397,6 +396,7 @@ class MainPanel(wx.Panel):
                     self.zp.SetNodeList([])
                     self.zp.SetEdgeList([])
                 
+                self.ls.Listen()
                 self.zp.SetImage(filename)  
                 self.zp.Show()             
                 
