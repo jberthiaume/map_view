@@ -123,6 +123,7 @@ class listener():
 
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)
+        self.image_data = data.data
          
 
 #---------------------------------------------------------------------------------------------#    

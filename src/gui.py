@@ -10,9 +10,10 @@ import math
 import listener as ls
 import publisher as pb
 from zoompanel import ZoomPanel
+from timerthread import TimerThread
 
-APP_SIZE        = (240, 372)
-APP_SIZE_EXP    = (240, 422)
+APP_SIZE        = (240,372)
+APP_SIZE_EXP    = (240,422)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BG_COLOR        = (205,205,205)
@@ -25,6 +26,8 @@ SIZER_BORDER    = 10
 
 #TODO: opening a file while nodes still on canvas = some node numbers invisible
 #      (doesn't seem to break functionality) 
+
+#TODO: automatically generate map
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -39,12 +42,14 @@ class MainFrame(wx.Frame):
         
         
         self.ls = ls.listener(self)
-        self.pb = pb.publisher(self)        
+        self.pb = pb.publisher(self) 
+#         self.tt = TimerThread(self)       
         self.mp = MainPanel(self)  
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.mp, 1, wx.EXPAND)
         
         self.ls.SetAttributes()
+#         self.tt.start()
           
         self.Bind(wx.EVT_MOTION, self.OnMouse)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
@@ -98,6 +103,7 @@ class MainPanel(wx.Panel):
         
         self.ls = self.parent_frame.ls
         self.pb = self.parent_frame.pb
+#         self.tt = self.parent_frame.tt
         
         # Create the sizers 
         self.sizer_main = wx.BoxSizer(wx.HORIZONTAL)         
@@ -111,8 +117,7 @@ class MainPanel(wx.Panel):
 #                                   style=wx.FRAME_SHAPED
                                   )  
         self.zp.Hide()
-        self.zp.SetPosition((320,0))       
-#         self.zp.SetPosition((550,0))
+        self.zp.SetPosition((320,0))  
         
         self.sizer_menu.AddSpacer(V_SPACER_SMALL)  
                         
@@ -285,17 +290,7 @@ class MainPanel(wx.Panel):
         wx.BeginBusyCursor()    
         # Start listening for a map
         self.ls.Listen()        
-        print "Creating map..."        
-        
-        # Loop until the file has been correctly updated
-#         done = False
-#         while not done:            
-#             try:
-#                 while(os.path.getmtime(self.ls.GetDefaultFilename()) < (time.time()-15)):
-#                     time.sleep(1)
-#                 done = True                
-#             except OSError:
-#                 time.sleep(1)
+        print "Creating map..."  
                 
         try:
             map_file = self.ls.GetDefaultFilename()
@@ -314,7 +309,8 @@ class MainPanel(wx.Panel):
                 time.sleep(0.5)
                 
             self.zp.SetImage(self.ls.image)
-            self.zp.Show()    
+            self.zp.Show()   
+#             self.tt.paused = False
             
         except IndexError:
             # Image not found in directory
@@ -358,7 +354,8 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#    
 #    Shows a file dialog allowing the user to select a map file (.png format)                 #
 #---------------------------------------------------------------------------------------------#    
-    def OnOpen(self, event):   
+    def OnOpen(self, event): 
+          
         if self.saved is False:
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it before opening a new one?", 
@@ -380,7 +377,7 @@ class MainPanel(wx.Panel):
             dlg = wx.FileDialog(self, message="Open Map File", defaultDir=os.getcwd(), 
                                 defaultFile="", wildcard=filters, style=wx.FD_OPEN)
             
-            if dlg.ShowModal() == wx.ID_OK:
+            if dlg.ShowModal() == wx.ID_OK:   
                 self.zp.SetNodeList([])
                 self.zp.SetEdgeList([])
                 
@@ -406,7 +403,7 @@ class MainPanel(wx.Panel):
                 for b in self.buttons:
                     if b.Enabled == False:
                         b.Enable(True)                 
-                self.SetSaveStatus(True)      
+                self.SetSaveStatus(True) 
                 self.btn_map.SetLabel("Hide Map")
                             
             dlg.Destroy()
@@ -482,8 +479,10 @@ class MainPanel(wx.Panel):
             if dlg.ShowModal() == wx.ID_YES:
                 # User has chosen to save the map
                 self.OnSaveAs(event)
-            dlg.Destroy()
-                
+            dlg.Destroy()        
+        
+#         self.tt.stopped = True 
+#         self.tt.join()       
         self.zp.Close()
         self.parent_frame.Close()
                 
@@ -670,7 +669,8 @@ class ExplorePanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#    
 #    TODO: Publish some stuff                                                                 #
 #---------------------------------------------------------------------------------------------#             
-    def OnTour(self, event):        
+    def OnTour(self, event):                       
+#         self.parent_Frame.tt.paused = True
         self.parent_frame.pb.PublishTour()
     
 if __name__ == '__main__':

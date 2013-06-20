@@ -47,6 +47,7 @@ class ZoomPanel(wx.Frame):
         
         # Initialize data structures   
         self.export = False
+        self.live = False
         self.origin = None
         self.robot = None
         self.image_width = 2000
@@ -139,7 +140,7 @@ class ZoomPanel(wx.Frame):
             self.CreateNode(event.Coords)
             
         elif current_mode=='GUIMouse2':
-            self.fn001(event.Coords)
+            self.FindImageLimit(self.ls.image_data)
 #             pass    # Only 1 mode for now, skip the others
     
     
@@ -182,17 +183,7 @@ class ZoomPanel(wx.Frame):
         rc_menu.AppendMenu(31, '&Select..', rc_submenu1)
         
         self.PopupMenu( rc_menu, (event.GetPosition()[0]+10, event.GetPosition()[1]+30) )
-        rc_menu.Destroy()
-        
-    
-    def fn001(self, event):
-        nn = self.ToDegrees(math.pi)
-        nn2 = self.ToRadians(nn)
-        
-        print str(math.pi)
-        print nn
-        print nn2
-  
+        rc_menu.Destroy()  
               
 #---------------------------------------------------------------------------------------------#    
 #    Adds a representation of the robot to the canvas. A grey robot means that its pose info  #
@@ -929,7 +920,12 @@ class ZoomPanel(wx.Frame):
 #     (incomplete)                                                                           #
 #--------------------------------------------------------------------------------------------#
     def FindImageLimit(self, image_data):
-#         st = datetime.now()   
+        st = datetime.now() 
+        
+        top   = -1
+        bot   = -1
+        left  = -1
+        right = -1
         
         w      = self.image_width
         mid    = w/2        
@@ -938,31 +934,44 @@ class ZoomPanel(wx.Frame):
         
         for i in range(w):
             if found_vert is 0:
-                if image_data[ (w*i)+mid ] == chr(205):
-#                     print "Found top edge at row %s (%s)" % (str(i), str(w-i))
-                    top = w
+                if image_data[ (w*i)+mid ] == 0:
+                    bot = i
                     found_vert = 1
             elif found_vert is 1:
-                if image_data[ (w*i)+mid ] == chr(100):
-#                     print "Found bottom edge at row %s (%s)" % (str(i), str(w-i))
-                    bot = w
+                if image_data[ (w*i)+mid ] == -1:
+                    
+                    top = i
                     found_vert = 2
+            elif found_vert is 2:
+                if image_data[ (w*i)+mid ] == 0:
+                    found_vert = 1
                           
             if found_horz is 0:
-                if image_data[ (w*mid)+i ] == chr(205):
-#                     print "Found left edge at column %s (%s)" % (str(i), str(w-i))
-                    left = w
+                if image_data[ (w*mid)+i ] == 0:
+                    left = i
                     found_horz = 1
             elif found_horz is 1:
-                if image_data[ (w*mid)+i ] == chr(100):
-#                     print "Found right edge at column %s (%s)" % (str(i), str(w-i))
-                    right = w
+                if image_data[ (w*mid)+i ] == -1:
+                    
+                    right = i
                     found_horz = 2  
-                                      
-            if found_vert is 2 and found_horz is 2:
-                break                    
-#             et = datetime.now()
-#         print "Total time: %s" % str(et-st)
+            elif found_horz is 2:
+                if image_data[ (w*mid)+i ] == 0:
+                    found_horz = 1                                      
+#             if found_vert is 3 and found_horz is 3:
+#                 break                    
+            et = datetime.now()        
+        
+        print "Found top edge at row %s" % (str(top))
+        print "Found bottom edge at row %s" % (str(bot)) 
+        print "Found left edge at column %s" % (str(left))   
+        print "Found right edge at column %s" % (str(right))
+        
+        print "Total time: %s" % str(et-st)
+        
+        tl = (left,top)
+        br = (right,bot)        
+        return tl,br
 
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to a given location with a given floating-point magnification.                   #
@@ -976,6 +985,13 @@ class ZoomPanel(wx.Frame):
         tl = ( x-(iw/m), y+(iw/m) )
         br = ( x+(iw/m), y-(iw/m) )
                
+        self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
+        
+#--------------------------------------------------------------------------------------------#    
+#     Zooms to a given location with a given floating-point magnification.                   #
+#--------------------------------------------------------------------------------------------#        
+    def ZoomToFit(self): 
+        tl,br = self.FindImageLimit(self.ls.image_data)               
         self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
 
 #--------------------------------------------------------------------------------------------#    
@@ -992,8 +1008,7 @@ class ZoomPanel(wx.Frame):
 #     Clears the canvas                                                                      #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
-        self.Canvas.InitAll()
-        
+        self.Canvas.InitAll()        
     
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #
@@ -1027,7 +1042,8 @@ class ZoomPanel(wx.Frame):
         self.Show() 
         self.Layout()
 
-        self.Zoom((self.image_width/2,self.image_width/2),(self.image_width/750.0))
+#         self.Zoom((self.image_width/2,self.image_width/2),(self.image_width/750.0))
+        self.ZoomToFit()
 
 if __name__ == '__main__':
     app = wx.App(False) 

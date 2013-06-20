@@ -104,8 +104,9 @@ class NavCanvas(wx.Panel):
     def ZoomToFit(self,event):
         self.Canvas.GetMode()
         try:
-            iw = self.GetParent().image_width
-            self.GetParent().Zoom((iw/2,iw/2), (iw/1000.0))
+#             iw = self.GetParent().image_width
+#             self.GetParent().Zoom((iw/2,iw/2), (iw/1000.0))
+            self.GetParent().ZoomToFit()
         except IndexError:
             pass
         self.Canvas.SetFocus() # Otherwise the focus stays on the Button, and wheel events are lost.
