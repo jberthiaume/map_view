@@ -10,10 +10,9 @@ import math
 import listener as ls
 import publisher as pb
 from zoompanel import ZoomPanel
-from timerthread import TimerThread
 
-APP_SIZE        = (240,372)
-APP_SIZE_EXP    = (240,422)
+APP_SIZE        = (240,452)
+APP_SIZE_EXP    = (240,502)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BG_COLOR        = (205,205,205)
@@ -29,6 +28,10 @@ SIZER_BORDER    = 10
 
 #TODO: automatically generate map
 
+#TODO: ability to move nodes (arrow keys? dragging?)
+
+#TODO: function to convert (x,y) into image_data array index
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE_EXP,
@@ -39,7 +42,6 @@ class MainFrame(wx.Frame):
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
                        style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
                        faceName="lucida sans")    
-        
         
         self.ls = ls.listener(self)
         self.pb = pb.publisher(self) 
@@ -533,7 +535,58 @@ class ExplorePanel(wx.Panel):
             self.parent_frame = self.parent_frame.GetParent()
         
         self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.hbox00 = wx.BoxSizer(wx.HORIZONTAL)
         self.hbox01 = wx.BoxSizer(wx.HORIZONTAL)
+        
+        # Generate Graph button
+        vbox00 = wx.BoxSizer(wx.VERTICAL)   
+        self.btn_gg = wx.Button(self, label="Generate Graph", size=BUTTON_SIZE)        
+        self.btn_gg.Bind(wx.EVT_BUTTON, self.OnGenerateGraph)
+        self.btn_gg.Enable(False)
+        self.GetParent().buttons.append(self.btn_gg) 
+        vbox00.Add(self.btn_gg)        
+        self.sizer.Add(vbox00,1,wx.TOP,10)
+        
+        #TODO: thirds txtbox for dist between nodes
+        
+        # Textbox0
+        vbox03 = wx.BoxSizer(wx.VERTICAL)     
+        vbox03.AddSpacer(5)
+        self.txt0 = wx.TextCtrl(self, size=(80,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt0.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt0.SetFont(self.parent_frame.font)
+        self.txt0.SetValue('n')
+        self.txt0.SetForegroundColour((255,131,79))
+        self.txt0.SetBackgroundColour((85,85,80))
+        self.txt0.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        vbox03.Add(self.txt0)
+        self.hbox00.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+        
+        # Textbox1
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt1 = wx.TextCtrl(self, size=(80,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt1.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt1.SetFont(self.parent_frame.font)        
+        self.txt1.SetValue('k')
+        self.txt1.SetForegroundColour((255,131,79))
+        self.txt1.SetBackgroundColour((85,85,80))
+        self.txt1.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        vbox06.Add(self.txt1)
+        self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM,5)
+         
+#         # Textbox2
+#         vbox09 = wx.BoxSizer(wx.VERTICAL)     
+#         vbox09.AddSpacer(5)
+#         self.txt2 = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+#         self.txt2.SetMaxLength(3)    #Maximum of 3 characters
+#         self.txt2.SetFont(self.parent_frame.font)
+#         self.txt2.SetForegroundColour((255,131,79))
+#         self.txt2.SetBackgroundColour((85,85,80))
+#         vbox09.Add(self.txt2)
+#         self.hbox00.Add(vbox09,1,wx.TOP|wx.LEFT,10)
+        
+        self.sizer.Add(self.hbox00)
         
         # Node/Edge radio buttons
         vbox03 = wx.BoxSizer(wx.VERTICAL)
@@ -551,7 +604,7 @@ class ExplorePanel(wx.Panel):
         self.txt = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt.SetMaxLength(3)    #Maximum of 3 characters
         self.txt.SetFont(self.parent_frame.font)
-        self.txt.SetForegroundColour((255,106,54))
+        self.txt.SetForegroundColour((255,131,79))
         self.txt.SetBackgroundColour((85,85,80))
         vbox06.Add(self.txt)
         self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,10)
@@ -575,7 +628,8 @@ class ExplorePanel(wx.Panel):
         self.btn_tour.Enable(False)
         self.GetParent().buttons.append(self.btn_tour) 
         vbox10.Add(self.btn_tour)        
-        self.sizer.Add(vbox10,1,wx.TOP,10)
+        self.sizer.Add(vbox10,1,wx.TOP,10)        
+        
         
         self.SetSizer(self.sizer)  
         self.Layout()        
@@ -598,6 +652,9 @@ class ExplorePanel(wx.Panel):
         dc.DrawRectangle(3, 3, x-6, y-6)
         
         return wx.StaticBitmap(self, -1, bmp, (0, 0))
+    
+    def OnTxtFocus(self, event):
+        event.GetEventObject().Clear()
 
 #---------------------------------------------------------------------------------------------#    
 #    Functions for the radio buttons. Determines if we're looking for nodes or edges.         #
@@ -621,7 +678,7 @@ class ExplorePanel(wx.Panel):
             try:
                 magnification = self.zp.image_width / 250
                 node = self.zp.nodelist[ID]                
-                self.zp.SelectOneNode(self.zp.graphics_nodes[ID])                
+                self.zp.SelectOneNode(self.zp.graphics_nodes[ID], True)                
                 self.zp.Zoom(node.coords, magnification)
             except IndexError:
                 dlg = wx.MessageDialog(self,
@@ -647,7 +704,7 @@ class ExplorePanel(wx.Panel):
             try:
                 magnification = self.zp.image_width / 250                
                 edge = self.zp.edgelist[ID] 
-                self.zp.SelectOneEdge(self.zp.graphics_edges[ID])
+                self.zp.SelectOneEdge(self.zp.graphics_edges[ID], True)
                 end1 = self.zp.nodelist[int(edge.node1)].coords
                 end2 = self.zp.nodelist[int(edge.node2)].coords
                 
@@ -665,6 +722,24 @@ class ExplorePanel(wx.Panel):
                 "Please enter a positive integer value", "Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()
+            
+#---------------------------------------------------------------------------------------------#    
+#                                                                                             #
+#---------------------------------------------------------------------------------------------#             
+    def OnGenerateGraph(self, event): 
+        try:      
+            n = int(self.txt0.GetValue())
+        except:
+            n = 50 #default
+        try:      
+            k = int(self.txt1.GetValue())
+        except:
+            k = 5 #default
+        try:      
+            d = int(self.txt2.GetValue())
+        except:
+            d = 25 #default
+        self.zp.GenerateGraph(n,k,d)        
                    
 #---------------------------------------------------------------------------------------------#    
 #    TODO: Publish some stuff                                                                 #

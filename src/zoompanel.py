@@ -9,8 +9,10 @@ Created on May 30, 2013
 import wx 
 import pickle
 import math
+import sys
 import node as N
 import edge as E
+import random as R
 import numpy as NP
 import listener as LS
 import publisher as PB
@@ -33,11 +35,11 @@ TEXT_COLOR          = (119,41,83)
 #----- Global dimensions for graphical objects -----#
 NODE_DIAM           = 9
 NODE_BORDER_WIDTH   = 2
-EDGE_WIDTH          = 7
+EDGE_WIDTH          = 5
 ROBOT_DIAM          = 9
 ROBOT_BORDER_WIDTH  = 2
-FONT_SIZE_1         = 4     # for single-digit numbers
-FONT_SIZE_2         = 4     # for double-digit numbers
+FONT_SIZE_1         = 4     # for single/double-digit numbers
+FONT_SIZE_2         = 3     # for triple-digit numbers
 
 class ZoomPanel(wx.Frame): 
 
@@ -66,8 +68,8 @@ class ZoomPanel(wx.Frame):
         
         # Connection matrix data structure
         # See "GenerateConnectionMatrix()" for more info
-        self.conn_matrix = NP.empty(shape=(40,40))
-        self.conn_matrix[:] = -1     
+        self.conn_matrix = NP.empty(shape=(150,150))
+        self.conn_matrix[:] = -1  
         
         try:
             self.ls = self.GetParent().ls
@@ -99,6 +101,7 @@ class ZoomPanel(wx.Frame):
         id_sel_nodes = wx.NewId()
         id_sel_edges = wx.NewId()
         id_create_edges = wx.NewId()
+        id_connect = wx.NewId()
         id_del = wx.NewId()
         
         wx.EVT_MENU(self, id_sel_all, self.SelectAll) 
@@ -106,6 +109,7 @@ class ZoomPanel(wx.Frame):
         wx.EVT_MENU(self, id_sel_nodes, self.SelectNodes)
         wx.EVT_MENU(self, id_sel_edges, self.SelectEdges)
         wx.EVT_MENU(self, id_create_edges, self.CreateEdges)
+        wx.EVT_MENU(self, id_connect, self.OnConnectNeighbors)
         wx.EVT_MENU(self, id_del, self.DeleteSelection)
         
         # Accelerator table for hotkeys
@@ -114,6 +118,7 @@ class ZoomPanel(wx.Frame):
                                               (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('N'), id_sel_nodes),
                                               (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('E'), id_sel_edges),
                                               (wx.ACCEL_CTRL, ord('E'), id_create_edges),
+                                              (wx.ACCEL_CTRL, ord('K'), id_connect),
                                               (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_del)
                                              ])
         self.SetAcceleratorTable(self.accel_tbl)  
@@ -140,7 +145,8 @@ class ZoomPanel(wx.Frame):
             self.CreateNode(event.Coords)
             
         elif current_mode=='GUIMouse2':
-            self.FindImageLimit(self.ls.image_data)
+            self.GenerateGraph(20, 10)
+#             self.CheckNodeLocation(self.ls.image_data, event.Coords, 10)
 #             pass    # Only 1 mode for now, skip the others
     
     
@@ -159,11 +165,16 @@ class ZoomPanel(wx.Frame):
         wx.EVT_MENU(self,21,self.CreateEdges)
         if len(self.sel_nodes) < 2:
             rc_menu.Enable(21, False)
-        
-        rc_menu.Append(22, '&Delete Selection\tDel')        
-        wx.EVT_MENU(self,22,self.DeleteSelection)
-        if len(self.sel_nodes)<1 and len(self.sel_edges)<1:
+            
+        rc_menu.Append(22, 'Connect Neighbors\tCtrl+K')        
+        wx.EVT_MENU(self,22,self.OnConnectNeighbors)
+        if len(self.sel_nodes) < 1:
             rc_menu.Enable(22, False)
+        
+        rc_menu.Append(23, '&Delete Selection\tDel')        
+        wx.EVT_MENU(self,23,self.DeleteSelection)
+        if len(self.sel_nodes)<1 and len(self.sel_edges)<1:
+            rc_menu.Enable(23, False)
         
         rc_menu.AppendSeparator()
         
@@ -337,8 +348,7 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
 #--------------------------------------------------------------------------------------------#    
-    def CreateNode(self, coords):  
-        
+    def CreateNode(self, coords): 
         # coords are in float, but we need int values for pixels
         node_coords = [int(coords[0]), int(coords[1])]   
         node = N.Node(len(self.nodelist), node_coords)
@@ -349,7 +359,7 @@ class ZoomPanel(wx.Frame):
         lw = NODE_BORDER_WIDTH
         lc = NODE_BORDER    
         fc = NODE_FILL
-        if int(ID) < 10:  
+        if int(ID) < 100:  
             fs = FONT_SIZE_1
         else:
             fs = FONT_SIZE_2   
@@ -378,20 +388,22 @@ class ZoomPanel(wx.Frame):
                 print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
                 
             except IndexError:
-                # Out of space in the connection matrix - expand it by 20 nodes
+                # Out of space in the connection matrix - expand it by 50 nodes
                 curr_len = len(self.conn_matrix[0])
-                self.conn_matrix.resize((curr_len+20, curr_len+20))
+                self.conn_matrix.resize((curr_len+50, curr_len+50))
                 
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0 
                 print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
             
             self.Canvas.Draw(True)
-            self.GetParent().SetSaveStatus(False)  
+            self.GetParent().SetSaveStatus(False) 
+            return True 
                   
         else:
             print "Could not create node at (%s, %s). (Collision with node %s)" \
                     % (node_coords[0], node_coords[1], str(collision))
+            return False
         
 
 #--------------------------------------------------------------------------------------------#    
@@ -431,6 +443,11 @@ class ZoomPanel(wx.Frame):
                     self.GenerateConnectionMatrix()
                     node1 = self.sel_nodes[j]
                     node2 = self.sel_nodes[j+1]
+
+#                      TODO: integrate this stuff
+#                     xxxxx = self.CheckEdgeLocation(self.ls.image_data, 
+#                                            self.nodelist[int(node1.Name)].coords, 
+#                                            self.nodelist[int(node2.Name)].coords, 1)
                     
                     # Only create the edge if no edge exists between the selected points
                     if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
@@ -471,7 +488,7 @@ class ZoomPanel(wx.Frame):
                     lw = NODE_BORDER_WIDTH
                     lc = NODE_BORDER    
                     fc = NODE_FILL 
-                    if int(ID) < 10:  
+                    if int(ID) < 100:  
                         fs = FONT_SIZE_1
                     else:
                         fs = FONT_SIZE_2          
@@ -497,6 +514,183 @@ class ZoomPanel(wx.Frame):
             self.DeselectAll(event)
             self.GetParent().SetSaveStatus(False)
 
+#--------------------------------------------------------------------------------------------#    
+#     (incomplete)                                                                           #
+#     coords = node's coords                                                                 #
+#     dw = minimum distance to wall                                                          #
+#     dn = minimum distance between nodes                                                    #
+#--------------------------------------------------------------------------------------------#            
+    def CheckNodeLocation(self, image_data, coords, dw, dn):
+        w = self.image_width
+        x = int(coords[0])
+        y = int(coords[1])        
+        
+#         points = [(x-dist,y-dist),
+#                   (x+dist,y-dist),
+#                   (x+dist,y+dist),
+#                   (x-dist,y+dist),
+#                   (x-dist,y-dist)]
+        for i in range(-dw, dw, 1):
+            if image_data[ (w*(y-dw)) + (x+i) ] != 0:
+                return False
+            if image_data[ (w*(y+dw)) + (x+i) ] != 0:
+                return False
+            if image_data[ (w*(y+i)) + (x-dw) ] != 0:
+                return False
+            if image_data[ (w*(y+i)) + (x+dw) ] != 0:
+                return False
+            
+        for node2 in self.nodelist:
+            if self.Distance(coords, node2.coords) < dn:
+#                 self.Canvas.AddArc((coords[0],coords[1]+dn), (coords[0],coords[1]+18),
+#                                    coords, LineColor=ROBOT_FILL_2, LineWidth=2)
+#                 print "Collision with node %s" % node2.id
+                return False
+        
+        return True
+    
+    
+    
+    def CheckEdgeLocation(self, image_data, coords1, coords2, increment):
+        w  = self.image_width
+        x1 = int(coords1[0])
+        y1 = int(coords1[1])
+        x2 = int(coords2[0])
+        y2 = int(coords2[1])
+        
+        dx    = x2-x1
+        dy    = y2-y1
+        theta = math.atan2(dy,dx)
+        ln    = self.Distance(coords1,coords2)
+        kx    = math.cos(theta)
+        ky    = math.sin(theta)
+        
+        pos = 0
+        done = False
+        last = False
+        points = []
+        while not done:
+            x = int( x1+(pos*kx) )
+            y = int( y1+(pos*ky) )
+            points.append((x,y))
+            
+            if image_data[ (w*y)+x ] != 0:
+#                 self.Canvas.AddPointSet(points, ROBOT_FILL_2, 2)
+#                 self.Canvas.Draw(True)
+                return False
+            
+            if not last and pos>ln:
+                last = True
+                pos = ln
+            elif last:
+                done = True
+                
+            pos += increment
+#         self.Canvas.AddPointSet(points, ROBOT_FILL_2, 2)        
+#         self.Canvas.Draw(True)
+        return True
+            
+
+
+#--------------------------------------------------------------------------------------------#    
+#     Automated graph creation algorithm (grid style)                                        #
+#     d1 = minimum distance between node and wall                                            #
+#     d2 = minimum distance between nodes                                                    #
+#--------------------------------------------------------------------------------------------#
+#     def GenerateGraph(self, d1, d2):
+#         data = self.ls.image_data
+#         lim = self.FindImageLimit(data, 4)
+#         
+#         d1 = 20
+#         d2 = 15
+#         b = lim[0]
+#         t = lim[1]
+#         l = lim[2]
+#         r = lim[3]
+#         
+#         rem_v = ((t-d1-b-d1) % d2) /2
+#         rem_h = ((r-d1-l-d1) % d2) /2
+#         
+#         for i in range(b+d1+rem_v, t-d1, d2):
+#             for j in range(l+d1+rem_h, r-d1, d2):
+#                 if self.CheckNodeLocation(data, (j,i), 5) is True:
+#                     self.CreateNode( (j,i) )   
+
+#--------------------------------------------------------------------------------------------#    
+#     Automated graph creation algorithm (random)                                            #
+#     n = number of nodes to created                                                         #
+#     k = number of neighbors to analyze for each node                                       #
+#     d = minimum distance between nodes                                                     #
+#--------------------------------------------------------------------------------------------#                    
+    def GenerateGraph(self, n, k, d):
+        wx.BeginBusyCursor()
+        self.SelectAll(None)
+        self.DeleteSelection(None)
+        
+        data = self.ls.image_data
+        lim = self.FindImageLimit(data,4)
+        
+        b = lim[0]
+        t = lim[1]
+        l = lim[2]
+        r = lim[3]
+        
+#         n = int( ((t-b)*(r-l)) / 1500.0 )
+#         n = 50
+#         k = 10
+        
+        nodes_created = 0
+        while nodes_created < n:
+            x = int( l + ((r-l)*R.random()) )
+            y = int( b + ((t-b)*R.random()) )
+            
+            if self.CheckNodeLocation(data, (x,y), 5, d) is True:
+                if self.CreateNode( (x,y) ) is True:
+                    self.ConnectNeighbors(nodes_created, k)
+                    nodes_created += 1
+                   
+        wx.EndBusyCursor()
+
+        
+    def GetNodeDistances(self, node1, k):
+#         for i in range(len(self.nodelist)):
+        distances = []
+        for node2 in self.nodelist:
+            d = self.Distance(node1.coords, node2.coords)
+            distances.append((d, node2.id))
+        
+        distances.sort(key=lambda tup: tup[0])
+        return distances[0:k]
+     
+    #TODO: connect neighbors with >1 selections
+    def OnConnectNeighbors(self, event):
+        if len(self.sel_nodes) == 1:
+            self.ConnectNeighbors( int(self.sel_nodes[0].Name), 5)
+            self.DeselectAll(event)
+        else:
+            print "option unavailable for >1 selected nodes"
+    
+    
+    def ConnectNeighbors(self, input_node, k):  
+        data = self.ls.image_data
+        distances = self.GetNodeDistances( self.nodelist[input_node],k )
+        for entry in distances:                      
+            
+            if entry[1] == input_node:
+                continue    # Skip the node if it's the same one we're at
+            
+            node1 = self.nodelist[ input_node ]
+            node2 = self.nodelist[ entry[1] ]
+            if self.CheckEdgeLocation(data,node1.coords, 
+                                      node2.coords,1) is True: 
+#                             print "location OK (%s -> %s)" % (node1.id, node2.id)     
+                self.DeselectAll(None)                     
+                self.SelectOneNode(self.graphics_nodes[node1.id], False)
+                self.SelectOneNode(self.graphics_nodes[node2.id], False)
+                self.CreateEdges(None)
+                
+#                         else:
+#                             print "location blocked (%s -> %s)" % (node1.id, node2.id)
 
 #--------------------------------------------------------------------------------------------#    
 #      Deletes all selected nodes and edges                                                  #
@@ -580,7 +774,7 @@ class ZoomPanel(wx.Frame):
                 nodes[j].id = j
                 nodes[j].graphic = j
                 graphics[j].Name = str(j)
-                if j < 10:  
+                if j < 100:  
                     fs = FONT_SIZE_1
                 else:
                     fs = FONT_SIZE_2
@@ -759,22 +953,24 @@ class ZoomPanel(wx.Frame):
 
     
 #--------------------------------------------------------------------------------------------#    
-#     Selects a single node and deselects everything else.                                   #
+#     Selects a single node. If desel is True, deselects everything else.                    #
 #--------------------------------------------------------------------------------------------#   
-    def SelectOneNode(self, obj):     
-        self.DeselectAll(event=None)
-        print "Selected Node #" + obj.Name      
+    def SelectOneNode(self, obj, desel):
+        if desel is True:      
+            self.DeselectAll(event=None)
+            print "Selected Node #" + obj.Name      
         self.sel_nodes.append(obj)          
         obj.SetFillColor(HIGHLIGHT_COLOR)    
         self.last_sel_node = obj.Name
         self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
-#     Selects a single edge and deselects everything else.                                   #
+#     Selects a single edge. If desel is True, deselects everything else.                    #
 #--------------------------------------------------------------------------------------------#   
-    def SelectOneEdge(self, obj):     
-        self.DeselectAll(event=None)
-        print "Selected Edge #" + obj.Name     
+    def SelectOneEdge(self, obj, desel):
+        if desel is True:     
+            self.DeselectAll(event=None)
+            print "Selected Edge #" + obj.Name     
         self.sel_edges.append(obj)    
         obj.SetLineColor(HIGHLIGHT_COLOR)
         self.Canvas.Draw(True) 
@@ -811,14 +1007,17 @@ class ZoomPanel(wx.Frame):
 #     Select/deselect everything                                                             #
 #--------------------------------------------------------------------------------------------#             
     def SelectAll(self, event):                       
-        self.DeselectAll(event)         
-        for node in self.nodelist:
-            self.graphics_nodes[ node.graphic ].SetFillColor(HIGHLIGHT_COLOR)
+        self.DeselectAll(event)   
+           
+        for node in self.nodelist:                
+            if event is not None:   
+                self.graphics_nodes[ node.graphic ].SetFillColor(HIGHLIGHT_COLOR)
             self.sel_nodes.append(self.graphics_nodes[node.graphic])
         for edge in self.edgelist:
-            self.graphics_edges[ edge.graphic ].SetLineColor(HIGHLIGHT_COLOR)
+            if event is not None:   
+                self.graphics_edges[ edge.graphic ].SetLineColor(HIGHLIGHT_COLOR)
             self.sel_edges.append(self.graphics_edges[edge.graphic])
-                
+            
         self.Canvas.Draw(True) 
         print "Selected all nodes and edges"
             
@@ -917,61 +1116,62 @@ class ZoomPanel(wx.Frame):
             self.CreateEdges(event=None)     
         
 #--------------------------------------------------------------------------------------------#    
-#     (incomplete)                                                                           #
+#    Finds and returns the extremities of the graph (the topmost point, the leftmost point,  #
+#    etc).                                                                                   #
+#    The 'granularity' argument defines how extensively the search is performed: Higher      #
+#    values for this argument will execute the subroutine faster, but with less accuracy     #                                                        #
 #--------------------------------------------------------------------------------------------#
-    def FindImageLimit(self, image_data):
-        st = datetime.now() 
-        
-        top   = -1
-        bot   = -1
-        left  = -1
-        right = -1
-        
+    def FindImageLimit(self, image_data, granularity):
+#         st = datetime.now()       
         w      = self.image_width
-        mid    = w/2        
-        found_vert = 0
-        found_horz = 0
+        mid    = w/2   
+        d      = granularity     #interval between scans
         
-        for i in range(w):
-            if found_vert is 0:
-                if image_data[ (w*i)+mid ] == 0:
-                    bot = i
-                    found_vert = 1
-            elif found_vert is 1:
-                if image_data[ (w*i)+mid ] == -1:
+        foundB = False
+        foundT = False
+        foundL = False
+        foundR = False
+        
+        top   = w
+        bot   = 0
+        left  = 0
+        right = w
+        
+        for i in range(w/(2*d)):
+            for j in range(w/d):
+                if image_data[ (w*i*d)+(j*d) ] >= 0 and foundB is False:
+                    bot = i*d
+                    foundB = True
                     
-                    top = i
-                    found_vert = 2
-            elif found_vert is 2:
-                if image_data[ (w*i)+mid ] == 0:
-                    found_vert = 1
-                          
-            if found_horz is 0:
-                if image_data[ (w*mid)+i ] == 0:
-                    left = i
-                    found_horz = 1
-            elif found_horz is 1:
-                if image_data[ (w*mid)+i ] == -1:
+                if image_data[ w-((w*i*d)+(j*d)) ] >= 0 and foundT is False:
+                    top = w-(i*d)
+                    foundT = True
                     
-                    right = i
-                    found_horz = 2  
-            elif found_horz is 2:
-                if image_data[ (w*mid)+i ] == 0:
-                    found_horz = 1                                      
-#             if found_vert is 3 and found_horz is 3:
-#                 break                    
-            et = datetime.now()        
+                if image_data[ (w*j*d)+(i*d) ] >= 0 and foundL is False:
+                    left = i*d
+                    foundL = True
+                    
+                if image_data[ w-((w*j*d)+(i*d)) ] >= 0 and foundR is False:
+                    right = w-(i*d)
+                    foundR = True
+                    
+                if (foundB is True and foundT is True and
+                    foundL is True and foundR is True):
+                    break
+            if (foundB is True and foundT is True and
+                foundL is True and foundR is True):
+                break                     
+      
+        et = datetime.now()
         
-        print "Found top edge at row %s" % (str(top))
-        print "Found bottom edge at row %s" % (str(bot)) 
-        print "Found left edge at column %s" % (str(left))   
-        print "Found right edge at column %s" % (str(right))
-        
-        print "Total time: %s" % str(et-st)
-        
-        tl = (left,top)
-        br = (right,bot)        
-        return tl,br
+#         print "Top edge at row %s" % (str(top))
+#         print "Bottom edge at row %s" % (str(bot)) 
+#         print "Left edge at column %s" % (str(left))   
+#         print "Right edge at column %s" % (str(right))
+#         
+#         print "Total time: %s" % str(et-st)
+                
+        return bot,top,left,right
 
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to a given location with a given floating-point magnification.                   #
@@ -991,7 +1191,11 @@ class ZoomPanel(wx.Frame):
 #     Zooms to a given location with a given floating-point magnification.                   #
 #--------------------------------------------------------------------------------------------#        
     def ZoomToFit(self): 
-        tl,br = self.FindImageLimit(self.ls.image_data)               
+        lim = self.FindImageLimit(self.ls.image_data, 10) 
+        
+        tl = (lim[1],lim[2])
+        br = (lim[0],lim[3])
+                      
         self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
 
 #--------------------------------------------------------------------------------------------#    
