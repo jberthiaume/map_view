@@ -151,46 +151,7 @@ class listener():
                 pass #unexpected value
                     
         return output_array
-    
-#---------------------------------------------------------------------------------------------#    
-#    (incomplete)                                                                             #
-#---------------------------------------------------------------------------------------------#    
-    def FindEdges(self, input_array):     
-        top    = None
-        bot    = None
-        left   = None
-        right  = None
-        
-        w      = self.image_width
-        mid    = w/2        
-        found_vert = 0
-        found_horz = 0
-        
-        for i in range(w):
-            if found_vert is 0:
-                if input_array[ (w*i)+mid ] >= 0:
-                    print "Found bottom edge at row " + str(i)
-                    bot = w
-                    found_vert = 1
-            elif found_vert is 1:
-                if input_array[ (w*i)+mid ] < 0:
-                    print "Found top edge at row " + str(i)
-                    top = w
-                    found_vert = 2
-                          
-            if found_horz is 0:
-                if input_array[ (w*mid)+i ] >= 0:
-                    print "Found left edge at column " + str(i)
-                    left = w
-                    found_horz = 1
-            elif found_horz is 1:
-                if input_array[ (w*mid)+i ] < 0:
-                    print "Found right edge at column " + str(i)
-                    right = w
-                    found_horz = 2  
-                                      
-            if found_vert is 2 and found_horz is 2:
-                break        
+      
     
 #---------------------------------------------------------------------------------------------#    
 #    Converts metric coordinates to pixel coordinates.                                        #

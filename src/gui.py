@@ -11,8 +11,8 @@ import listener as ls
 import publisher as pb
 from zoompanel import ZoomPanel
 
-APP_SIZE        = (240,452)
-APP_SIZE_EXP    = (240,502)
+APP_SIZE        = (240,462)
+APP_SIZE_EXP    = (240,512)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BG_COLOR        = (205,205,205)
@@ -22,15 +22,18 @@ V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
 #TODO: check variables on save (new nodes start at ID 0 even if nodes were loaded??)
+#      (hard to reproduce)
 
 #TODO: opening a file while nodes still on canvas = some node numbers invisible
 #      (doesn't seem to break functionality) 
 
-#TODO: automatically generate map
-
-#TODO: ability to move nodes (arrow keys? dragging?)
+#TODO: ability to move nodes (arrow keys? click/drag?)
 
 #TODO: function to convert (x,y) into image_data array index
+
+#TODO: fix "phantom nodes" after deletion
+
+#TODO: fix settings button Ok
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -46,19 +49,27 @@ class MainFrame(wx.Frame):
         self.ls = ls.listener(self)
         self.pb = pb.publisher(self) 
 #         self.tt = TimerThread(self)       
-        self.mp = MainPanel(self)  
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.mp, 1, wx.EXPAND)
+        self.mp = MainPanel(self)
+        self.sp = SettingsPanel(self)  
+#         self.sizer = wx.BoxSizer(wx.VERTICAL)
+#         self.sizer.Add(self.mp, 1, wx.EXPAND)
         
+        self.mp.Show()
+        self.sp.Hide()
         self.ls.SetAttributes()
 #         self.tt.start()
+
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        self.sizer.Add(self.mp,1,wx.EXPAND)
+        self.sizer.Add(self.sp,1,wx.EXPAND)
+        self.SetSizer(self.sizer)
           
         self.Bind(wx.EVT_MOTION, self.OnMouse)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp) 
         
-        self.SetPosition((0,0))        
-        self.Layout()  
+        self.SetPosition((0,0)) 
+        self.Layout() 
         self.mp.ep.size = self.mp.ep.GetSize()
 
 #---------------------------------------------------------------------------------------------#    
@@ -84,8 +95,7 @@ class MainFrame(wx.Frame):
             self.ReleaseMouse() 
             self.leftDown = False
         except wx._core.PyAssertionError:
-            pass  
-        
+            pass          
         
         
 class MainPanel(wx.Panel):
@@ -97,6 +107,11 @@ class MainPanel(wx.Panel):
         self.saved = True
         self.buttons = []
         self.contents = []
+        
+        self.N = 70
+        self.K = 6
+        self.D = 40
+        self.E = 80
         
         # Set parent frame value
         self.parent_frame = parent 
@@ -175,7 +190,7 @@ class MainPanel(wx.Panel):
         self.btn_open.Bind(wx.EVT_BUTTON, self.OnOpen)  
         hbox10.Add(self.btn_open)           
         self.sizer_menu.Add(hbox10,0,
-                            wx.TOP|wx.LEFT|wx.RIGHT
+                            wx.LEFT|wx.RIGHT
                             ,SIZER_BORDER)  
         # Save button
         hbox13 = wx.BoxSizer(wx.HORIZONTAL)            
@@ -200,7 +215,16 @@ class MainPanel(wx.Panel):
                             wx.TOP|wx.LEFT|wx.RIGHT
                             ,SIZER_BORDER)  
         
-        self.sizer_menu.AddSpacer(V_SPACER_LARGE)
+        self.sizer_menu.AddSpacer(V_SPACER_LARGE)        
+                
+        # Settings
+        hbox19 = wx.BoxSizer(wx.HORIZONTAL)                      
+        hbox19.AddSpacer(H_SPACER_WIDTH)
+        self.btn_set = wx.Button(self, label="Settings", size=BUTTON_SIZE)        
+        self.btn_set.Bind(wx.EVT_BUTTON, self.OnSettings)
+        self.buttons.append(self.btn_set) 
+        hbox19.Add(self.btn_set)        
+        self.sizer_menu.Add(hbox19,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)
               
         # Exit button
         hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
@@ -469,6 +493,13 @@ class MainPanel(wx.Panel):
     def SetSaveStatus(self, bool_save):
         self.saved = bool_save
 
+    
+    def OnSettings(self, event):
+        self.Hide()
+        self.parent_frame.sp.Show()
+        self.parent_frame.Layout()
+        self.Layout()
+
 #---------------------------------------------------------------------------------------------#    
 #    Exits the application. If the current map is unsaved, user is asked to save first.       #
 #---------------------------------------------------------------------------------------------#    
@@ -513,6 +544,216 @@ class MainPanel(wx.Panel):
             self.leftDown = False
         except wx._core.PyAssertionError:
             pass
+       
+class SettingsPanel(wx.Panel):
+    def __init__(self, parent):        
+        wx.Panel.__init__(self, parent=parent)
+        self.bg = self.DrawBG(APP_SIZE_EXP)
+        
+        self.leftDown = False     
+        self.parent_frame = parent 
+        while self.parent_frame.GetParent() is not None: 
+            self.parent_frame = self.parent_frame.GetParent()
+        
+        self.labels = []
+        self.ls = self.parent_frame.ls
+        self.pb = self.parent_frame.pb
+        self.sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        title_font = self.parent_frame.font
+        title_font.SetPointSize(12)
+        title_font.SetWeight(wx.BOLD)
+        
+        # Big Label
+        vbox00 = wx.BoxSizer(wx.VERTICAL)   
+        self.lbl_gg = wx.StaticText(self, label="Graph Generation Settings", 
+                                    size=(243,30), style=wx.CENTER)
+        
+        self.lbl_gg.SetFont(title_font)
+        self.labels.append(self.lbl_gg)
+        vbox00.Add(self.lbl_gg)        
+        self.sizer.Add(vbox00,1,wx.TOP|wx.LEFT,15)
+        
+        # LabelN
+        self.hbox00 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer.Add(self.hbox00)
+        self.hbox00.AddSpacer(10)
+        vbox03 = wx.BoxSizer(wx.VERTICAL)     
+        vbox03.AddSpacer(5)
+        self.lbl_n = wx.StaticText(self, label="Number of nodes",
+                                   size=(130,35))
+        self.labels.append(self.lbl_n)
+        vbox03.Add(self.lbl_n)
+        self.hbox00.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        
+        # TextboxN
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt_n = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt_n.SetFont(self.parent_frame.font)  
+        self.txt_n.SetForegroundColour((255,131,79))
+        self.txt_n.SetBackgroundColour((85,85,80))
+        self.txt_n.SetValue( str(self.GetParent().mp.N) )
+        vbox06.Add(self.txt_n)
+        self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+        
+        # LabelK
+        self.hbox02 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer.Add(self.hbox02)
+        self.hbox02.AddSpacer(10)
+        vbox03 = wx.BoxSizer(wx.VERTICAL)     
+        vbox03.AddSpacer(5)
+        self.lbl_k = wx.StaticText(self, label="Number of neighbors to scan",
+                                   size=(130,35))
+        self.labels.append(self.lbl_k)
+        vbox03.Add(self.lbl_k)
+        self.hbox02.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        
+        # TextboxK
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt_k = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_k.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt_k.SetFont(self.parent_frame.font)  
+        self.txt_k.SetForegroundColour((255,131,79))
+        self.txt_k.SetBackgroundColour((85,85,80))
+        self.txt_k.SetValue( str(self.GetParent().mp.K) )
+        vbox06.Add(self.txt_k)
+        self.hbox02.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+        
+        # LabelD
+        self.hbox04 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer.Add(self.hbox04)
+        self.hbox04.AddSpacer(10)
+        vbox03 = wx.BoxSizer(wx.VERTICAL)     
+        vbox03.AddSpacer(5)
+        self.lbl_d = wx.StaticText(self, label="Minimum distance between nodes",
+                                   size=(130,35))
+        self.labels.append(self.lbl_d)
+        vbox03.Add(self.lbl_d)
+        self.hbox04.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        
+        # TextboxD
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt_d = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt_d.SetFont(self.parent_frame.font)  
+        self.txt_d.SetForegroundColour((255,131,79))
+        self.txt_d.SetBackgroundColour((85,85,80))
+        self.txt_d.SetValue( str(self.GetParent().mp.D) )
+        vbox06.Add(self.txt_d)
+        self.hbox04.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)   
+        
+        # LabelE
+        self.hbox06 = wx.BoxSizer(wx.HORIZONTAL)
+        self.sizer.Add(self.hbox06)
+        self.hbox06.AddSpacer(10)
+        vbox03 = wx.BoxSizer(wx.VERTICAL)     
+        vbox03.AddSpacer(5)
+        self.lbl_e = wx.StaticText(self, label="Maximum scan radius (px)",
+                                   size=(130,35))
+        self.labels.append(self.lbl_e)
+        vbox03.Add(self.lbl_e)
+        self.hbox06.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        
+        # TextboxE
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt_e = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt_e.SetFont(self.parent_frame.font)  
+        self.txt_e.SetForegroundColour((255,131,79))
+        self.txt_e.SetBackgroundColour((85,85,80))
+        self.txt_e.SetValue( str(self.GetParent().mp.E) )
+        vbox06.Add(self.txt_e)
+        self.hbox06.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)      
+        
+        # Ok button
+        hbox30 = wx.BoxSizer(wx.HORIZONTAL)             
+        hbox30.AddSpacer(H_SPACER_WIDTH)
+        btn_ok = wx.Button(self, label="Ok", size=BUTTON_SIZE)  
+        self.parent_frame.mp.buttons.append(btn_ok)      
+        hbox30.Add(btn_ok)           
+        btn_ok.Bind(wx.EVT_BUTTON, self.OnOk)
+        self.sizer.Add(hbox30,0,wx.TOP|wx.LEFT|wx.RIGHT|wx.BOTTOM,SIZER_BORDER)  
+                
+        # Mouse capturing events
+        self.bg.Bind(wx.EVT_MOTION, self.OnMouse)
+        self.bg.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
+        self.bg.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)        
+        self.Bind(wx.EVT_MOTION, self.OnMouse)
+        self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
+        self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)   
+        
+        self.SetSizer(self.sizer) 
+        self.parent_frame.mp.PaintButtons ( (255,255,255),BUTTON_COLOR ) 
+        self.PaintLabels(BUTTON_COLOR, BG_COLOR)    
+        self.Layout()
+        
+    def DrawBG(self, size):
+        x = size[0]
+        y = size[1]
+        bmp = wx.EmptyBitmap(x,y)
+        dc = wx.MemoryDC()
+        dc.SelectObject(bmp)
+        
+        solidbrush = wx.Brush(BUTTON_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(-1, -1, x+2, y+2)
+        solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
+        dc.SetBrush(solidbrush)        
+        dc.DrawRectangle(3, 3, x-6, y-6)
+        
+        return wx.StaticBitmap(self, -1, bmp, (0, 0))
+    
+#---------------------------------------------------------------------------------------------#    
+#    Sets the foreground and background color of all labels on the settings panel             #
+#---------------------------------------------------------------------------------------------#        
+    def PaintLabels(self, foreground, background):
+        try:
+            for lbl in self.labels:
+                lbl.SetForegroundColour(foreground)
+                lbl.SetBackgroundColour(background)
+        except IOError:
+            print "Invalid argument: expected (R,G,B) value"
+    
+    #TODO: except non-integer args
+    #TODO: warnings for bad values
+    def OnOk(self, event):
+        self.N = int( self.txt_n.GetValue() )
+        self.K = int( self.txt_k.GetValue() )
+        self.D = int( self.txt_d.GetValue() )
+        self.E = int( self.txt_e.GetValue() )
+        self.Hide()
+        self.parent_frame.mp.Show()
+        self.parent_frame.Layout()
+        
+#---------------------------------------------------------------------------------------------#    
+#    Mouse capturing functions to allow dragging of the control panel around the screen.      #
+#---------------------------------------------------------------------------------------------#        
+    def OnMouse(self, event):
+        if event.Dragging() and self.leftDown:
+            pos = self.ClientToScreen(event.GetPosition()) 
+            fp = (pos.x - self.delta.x, pos.y - self.delta.y) 
+            self.parent_frame.Move(fp)  
+            
+    def OnLeftDown(self, event): 
+        self.CaptureMouse() 
+        self.leftDown = True 
+        pos = self.ClientToScreen(event.GetPosition()) 
+        origin = self.parent_frame.GetPosition() 
+        dx = pos.x - origin.x 
+        dy = pos.y - origin.y 
+        self.delta = wx.Point(dx, dy)  
+        
+    def OnLeftUp(self, event): 
+        try:
+            self.ReleaseMouse() 
+            self.leftDown = False
+        except wx._core.PyAssertionError:
+            pass 
         
         
 class ExplorePanel(wx.Panel):
@@ -547,46 +788,55 @@ class ExplorePanel(wx.Panel):
         vbox00.Add(self.btn_gg)        
         self.sizer.Add(vbox00,1,wx.TOP,10)
         
-        #TODO: thirds txtbox for dist between nodes
-        
-        # Textbox0
-        vbox03 = wx.BoxSizer(wx.VERTICAL)     
-        vbox03.AddSpacer(5)
-        self.txt0 = wx.TextCtrl(self, size=(80,30), style=wx.NO_BORDER|wx.TE_CENTER)
-        self.txt0.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt0.SetFont(self.parent_frame.font)
-        self.txt0.SetValue('n')
-        self.txt0.SetForegroundColour((255,131,79))
-        self.txt0.SetBackgroundColour((85,85,80))
-        self.txt0.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        vbox03.Add(self.txt0)
-        self.hbox00.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
-        
-        # Textbox1
-        vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
-        self.txt1 = wx.TextCtrl(self, size=(80,30), style=wx.NO_BORDER|wx.TE_CENTER)
-        self.txt1.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt1.SetFont(self.parent_frame.font)        
-        self.txt1.SetValue('k')
-        self.txt1.SetForegroundColour((255,131,79))
-        self.txt1.SetBackgroundColour((85,85,80))
-        self.txt1.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        vbox06.Add(self.txt1)
-        self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM,5)
-         
-#         # Textbox2
+#         # TextboxN
+#         vbox03 = wx.BoxSizer(wx.VERTICAL)     
+#         vbox03.AddSpacer(5)
+#         self.txt_n = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+#         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
+#         self.txt_n.SetFont(self.parent_frame.font)
+#         self.txt_n.SetValue('n')
+#         self.txt_n.SetForegroundColour((255,131,79))
+#         self.txt_n.SetBackgroundColour((85,85,80))
+#         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+#         vbox03.Add(self.txt_n)
+#         self.hbox00.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+#         
+#         # TextboxK
+#         vbox06 = wx.BoxSizer(wx.VERTICAL)     
+#         vbox06.AddSpacer(5)
+#         self.txt_k = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+#         self.txt_k.SetMaxLength(3)    #Maximum of 3 characters
+#         self.txt_k.SetFont(self.parent_frame.font)        
+#         self.txt_k.SetValue('k')
+#         self.txt_k.SetForegroundColour((255,131,79))
+#         self.txt_k.SetBackgroundColour((85,85,80))
+#         self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+#         vbox06.Add(self.txt_k)
+#         self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+#          
+#         # TextboxD
 #         vbox09 = wx.BoxSizer(wx.VERTICAL)     
 #         vbox09.AddSpacer(5)
-#         self.txt2 = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
-#         self.txt2.SetMaxLength(3)    #Maximum of 3 characters
-#         self.txt2.SetFont(self.parent_frame.font)
-#         self.txt2.SetForegroundColour((255,131,79))
-#         self.txt2.SetBackgroundColour((85,85,80))
-#         vbox09.Add(self.txt2)
-#         self.hbox00.Add(vbox09,1,wx.TOP|wx.LEFT,10)
+#         self.txt_d = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+#         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
+#         self.txt_d.SetFont(self.parent_frame.font)       
+#         self.txt_d.SetValue('d')
+#         self.txt_d.SetForegroundColour((255,131,79))
+#         self.txt_d.SetBackgroundColour((85,85,80))
+#         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+#         vbox09.Add(self.txt_d)
+#         self.hbox00.Add(vbox09,1,wx.LEFT|wx.BOTTOM,5)
+#         
+#         self.sizer.Add(self.hbox00)
         
-        self.sizer.Add(self.hbox00)
+        # Tour button
+        vbox10 = wx.BoxSizer(wx.VERTICAL)   
+        self.btn_tour = wx.Button(self, label="Do Tour", size=BUTTON_SIZE)        
+        self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
+        self.btn_tour.Enable(False)
+        self.GetParent().buttons.append(self.btn_tour) 
+        vbox10.Add(self.btn_tour)        
+        self.sizer.Add(vbox10,1,wx.TOP,15) 
         
         # Node/Edge radio buttons
         vbox03 = wx.BoxSizer(wx.VERTICAL)
@@ -620,15 +870,7 @@ class ExplorePanel(wx.Panel):
         self.hbox01.Add(vbox09,1,wx.TOP|wx.LEFT,10)        
         
         self.sizer.Add(self.hbox01)
-        
-        # Tour button
-        vbox10 = wx.BoxSizer(wx.VERTICAL)   
-        self.btn_tour = wx.Button(self, label="Do Tour", size=BUTTON_SIZE)        
-        self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
-        self.btn_tour.Enable(False)
-        self.GetParent().buttons.append(self.btn_tour) 
-        vbox10.Add(self.btn_tour)        
-        self.sizer.Add(vbox10,1,wx.TOP,10)        
+               
         
         
         self.SetSizer(self.sizer)  
@@ -727,19 +969,11 @@ class ExplorePanel(wx.Panel):
 #                                                                                             #
 #---------------------------------------------------------------------------------------------#             
     def OnGenerateGraph(self, event): 
-        try:      
-            n = int(self.txt0.GetValue())
-        except:
-            n = 50 #default
-        try:      
-            k = int(self.txt1.GetValue())
-        except:
-            k = 5 #default
-        try:      
-            d = int(self.txt2.GetValue())
-        except:
-            d = 25 #default
-        self.zp.GenerateGraph(n,k,d)        
+        n=self.GetParent().N
+        k=self.GetParent().K
+        d=self.GetParent().D
+        e=self.GetParent().E
+        self.zp.GenerateGraph(n,k,d,e)        
                    
 #---------------------------------------------------------------------------------------------#    
 #    TODO: Publish some stuff                                                                 #

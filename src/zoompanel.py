@@ -10,8 +10,8 @@ import wx
 import pickle
 import math
 import sys
+import edge as ED
 import node as N
-import edge as E
 import random as R
 import numpy as NP
 import listener as LS
@@ -40,6 +40,8 @@ ROBOT_DIAM          = 9
 ROBOT_BORDER_WIDTH  = 2
 FONT_SIZE_1         = 4     # for single/double-digit numbers
 FONT_SIZE_2         = 3     # for triple-digit numbers
+K                   = 5
+E                   = 80
 
 class ZoomPanel(wx.Frame): 
 
@@ -50,6 +52,7 @@ class ZoomPanel(wx.Frame):
         # Initialize data structures   
         self.export = False
         self.live = False
+        self.verbose = True
         self.origin = None
         self.robot = None
         self.image_width = 2000
@@ -384,8 +387,10 @@ class ZoomPanel(wx.Frame):
             try:
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
-                print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
-                print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                if self.verbose is True:
+                    print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
+                    print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                    self.ConnectNeighbors(node.id, K, E)
                 
             except IndexError:
                 # Out of space in the connection matrix - expand it by 50 nodes
@@ -394,15 +399,20 @@ class ZoomPanel(wx.Frame):
                 
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0 
-                print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
+                if self.verbose is True:
+                    print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
+                    print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                    self.ConnectNeighbors(node.id, K, E)
             
-            self.Canvas.Draw(True)
+            if self.verbose is True:
+                self.Canvas.Draw(True)
             self.GetParent().SetSaveStatus(False) 
             return True 
                   
         else:
-            print "Could not create node at (%s, %s). (Collision with node %s)" \
-                    % (node_coords[0], node_coords[1], str(collision))
+            if self.verbose is True:
+                print "Could not create node at (%s, %s). (Collision with node %s)" \
+                        % (node_coords[0], node_coords[1], str(collision))
             return False
         
 
@@ -451,7 +461,7 @@ class ZoomPanel(wx.Frame):
                     
                     # Only create the edge if no edge exists between the selected points
                     if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
-                        edge = E.Edge(len(self.edgelist), node1.Name, node2.Name, 
+                        edge = ED.Edge(len(self.edgelist), node1.Name, node2.Name, 
                                       self.Distance(node1.Coords, node2.Coords))
                         self.edgelist.append(edge)
                                
@@ -463,16 +473,18 @@ class ZoomPanel(wx.Frame):
                         e.Name = str(edge.id)
                         
                         edge.SetGraphicIndex( int(e.Name) )
-                        print "Created edge #%s between nodes %s and %s" % (str(edge.id), 
-                                                                            str(edge.node1),
-                                                                            str(edge.node2))
-                        print "\t(%s, %s) -> (%s, %s)" % (str(points[j][0]),
-                                                            str(points[j][1]),
-                                                            str(points[j+1][0]),
-                                                            str(points[j+1][1]))
+                        if self.verbose is True:
+                            print "Created edge #%s between nodes %s and %s" % (str(edge.id), 
+                                                                                str(edge.node1),
+                                                                                str(edge.node2))
+                            print "\t(%s, %s) -> (%s, %s)" % (str(points[j][0]),
+                                                                str(points[j][1]),
+                                                                str(points[j+1][0]),
+                                                                str(points[j+1][1]))
                     else:
-                        print "Did not create edge between nodes %s and %s\n\t(already exists)" \
-                        % (node1.Name,node2.Name)
+                        if self.verbose is True:
+                            print "Did not create edge between nodes %s and %s\n\t(already exists)" \
+                            % (node1.Name,node2.Name)
                 except IndexError:
                     pass
                 
@@ -510,7 +522,8 @@ class ZoomPanel(wx.Frame):
                 self.Canvas.RemoveObject(obj)
             
             self.GenerateConnectionMatrix()   
-            self.Canvas.Draw(True)
+            if self.verbose is True:
+                self.Canvas.Draw(True)
             self.DeselectAll(event)
             self.GetParent().SetSaveStatus(False)
 
@@ -524,12 +537,7 @@ class ZoomPanel(wx.Frame):
         w = self.image_width
         x = int(coords[0])
         y = int(coords[1])        
-        
-#         points = [(x-dist,y-dist),
-#                   (x+dist,y-dist),
-#                   (x+dist,y+dist),
-#                   (x-dist,y+dist),
-#                   (x-dist,y-dist)]
+
         for i in range(-dw, dw, 1):
             if image_data[ (w*(y-dw)) + (x+i) ] != 0:
                 return False
@@ -545,8 +553,7 @@ class ZoomPanel(wx.Frame):
 #                 self.Canvas.AddArc((coords[0],coords[1]+dn), (coords[0],coords[1]+18),
 #                                    coords, LineColor=ROBOT_FILL_2, LineWidth=2)
 #                 print "Collision with node %s" % node2.id
-                return False
-        
+                return False        
         return True
     
     
@@ -621,11 +628,16 @@ class ZoomPanel(wx.Frame):
 #     n = number of nodes to created                                                         #
 #     k = number of neighbors to analyze for each node                                       #
 #     d = minimum distance between nodes                                                     #
+#     e = maximum edge length                                                                #
 #--------------------------------------------------------------------------------------------#                    
-    def GenerateGraph(self, n, k, d):
+    def GenerateGraph(self, n, k, d, e):
         wx.BeginBusyCursor()
+        self.verbose = False
+        
         self.SelectAll(None)
         self.DeleteSelection(None)
+        
+        self.ExportConnectionMatrix("conns.txt", 20, 500)
         
         data = self.ls.image_data
         lim = self.FindImageLimit(data,4)
@@ -634,11 +646,7 @@ class ZoomPanel(wx.Frame):
         t = lim[1]
         l = lim[2]
         r = lim[3]
-        
-#         n = int( ((t-b)*(r-l)) / 1500.0 )
-#         n = 50
-#         k = 10
-        
+                
         nodes_created = 0
         while nodes_created < n:
             x = int( l + ((r-l)*R.random()) )
@@ -646,14 +654,14 @@ class ZoomPanel(wx.Frame):
             
             if self.CheckNodeLocation(data, (x,y), 5, d) is True:
                 if self.CreateNode( (x,y) ) is True:
-                    self.ConnectNeighbors(nodes_created, k)
+                    self.ConnectNeighbors(nodes_created, k, e)
                     nodes_created += 1
-                   
+                            
+        self.Canvas.Draw(True) 
+        self.verbose = True          
         wx.EndBusyCursor()
-
-        
+      
     def GetNodeDistances(self, node1, k):
-#         for i in range(len(self.nodelist)):
         distances = []
         for node2 in self.nodelist:
             d = self.Distance(node1.coords, node2.coords)
@@ -662,16 +670,19 @@ class ZoomPanel(wx.Frame):
         distances.sort(key=lambda tup: tup[0])
         return distances[0:k]
      
-    #TODO: connect neighbors with >1 selections
+    #TODO: connect neighbors when >1 selections
     def OnConnectNeighbors(self, event):
         if len(self.sel_nodes) == 1:
-            self.ConnectNeighbors( int(self.sel_nodes[0].Name), 5)
+            self.ConnectNeighbors( int(self.sel_nodes[0].Name), K, E)
             self.DeselectAll(event)
         else:
             print "option unavailable for >1 selected nodes"
     
-    
-    def ConnectNeighbors(self, input_node, k):  
+#--------------------------------------------------------------------------------------------#
+#     k = number of neighbors to analyze for each node                                       #
+#     m = maximum edge length                                                                #
+#--------------------------------------------------------------------------------------------#    
+    def ConnectNeighbors(self, input_node, k, e):  
         data = self.ls.image_data
         distances = self.GetNodeDistances( self.nodelist[input_node],k )
         for entry in distances:                      
@@ -679,18 +690,17 @@ class ZoomPanel(wx.Frame):
             if entry[1] == input_node:
                 continue    # Skip the node if it's the same one we're at
             
+            if entry[0] > e:
+                break       # Stop if the remaining edges are too far away
+            
             node1 = self.nodelist[ input_node ]
             node2 = self.nodelist[ entry[1] ]
             if self.CheckEdgeLocation(data,node1.coords, 
-                                      node2.coords,1) is True: 
-#                             print "location OK (%s -> %s)" % (node1.id, node2.id)     
+                                      node2.coords,1) is True:    
                 self.DeselectAll(None)                     
                 self.SelectOneNode(self.graphics_nodes[node1.id], False)
                 self.SelectOneNode(self.graphics_nodes[node2.id], False)
                 self.CreateEdges(None)
-                
-#                         else:
-#                             print "location blocked (%s -> %s)" % (node1.id, node2.id)
 
 #--------------------------------------------------------------------------------------------#    
 #      Deletes all selected nodes and edges                                                  #
@@ -718,6 +728,7 @@ class ZoomPanel(wx.Frame):
 
         self.Canvas.RemoveObject(self.graphics_nodes[ ID ])
         self.graphics_text [ ID ].Visible = False
+        self.Canvas.RemoveObject( self.graphics_text[ ID ] )
         
         for i in range(len(self.conn_matrix[ID])):
             e = int(self.conn_matrix[ID][i])
@@ -728,8 +739,9 @@ class ZoomPanel(wx.Frame):
         self.graphics_nodes[ID] = None
         self.graphics_text[ID] = None
         
-        print "Removed node #" + str(ID)
-        self.Canvas.Draw(True)
+        if self.verbose is True:
+            print "Removed node #" + str(ID)
+            self.Canvas.Draw(True)
                 
 #--------------------------------------------------------------------------------------------#    
 #     Deletes an edge.                                                                       #
@@ -743,10 +755,11 @@ class ZoomPanel(wx.Frame):
 #             self.graphics_edges[ edge_obj.graphic ].Visible = False   
             self.Canvas.RemoveObject(self.graphics_edges[ID])                   
             self.edgelist[ID] = None
-            self.graphics_edges[ID] = None        
+            self.graphics_edges[ID] = None            
             
-            print "Removed edge #" + str(ID)
-            self.Canvas.Draw(True)
+            if self.verbose is True:
+                print "Removed edge #" + str(ID)
+                self.Canvas.Draw(True)
             
         except AttributeError:
             # Case where the edge has already been removed: do nothing
@@ -959,10 +972,11 @@ class ZoomPanel(wx.Frame):
         if desel is True:      
             self.DeselectAll(event=None)
             print "Selected Node #" + obj.Name      
-        self.sel_nodes.append(obj)          
-        obj.SetFillColor(HIGHLIGHT_COLOR)    
+        self.sel_nodes.append(obj)         
         self.last_sel_node = obj.Name
-        self.Canvas.Draw(True)
+        if self.verbose is True:     
+            obj.SetFillColor(HIGHLIGHT_COLOR)
+            self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
 #     Selects a single edge. If desel is True, deselects everything else.                    #
@@ -971,9 +985,10 @@ class ZoomPanel(wx.Frame):
         if desel is True:     
             self.DeselectAll(event=None)
             print "Selected Edge #" + obj.Name     
-        self.sel_edges.append(obj)    
-        obj.SetLineColor(HIGHLIGHT_COLOR)
-        self.Canvas.Draw(True) 
+        self.sel_edges.append(obj)
+        if self.verbose is True:
+            obj.SetLineColor(HIGHLIGHT_COLOR)
+            self.Canvas.Draw(True) 
             
 #--------------------------------------------------------------------------------------------#    
 #     Selects all nodes and deselects everything else.                                       #
@@ -985,9 +1000,9 @@ class ZoomPanel(wx.Frame):
         for node in self.nodelist:
             self.graphics_nodes[ node.graphic ].SetFillColor(HIGHLIGHT_COLOR)
             self.sel_nodes.append(self.graphics_nodes[node.graphic])
-            
-        self.Canvas.Draw(True) 
-        print "Selected all nodes"
+        if self.verbose is True:     
+            self.Canvas.Draw(True) 
+            print "Selected all nodes"
         
 #--------------------------------------------------------------------------------------------#    
 #     Selects all edges and deselects everything else.                                       #
@@ -999,9 +1014,9 @@ class ZoomPanel(wx.Frame):
         for edge in self.edgelist:
             self.graphics_edges[ edge.graphic ].SetLineColor(HIGHLIGHT_COLOR)
             self.sel_edges.append(self.graphics_edges[edge.graphic])
-            
-        self.Canvas.Draw(True) 
-        print "Selected all edges"
+        if self.verbose is True:     
+            self.Canvas.Draw(True) 
+            print "Selected all edges"
         
 #--------------------------------------------------------------------------------------------#    
 #     Select/deselect everything                                                             #
@@ -1017,17 +1032,18 @@ class ZoomPanel(wx.Frame):
             if event is not None:   
                 self.graphics_edges[ edge.graphic ].SetLineColor(HIGHLIGHT_COLOR)
             self.sel_edges.append(self.graphics_edges[edge.graphic])
-            
-        self.Canvas.Draw(True) 
-        print "Selected all nodes and edges"
+        
+        if self.verbose is True:    
+            self.Canvas.Draw(True) 
+            print "Selected all nodes and edges"
             
     def DeselectAll(self, event):
-        for obj in self.sel_nodes:
-            obj.SetFillColor(NODE_FILL)
-        for obj in self.sel_edges:
-            obj.SetLineColor(EDGE_COLOR)
-           
-        self.Canvas.Draw(True)                
+        if self.verbose is True:
+            for obj in self.sel_nodes:
+                obj.SetFillColor(NODE_FILL)
+            for obj in self.sel_edges:
+                obj.SetLineColor(EDGE_COLOR)             
+            self.Canvas.Draw(True)                
         self.sel_nodes = []
         self.sel_edges = [] 
         self.last_sel_node = ""   
