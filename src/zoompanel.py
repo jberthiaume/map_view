@@ -9,7 +9,7 @@ Created on May 30, 2013
 import wx 
 import pickle
 import math
-import sys
+import time
 import edge as ED
 import node as N
 import random as R
@@ -97,6 +97,7 @@ class ZoomPanel(wx.Frame):
         
         # Bind canvas mouse events
         self.Bind(wx.EVT_CLOSE, self.OnClose)
+        self.Bind(wx.EVT_CHAR_HOOK, self.OnKeyPress)
         FloatCanvas.EVT_MOTION(self.Canvas, self.OnMove )        
         self.Canvas.Bind(FloatCanvas.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Canvas.Bind(FloatCanvas.EVT_RIGHT_DOWN, self.OnRightDown)
@@ -200,6 +201,59 @@ class ZoomPanel(wx.Frame):
         
         self.PopupMenu( rc_menu, (event.GetPosition()[0]+10, event.GetPosition()[1]+30) )
         rc_menu.Destroy()  
+    
+    #TODO: disconnect/reconnect edges   
+    def OnKeyPress(self, event):
+        rd = self.redraw
+        self.redraw = False
+        selection = list(set(self.sel_nodes))
+        self.DeselectAll(None)
+        
+        step = 5
+        diam = NODE_DIAM
+        lw = NODE_BORDER_WIDTH
+        lc = NODE_BORDER    
+        fc = HIGHLIGHT_COLOR
+        
+        for item in selection:
+            ID = item.Name
+            node = self.nodelist[int(ID)]            
+            
+            if event.GetKeyCode() == wx.WXK_UP:
+                xy = node.coords[0], node.coords[1]+step
+            elif event.GetKeyCode() == wx.WXK_DOWN:
+                xy = node.coords[0], node.coords[1]-step
+            elif event.GetKeyCode() == wx.WXK_LEFT:
+                xy = node.coords[0]-step, node.coords[1]
+            elif event.GetKeyCode() == wx.WXK_RIGHT:
+                xy = node.coords[0]+step, node.coords[1]
+                
+            if int(ID) < 100:  
+                fs = FONT_SIZE_1
+            else:
+                fs = FONT_SIZE_2            
+            node.coords = xy
+            node.m_coords = node.MetricCoords(xy)
+            
+            # Draw the node on the canvas
+            c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
+            c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)
+            self.Canvas.RemoveObject( self.graphics_nodes[int(ID)] )
+            self.graphics_nodes[int(ID)] = c                     
+            c.Name = ID
+            c.Coords = node.coords 
+            
+            # Make the old text invisible and replace it in the data structure
+            t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
+                                          Color=TEXT_COLOR, Weight=wx.BOLD)
+            self.Canvas.RemoveObject( self.graphics_text[int(ID)] )
+            self.graphics_text[int(ID)] = t
+            self.sel_nodes.append(c)
+        
+        self.redraw = rd    
+        self.Canvas.Draw(True)
+                
+        
               
 #---------------------------------------------------------------------------------------------#    
 #    Adds a representation of the robot to the canvas. A grey robot means that its pose info  #
@@ -394,7 +448,7 @@ class ZoomPanel(wx.Frame):
                     print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
                     print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
                 if self.autoedges is True:
-                    self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4])
+                    self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
                 
             except IndexError:
                 # Out of space in the connection matrix - expand it by 50 nodes
@@ -407,7 +461,7 @@ class ZoomPanel(wx.Frame):
                     print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
                     print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
                 if self.autoedges is True:
-                    self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4])
+                    self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
             
             if self.redraw is True:
                 self.Canvas.Draw(True)
@@ -493,45 +547,48 @@ class ZoomPanel(wx.Frame):
                             % (node1.Name,node2.Name)
                 except IndexError:
                     pass
-                
+            if self.redraw is True:
+                self.RefreshNodes(min_x, max_x, min_y, max_y)
             
-            # Refresh nodes which could have been covered by the lines
-            for node in self.nodelist:
-                if (node.coords[0] <= max_x and node.coords[0] >= min_x and
-                    node.coords[1] <= max_y and node.coords[1] >= min_y):
-                    
-                    ID = str(node.id)
-                    xy = node.coords[0], node.coords[1]
-                    diam = NODE_DIAM
-                    lw = NODE_BORDER_WIDTH
-                    lc = NODE_BORDER    
-                    fc = NODE_FILL 
-                    if int(ID) < 100:  
-                        fs = FONT_SIZE_1
-                    else:
-                        fs = FONT_SIZE_2          
-                                        
-                    # Draw the node on the canvas
-                    c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
-                    c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)
-                    self.graphics_nodes[int(ID)] = c                     
-                    c.Name = ID
-                    c.Coords = node.coords            
-                    
-                    # Make the old text invisible and replace it in the data structure
-                    t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
-                                                  Color=TEXT_COLOR, Weight=wx.BOLD)
-                    self.graphics_text[int(ID)].Visible = False
-                    self.graphics_text[int(ID)] = t
-            
-            for obj in self.sel_nodes:
-                self.Canvas.RemoveObject(obj)
+#             for obj in self.sel_nodes:
+#                 self.Canvas.RemoveObject(obj)
             
             self.GenerateConnectionMatrix()   
             if self.redraw is True:
                 self.Canvas.Draw(True)
             self.DeselectAll(event)
             self.GetParent().SetSaveStatus(False)
+             
+    def RefreshNodes(self, min_x, max_x, min_y, max_y):
+        for node in self.nodelist:
+            if (node.coords[0] <= max_x and node.coords[0] >= min_x and
+                node.coords[1] <= max_y and node.coords[1] >= min_y):
+                
+                ID = str(node.id)
+                xy = node.coords[0], node.coords[1]
+                diam = NODE_DIAM
+                lw = NODE_BORDER_WIDTH
+                lc = NODE_BORDER    
+                fc = NODE_FILL 
+                if int(ID) < 100:  
+                    fs = FONT_SIZE_1
+                else:
+                    fs = FONT_SIZE_2          
+                                    
+                # Draw the node on the canvas
+                c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
+                c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)
+                self.Canvas.RemoveObject( self.graphics_nodes[int(ID)] )
+                self.graphics_nodes[int(ID)] = c                     
+                c.Name = ID
+                c.Coords = node.coords            
+                
+                
+                # Make the old text invisible and replace it in the data structure
+                t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
+                                              Color=TEXT_COLOR, Weight=wx.BOLD)
+                self.Canvas.RemoveObject( self.graphics_text[int(ID)] )
+                self.graphics_text[int(ID)] = t
 
 #--------------------------------------------------------------------------------------------#    
 #     (incomplete)                                                                           #
@@ -666,9 +723,10 @@ class ZoomPanel(wx.Frame):
             
             if self.CheckNodeLocation(data, (x,y), w, d) is True:
                 if self.CreateNode( (x,y) ) is True:
-                    self.ConnectNeighbors(nodes_created, k, e)
+                    self.ConnectNeighbors(nodes_created, k, e, False)
                     nodes_created += 1
-                            
+        
+        self.RefreshNodes(0, self.image_width, 0, self.image_width)                   
         self.Canvas.Draw(True) 
         
         # Restore saved states
@@ -686,19 +744,24 @@ class ZoomPanel(wx.Frame):
         distances.sort(key=lambda tup: tup[0])
         return distances[0:k+1]
     
-    #TODO: add conn matx logic to prevent double edges 
+    #TODO: add conn matx logic to prevent double edges more efficiently?
     def OnConnectNeighbors(self, event):
         for node in self.sel_nodes:
-            self.ConnectNeighbors( int(node.Name), self.gg_const[1], self.gg_const[4])
+            self.ConnectNeighbors( int(node.Name), self.gg_const[1], self.gg_const[4], True)
         self.DeselectAll(event)
     
 #--------------------------------------------------------------------------------------------#
 #     k = number of neighbors to analyze for each node                                       #
 #     m = maximum edge length                                                                #
 #--------------------------------------------------------------------------------------------#    
-    def ConnectNeighbors(self, input_node, k, e):  
+    def ConnectNeighbors(self, input_node, k, e, refresh):  
+        rd = self.redraw
+        self.redraw = False
+        
         data = self.ls.image_data
-        distances = self.GetNodeDistances( self.nodelist[input_node],k )
+        node1 = self.nodelist[ input_node ]
+        distances = self.GetNodeDistances(node1,k)
+        
         for entry in distances:                      
             
             if entry[1] == input_node:
@@ -707,19 +770,28 @@ class ZoomPanel(wx.Frame):
             if entry[0] > e:
                 break       # Stop if the remaining edges are too far away
             
-            node1 = self.nodelist[ input_node ]
             node2 = self.nodelist[ entry[1] ]
             if self.CheckEdgeLocation(data,node1.coords, 
-                                      node2.coords,1) is True:    
+                                      node2.coords,4) is True:    
                 self.DeselectAll(None)                     
                 self.SelectOneNode(self.graphics_nodes[node1.id], False)
                 self.SelectOneNode(self.graphics_nodes[node2.id], False)
                 self.CreateEdges(None)
+        
+        if refresh is True:
+            self.RefreshNodes( node1.coords[0]-e, node1.coords[0]+e,
+                               node1.coords[1]-e, node1.coords[1]+e )
+        self.redraw = rd
 
 #--------------------------------------------------------------------------------------------#    
 #      Deletes all selected nodes and edges                                                  #
 #--------------------------------------------------------------------------------------------#           
-    def DeleteSelection(self, event):        
+    def DeleteSelection(self, event):
+        rd = self.redraw
+        vb = self.verbose
+        self.redraw = False
+        self.verbose = False  
+              
         for node in self.sel_nodes:
             self.RemoveNode(node)
         for edge in self.sel_edges:
@@ -730,7 +802,11 @@ class ZoomPanel(wx.Frame):
         self.GenerateConnectionMatrix()        
         
         self.DeselectAll(event=None)
+        self.Canvas.Draw(True)
         self.GetParent().SetSaveStatus(False)
+        
+        self.redraw = rd
+        self.verbose = vb
 
 #--------------------------------------------------------------------------------------------#    
 #     Deletes a node.                                                                        #
@@ -991,9 +1067,8 @@ class ZoomPanel(wx.Frame):
                 print "Selected Node #" + obj.Name      
         self.sel_nodes.append(obj)         
         self.last_sel_node = obj.Name
-        if self.verbose is True:     
-            obj.SetFillColor(HIGHLIGHT_COLOR)
         if self.redraw is True:
+            obj.SetFillColor(HIGHLIGHT_COLOR)
             self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
@@ -1005,9 +1080,8 @@ class ZoomPanel(wx.Frame):
             if self.verbose is True:
                 print "Selected Edge #" + obj.Name     
         self.sel_edges.append(obj)
-        if self.verbose is True:
-            obj.SetLineColor(HIGHLIGHT_COLOR)
         if self.redraw is True:
+            obj.SetLineColor(HIGHLIGHT_COLOR)
             self.Canvas.Draw(True) 
             
 #--------------------------------------------------------------------------------------------#    
@@ -1061,11 +1135,10 @@ class ZoomPanel(wx.Frame):
             self.Canvas.Draw(True) 
             
     def DeselectAll(self, event):
-        if self.verbose is True:
-            for obj in self.sel_nodes:
-                obj.SetFillColor(NODE_FILL)
-            for obj in self.sel_edges:
-                obj.SetLineColor(EDGE_COLOR) 
+        for obj in self.sel_nodes:
+            obj.SetFillColor(NODE_FILL)
+        for obj in self.sel_edges:
+            obj.SetLineColor(EDGE_COLOR) 
         if self.redraw is True:            
             self.Canvas.Draw(True)                
         self.sel_nodes = []
@@ -1137,6 +1210,7 @@ class ZoomPanel(wx.Frame):
         tmp_nodelist = self.nodelist
         self.nodelist = []           
         self.graphics_nodes = []
+        self.graphics_text = []
              
         for node in tmp_nodelist:
             self.CreateNode((node.coords[0],node.coords[1]))
@@ -1230,10 +1304,17 @@ class ZoomPanel(wx.Frame):
         self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
         
 #--------------------------------------------------------------------------------------------#    
-#     Zooms to a given location with a given floating-point magnification.                   #
+#     Zooms to fit the currently displayed map                                               #
 #--------------------------------------------------------------------------------------------#        
-    def ZoomToFit(self): 
-        lim = self.FindImageLimit(self.ls.image_data, 10) 
+    def ZoomToFit(self):
+        data_ready = False
+        while data_ready is False: 
+            try:
+                lim = self.FindImageLimit(self.ls.image_data, 10) 
+                data_ready = True
+            except AttributeError:
+                # Sleep until the image data can be obtained
+                time.sleep(0.5)
         
         tl = (lim[1],lim[2])
         br = (lim[0],lim[3])
@@ -1275,11 +1356,13 @@ class ZoomPanel(wx.Frame):
             # Creates the image from a .png file (used when loading a .png map file)
             image = wx.Image(image_obj, wx.BITMAP_TYPE_ANY)
             image_file = image_obj
+            rf_needed = True
             
         except TypeError:
             # Creates the image directly from a wx.Image object (used when refreshing a live map)
             image = image_obj
             image_file = self.ls.GetDefaultFilename()
+            rf_needed = False
            
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
@@ -1292,6 +1375,8 @@ class ZoomPanel(wx.Frame):
         self.GenerateConnectionMatrix()
                 
         self.AddRobot(-1,-1)
+        if rf_needed is True:
+            self.RefreshNodes(0, self.image_width, 0, self.image_width)
     
         self.SetCurrentMapPath(image_file)
         self.Show() 

@@ -9,12 +9,15 @@ import os, time, shutil
 import math
 import listener as ls
 import publisher as pb
+from datetime import datetime
 from zoompanel import ZoomPanel
 
 APP_SIZE        = (240,462)
-APP_SIZE_EXP    = (240,512)
+APP_SIZE_EXP    = (240,492)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
+TXT_FG_COLOR    = (255,131,79)
+TXT_BG_COLOR    = (85,85,80)
 BG_COLOR        = (205,205,205)
 H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
@@ -22,7 +25,7 @@ V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
 #TODO: check variables on save (new nodes start at ID 0 even if nodes were loaded??)
-#      (hard to reproduce)
+#      (not spotted since 14/6/13, assume bug is fixed for now)
 
 #TODO: opening a file while nodes still on canvas = some node numbers invisible
 #      (doesn't seem to break functionality) 
@@ -31,11 +34,9 @@ SIZER_BORDER    = 10
 
 #TODO: function to convert (x,y) into image_data array index
 
-#TODO: fix "phantom nodes" after deletion
-
-#TODO: opening files before ls has image_data -> exception
-
 #TODO: figure out something to indicate map is loading @ OnOpen
+
+#TODO: doc comments for new functions
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -414,8 +415,9 @@ class MainPanel(wx.Panel):
                                 defaultFile="", wildcard=filters, style=wx.FD_OPEN)
             
             if dlg.ShowModal() == wx.ID_OK: 
+                st = datetime.now()
                 wx.BeginBusyCursor()
-                self.zp.Hide() 
+#                 self.zp.Hide() 
                 self.zp.SetNodeList([])
                 self.zp.SetEdgeList([])
                 
@@ -436,7 +438,7 @@ class MainPanel(wx.Panel):
                              
                 self.ls.Listen()       
                 self.zp.SetImage(filename)  
-                self.zp.Show()  
+#                 self.zp.Show()  
                 wx.EndBusyCursor()          
                 
                 for b in self.buttons:
@@ -444,6 +446,10 @@ class MainPanel(wx.Panel):
                         b.Enable(True)                 
                 self.SetSaveStatus(True) 
                 self.btn_map.SetLabel("Hide Map")
+                
+                et = datetime.now()
+                if self.verbose is True:
+                    print "Total open time: %s" % (et-st)
                             
             dlg.Destroy()
      
@@ -571,6 +577,7 @@ class SettingsPanel(wx.Panel):
             self.parent_frame = self.parent_frame.GetParent()
         
         self.labels = []
+        self.txtbxs = []
         self.ls = self.parent_frame.ls
         self.pb = self.parent_frame.pb
         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -579,7 +586,7 @@ class SettingsPanel(wx.Panel):
         title_font.SetPointSize(12)
         title_font.SetWeight(wx.BOLD)
         
-        # Big Label
+        # Title Label 1
         vbox00 = wx.BoxSizer(wx.VERTICAL)   
         self.lbl_gg = wx.StaticText(self, label="Graph Generation Settings", 
                                     size=(243,30), style=wx.CENTER)
@@ -596,21 +603,21 @@ class SettingsPanel(wx.Panel):
         vbox03.AddSpacer(5)
         self.lbl_n = wx.StaticText(self, label="Number of nodes to generate",
                                    size=(130,35))
-        self.labels.append(self.lbl_n)
+#         self.labels.append(self.lbl_n)
         vbox03.Add(self.lbl_n)
-        self.hbox00.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        self.hbox00.Add(vbox03,1,wx.LEFT|wx.TOP|wx.BOTTOM|wx.RIGHT,10)
         
         # TextboxN
         vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
+        vbox06.AddSpacer(10)
         self.txt_n = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_n.SetFont(self.parent_frame.font)  
-        self.txt_n.SetForegroundColour((255,131,79))
-        self.txt_n.SetBackgroundColour((85,85,80))
         self.txt_n.SetValue( str(self.GetParent().mp.gg_const[0]) )
+        self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        self.txtbxs.append(self.txt_n)
         vbox06.Add(self.txt_n)
-        self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+        self.hbox00.Add(vbox06,1,wx.LEFT|wx.TOP|wx.BOTTOM|wx.RIGHT,5)
         self.sizer.Add(self.hbox00)
         
         # LabelK
@@ -620,7 +627,7 @@ class SettingsPanel(wx.Panel):
         vbox03.AddSpacer(5)
         self.lbl_k = wx.StaticText(self, label="Number of neighbors to scan",
                                    size=(130,35))
-        self.labels.append(self.lbl_k)
+#         self.labels.append(self.lbl_k)
         vbox03.Add(self.lbl_k)
         self.hbox02.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
         
@@ -630,9 +637,9 @@ class SettingsPanel(wx.Panel):
         self.txt_k = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_k.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_k.SetFont(self.parent_frame.font)  
-        self.txt_k.SetForegroundColour((255,131,79))
-        self.txt_k.SetBackgroundColour((85,85,80))
         self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
+        self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        self.txtbxs.append(self.txt_k)
         vbox06.Add(self.txt_k)
         self.hbox02.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
         self.sizer.Add(self.hbox02)
@@ -642,9 +649,9 @@ class SettingsPanel(wx.Panel):
         self.hbox04.AddSpacer(10)
         vbox03 = wx.BoxSizer(wx.VERTICAL)     
         vbox03.AddSpacer(5)
-        self.lbl_d = wx.StaticText(self, label="Minimum distance between nodes",
-                                   size=(130,35))
-        self.labels.append(self.lbl_d)
+        self.lbl_d = wx.StaticText(self, label="Minimum distance between nodes (px)",
+                                   size=(135,35))
+#         self.labels.append(self.lbl_d)
         vbox03.Add(self.lbl_d)
         self.hbox04.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
         
@@ -654,11 +661,11 @@ class SettingsPanel(wx.Panel):
         self.txt_d = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_d.SetFont(self.parent_frame.font)  
-        self.txt_d.SetForegroundColour((255,131,79))
-        self.txt_d.SetBackgroundColour((85,85,80))
         self.txt_d.SetValue( str(self.GetParent().mp.gg_const[2]) )
+        self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        self.txtbxs.append(self.txt_d)
         vbox06.Add(self.txt_d)
-        self.hbox04.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5) 
+        self.hbox04.Add(vbox06,1,wx.BOTTOM|wx.RIGHT,5) 
         self.sizer.Add(self.hbox04) 
         
         # LabelW
@@ -666,9 +673,9 @@ class SettingsPanel(wx.Panel):
         self.hbox05.AddSpacer(10)
         vbox03 = wx.BoxSizer(wx.VERTICAL)     
         vbox03.AddSpacer(5)
-        self.lbl_w = wx.StaticText(self, label="Minimum distance to wall",
+        self.lbl_w = wx.StaticText(self, label="Minimum distance to wall (px)",
                                    size=(130,35))
-        self.labels.append(self.lbl_w)
+#         self.labels.append(self.lbl_w)
         vbox03.Add(self.lbl_w)
         self.hbox05.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
         
@@ -678,9 +685,9 @@ class SettingsPanel(wx.Panel):
         self.txt_w = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_w.SetFont(self.parent_frame.font)  
-        self.txt_w.SetForegroundColour((255,131,79))
-        self.txt_w.SetBackgroundColour((85,85,80))
-        self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )
+        self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )        
+        self.txtbxs.append(self.txt_w)
+        self.txt_w.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
         vbox06.Add(self.txt_w)
         self.hbox05.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5) 
         self.sizer.Add(self.hbox05)
@@ -692,7 +699,7 @@ class SettingsPanel(wx.Panel):
         vbox03.AddSpacer(5)
         self.lbl_e = wx.StaticText(self, label="Maximum scan radius (px)",
                                    size=(130,35))
-        self.labels.append(self.lbl_e)
+#         self.labels.append(self.lbl_e)
         vbox03.Add(self.lbl_e)
         self.hbox06.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
         
@@ -702,16 +709,16 @@ class SettingsPanel(wx.Panel):
         self.txt_e = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_e.SetFont(self.parent_frame.font)  
-        self.txt_e.SetForegroundColour((255,131,79))
-        self.txt_e.SetBackgroundColour((85,85,80))
         self.txt_e.SetValue( str(self.GetParent().mp.gg_const[4]) )
+        self.txt_e.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        self.txtbxs.append(self.txt_e)
         vbox06.Add(self.txt_e)
         self.hbox06.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)   
         self.sizer.Add(self.hbox06)
         
         self.sizer.AddSpacer(15)  
         
-        # Big Label
+        # Title Label 2
         vbox10 = wx.BoxSizer(wx.VERTICAL)   
         self.lbl_gg = wx.StaticText(self, label="Other Settings", 
                                     size=(243,30), style=wx.CENTER)
@@ -723,19 +730,19 @@ class SettingsPanel(wx.Panel):
         
         # Edge Creation Checkbox
         vbox13 = wx.BoxSizer(wx.VERTICAL)
-        self.chk_ec = wx.CheckBox(self, label="Automatically create edges")
+        self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes")
         self.chk_ec.SetValue(True)
         vbox13.Add(self.chk_ec)
-        self.sizer.Add(vbox13,1,wx.LEFT,10)
+        self.sizer.Add(vbox13,1,wx.TOP|wx.LEFT,10)
         
         # Console Output Checkbox
         vbox13 = wx.BoxSizer(wx.VERTICAL)
         self.chk_co = wx.CheckBox(self, label="Enable console output")
         self.chk_co.SetValue(False)
         vbox13.Add(self.chk_co)
-        self.sizer.Add(vbox13,1,wx.LEFT,10)
+        self.sizer.Add(vbox13,1,wx.LEFT|wx.TOP,10)
         
-        self.sizer.AddSpacer(80) 
+        self.sizer.AddSpacer(50) 
         
         # Ok button
         hbox30 = wx.BoxSizer(wx.HORIZONTAL)             
@@ -756,7 +763,8 @@ class SettingsPanel(wx.Panel):
         
         self.SetSizer(self.sizer) 
         self.parent_frame.mp.PaintButtons ( (255,255,255),BUTTON_COLOR ) 
-        self.PaintLabels(BUTTON_COLOR, BG_COLOR)    
+        self.PaintLabels(BUTTON_COLOR, BG_COLOR)  
+        self.PaintTextboxes(TXT_FG_COLOR, TXT_BG_COLOR)  
         self.Layout()
         
     def DrawBG(self, size):
@@ -785,8 +793,26 @@ class SettingsPanel(wx.Panel):
                 lbl.SetBackgroundColour(background)
         except IOError:
             print "Invalid argument: expected (R,G,B) value"
+            
+#---------------------------------------------------------------------------------------------#    
+#    Sets the foreground and background color of all textboxes on the settings panel          #
+#---------------------------------------------------------------------------------------------#        
+    def PaintTextboxes(self, foreground, background):
+        try:
+            for txt in self.txtbxs:
+                txt.SetForegroundColour(foreground)
+                txt.SetBackgroundColour(background)
+        except IOError:
+            print "Invalid argument: expected (R,G,B) value"
+            
     
-    #TODO: warnings for bad values?
+    def OnTxtFocus(self, event):
+        event.GetEventObject().Clear()            
+    
+#TODO: warnings for "strange" values?
+#---------------------------------------------------------------------------------------------#    
+#    Saves the settings                                                                       #
+#---------------------------------------------------------------------------------------------#
     def OnOk(self, event):        
         if self.chk_ec.GetValue() is True:
             self.parent_frame.mp.zp.autoedges = True
@@ -806,7 +832,7 @@ class SettingsPanel(wx.Panel):
             e = int( self.txt_e.GetValue() )
         except ValueError:
             dlg = wx.MessageDialog(self,
-                "Invalid value entered", "Error", wx.ICON_ERROR)
+                "Invalid value", "Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()
             return
