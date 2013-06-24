@@ -33,7 +33,9 @@ SIZER_BORDER    = 10
 
 #TODO: fix "phantom nodes" after deletion
 
-#TODO: fix settings button Ok
+#TODO: opening files before ls has image_data -> exception
+
+#TODO: figure out something to indicate map is loading @ OnOpen
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -41,6 +43,7 @@ class MainFrame(wx.Frame):
                         style=wx.FRAME_SHAPED
                         )
         self.resolution = wx.GetDisplaySize()
+        self.verbose = False
         self.leftDown = False                                 
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
                        style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
@@ -71,6 +74,14 @@ class MainFrame(wx.Frame):
         self.SetPosition((0,0)) 
         self.Layout() 
         self.mp.ep.size = self.mp.ep.GetSize()
+        
+    def SuppressOutput(self, boolean):
+        if boolean is True:
+            self.verbose = False
+            self.mp.zp.verbose = False
+        else:
+            self.verbose = True
+            self.mp.zp.verbose = True
 
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -108,10 +119,7 @@ class MainPanel(wx.Panel):
         self.buttons = []
         self.contents = []
         
-        self.N = 70
-        self.K = 6
-        self.D = 40
-        self.E = 80
+        self.gg_const = (70,6,35,5,80)
         
         # Set parent frame value
         self.parent_frame = parent 
@@ -121,6 +129,7 @@ class MainPanel(wx.Panel):
         self.ls = self.parent_frame.ls
         self.pb = self.parent_frame.pb
 #         self.tt = self.parent_frame.tt
+        self.verbose = self.parent_frame.verbose
         
         # Create the sizers 
         self.sizer_main = wx.BoxSizer(wx.HORIZONTAL)         
@@ -315,8 +324,9 @@ class MainPanel(wx.Panel):
         
         wx.BeginBusyCursor()    
         # Start listening for a map
-        self.ls.Listen()        
-        print "Creating map..."  
+        self.ls.Listen()
+        if self.verbose is True:        
+            print "Creating map..."  
                 
         try:
             map_file = self.ls.GetDefaultFilename()
@@ -403,7 +413,9 @@ class MainPanel(wx.Panel):
             dlg = wx.FileDialog(self, message="Open Map File", defaultDir=os.getcwd(), 
                                 defaultFile="", wildcard=filters, style=wx.FD_OPEN)
             
-            if dlg.ShowModal() == wx.ID_OK:   
+            if dlg.ShowModal() == wx.ID_OK: 
+                wx.BeginBusyCursor()
+                self.zp.Hide() 
                 self.zp.SetNodeList([])
                 self.zp.SetEdgeList([])
                 
@@ -421,10 +433,11 @@ class MainPanel(wx.Panel):
                 except IOError:
                     self.zp.SetNodeList([])
                     self.zp.SetEdgeList([])
-                
-                self.ls.Listen()
+                             
+                self.ls.Listen()       
                 self.zp.SetImage(filename)  
-                self.zp.Show()             
+                self.zp.Show()  
+                wx.EndBusyCursor()          
                 
                 for b in self.buttons:
                     if b.Enabled == False:
@@ -451,7 +464,8 @@ class MainPanel(wx.Panel):
             self.zp.ExportGraph(graph_file)
             graph_file.close()
             
-            print "Saved: %s" % current_map
+            if self.verbose is True:
+                print "Saved: %s" % current_map
             self.SetSaveStatus(True) 
     
     
@@ -481,7 +495,8 @@ class MainPanel(wx.Panel):
             self.zp.ExportGraph(graph_file)
             graph_file.close()
             
-            print "Saved: %s" % filename            
+            if self.verbose is True:
+                print "Saved: %s" % filename            
             self.SetSaveStatus(True) 
             self.parent_frame.SetTitle("%s" % dlg.GetFilename())
                         
@@ -576,11 +591,10 @@ class SettingsPanel(wx.Panel):
         
         # LabelN
         self.hbox00 = wx.BoxSizer(wx.HORIZONTAL)
-        self.sizer.Add(self.hbox00)
         self.hbox00.AddSpacer(10)
         vbox03 = wx.BoxSizer(wx.VERTICAL)     
         vbox03.AddSpacer(5)
-        self.lbl_n = wx.StaticText(self, label="Number of nodes",
+        self.lbl_n = wx.StaticText(self, label="Number of nodes to generate",
                                    size=(130,35))
         self.labels.append(self.lbl_n)
         vbox03.Add(self.lbl_n)
@@ -594,13 +608,13 @@ class SettingsPanel(wx.Panel):
         self.txt_n.SetFont(self.parent_frame.font)  
         self.txt_n.SetForegroundColour((255,131,79))
         self.txt_n.SetBackgroundColour((85,85,80))
-        self.txt_n.SetValue( str(self.GetParent().mp.N) )
+        self.txt_n.SetValue( str(self.GetParent().mp.gg_const[0]) )
         vbox06.Add(self.txt_n)
         self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+        self.sizer.Add(self.hbox00)
         
         # LabelK
         self.hbox02 = wx.BoxSizer(wx.HORIZONTAL)
-        self.sizer.Add(self.hbox02)
         self.hbox02.AddSpacer(10)
         vbox03 = wx.BoxSizer(wx.VERTICAL)     
         vbox03.AddSpacer(5)
@@ -618,13 +632,13 @@ class SettingsPanel(wx.Panel):
         self.txt_k.SetFont(self.parent_frame.font)  
         self.txt_k.SetForegroundColour((255,131,79))
         self.txt_k.SetBackgroundColour((85,85,80))
-        self.txt_k.SetValue( str(self.GetParent().mp.K) )
+        self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
         vbox06.Add(self.txt_k)
         self.hbox02.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
+        self.sizer.Add(self.hbox02)
         
         # LabelD
         self.hbox04 = wx.BoxSizer(wx.HORIZONTAL)
-        self.sizer.Add(self.hbox04)
         self.hbox04.AddSpacer(10)
         vbox03 = wx.BoxSizer(wx.VERTICAL)     
         vbox03.AddSpacer(5)
@@ -642,13 +656,37 @@ class SettingsPanel(wx.Panel):
         self.txt_d.SetFont(self.parent_frame.font)  
         self.txt_d.SetForegroundColour((255,131,79))
         self.txt_d.SetBackgroundColour((85,85,80))
-        self.txt_d.SetValue( str(self.GetParent().mp.D) )
+        self.txt_d.SetValue( str(self.GetParent().mp.gg_const[2]) )
         vbox06.Add(self.txt_d)
-        self.hbox04.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)   
+        self.hbox04.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5) 
+        self.sizer.Add(self.hbox04) 
+        
+        # LabelW
+        self.hbox05 = wx.BoxSizer(wx.HORIZONTAL)
+        self.hbox05.AddSpacer(10)
+        vbox03 = wx.BoxSizer(wx.VERTICAL)     
+        vbox03.AddSpacer(5)
+        self.lbl_w = wx.StaticText(self, label="Minimum distance to wall",
+                                   size=(130,35))
+        self.labels.append(self.lbl_w)
+        vbox03.Add(self.lbl_w)
+        self.hbox05.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        
+        # TextboxW
+        vbox06 = wx.BoxSizer(wx.VERTICAL)     
+        vbox06.AddSpacer(5)
+        self.txt_w = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt_w.SetFont(self.parent_frame.font)  
+        self.txt_w.SetForegroundColour((255,131,79))
+        self.txt_w.SetBackgroundColour((85,85,80))
+        self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )
+        vbox06.Add(self.txt_w)
+        self.hbox05.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5) 
+        self.sizer.Add(self.hbox05)
         
         # LabelE
         self.hbox06 = wx.BoxSizer(wx.HORIZONTAL)
-        self.sizer.Add(self.hbox06)
         self.hbox06.AddSpacer(10)
         vbox03 = wx.BoxSizer(wx.VERTICAL)     
         vbox03.AddSpacer(5)
@@ -666,9 +704,38 @@ class SettingsPanel(wx.Panel):
         self.txt_e.SetFont(self.parent_frame.font)  
         self.txt_e.SetForegroundColour((255,131,79))
         self.txt_e.SetBackgroundColour((85,85,80))
-        self.txt_e.SetValue( str(self.GetParent().mp.E) )
+        self.txt_e.SetValue( str(self.GetParent().mp.gg_const[4]) )
         vbox06.Add(self.txt_e)
-        self.hbox06.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)      
+        self.hbox06.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)   
+        self.sizer.Add(self.hbox06)
+        
+        self.sizer.AddSpacer(15)  
+        
+        # Big Label
+        vbox10 = wx.BoxSizer(wx.VERTICAL)   
+        self.lbl_gg = wx.StaticText(self, label="Other Settings", 
+                                    size=(243,30), style=wx.CENTER)
+        
+        self.lbl_gg.SetFont(title_font)
+        self.labels.append(self.lbl_gg)
+        vbox10.Add(self.lbl_gg)        
+        self.sizer.Add(vbox10,1,wx.TOP|wx.LEFT,15) 
+        
+        # Edge Creation Checkbox
+        vbox13 = wx.BoxSizer(wx.VERTICAL)
+        self.chk_ec = wx.CheckBox(self, label="Automatically create edges")
+        self.chk_ec.SetValue(True)
+        vbox13.Add(self.chk_ec)
+        self.sizer.Add(vbox13,1,wx.LEFT,10)
+        
+        # Console Output Checkbox
+        vbox13 = wx.BoxSizer(wx.VERTICAL)
+        self.chk_co = wx.CheckBox(self, label="Enable console output")
+        self.chk_co.SetValue(False)
+        vbox13.Add(self.chk_co)
+        self.sizer.Add(vbox13,1,wx.LEFT,10)
+        
+        self.sizer.AddSpacer(80) 
         
         # Ok button
         hbox30 = wx.BoxSizer(wx.HORIZONTAL)             
@@ -719,16 +786,44 @@ class SettingsPanel(wx.Panel):
         except IOError:
             print "Invalid argument: expected (R,G,B) value"
     
-    #TODO: except non-integer args
-    #TODO: warnings for bad values
-    def OnOk(self, event):
-        self.N = int( self.txt_n.GetValue() )
-        self.K = int( self.txt_k.GetValue() )
-        self.D = int( self.txt_d.GetValue() )
-        self.E = int( self.txt_e.GetValue() )
+    #TODO: warnings for bad values?
+    def OnOk(self, event):        
+        if self.chk_ec.GetValue() is True:
+            self.parent_frame.mp.zp.autoedges = True
+        else:
+            self.parent_frame.mp.zp.autoedges = False
+            
+        if self.chk_co.GetValue() is True:
+            self.parent_frame.SuppressOutput(False)
+        else:
+            self.parent_frame.SuppressOutput(True)
+        
+        try:
+            n = int( self.txt_n.GetValue() )
+            k = int( self.txt_k.GetValue() )
+            d = int( self.txt_d.GetValue() )
+            w = int( self.txt_w.GetValue() )
+            e = int( self.txt_e.GetValue() )
+        except ValueError:
+            dlg = wx.MessageDialog(self,
+                "Invalid value entered", "Error", wx.ICON_ERROR)
+            dlg.ShowModal() 
+            dlg.Destroy()
+            return
+            
+        if n<0 or k<0 or d<0 or w<0 or e<0:
+            dlg = wx.MessageDialog(self,
+            "Positive integers only", "Error", wx.ICON_ERROR)
+            dlg.ShowModal() 
+            dlg.Destroy()
+            return       
+         
+        self.parent_frame.mp.gg_const = (n,k,d,w,e)
+        self.parent_frame.mp.zp.gg_const = (n,k,d,w,e)      
         self.Hide()
         self.parent_frame.mp.Show()
-        self.parent_frame.Layout()
+        self.parent_frame.Layout()      
+        
         
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -836,7 +931,7 @@ class ExplorePanel(wx.Panel):
         self.btn_tour.Enable(False)
         self.GetParent().buttons.append(self.btn_tour) 
         vbox10.Add(self.btn_tour)        
-        self.sizer.Add(vbox10,1,wx.TOP,15) 
+        self.sizer.Add(vbox10,1,wx.TOP,10) 
         
         # Node/Edge radio buttons
         vbox03 = wx.BoxSizer(wx.VERTICAL)
@@ -969,11 +1064,13 @@ class ExplorePanel(wx.Panel):
 #                                                                                             #
 #---------------------------------------------------------------------------------------------#             
     def OnGenerateGraph(self, event): 
-        n=self.GetParent().N
-        k=self.GetParent().K
-        d=self.GetParent().D
-        e=self.GetParent().E
-        self.zp.GenerateGraph(n,k,d,e)        
+        n=self.GetParent().gg_const[0]
+        k=self.GetParent().gg_const[1]
+        d=self.GetParent().gg_const[2]
+        w=self.GetParent().gg_const[3]
+        e=self.GetParent().gg_const[4]
+        
+        self.zp.GenerateGraph(n,k,d,w,e)        
                    
 #---------------------------------------------------------------------------------------------#    
 #    TODO: Publish some stuff                                                                 #
