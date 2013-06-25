@@ -38,6 +38,7 @@ class Cursors(object):
         else: # use 24X24 cursors for GTK and Windows
             self.HandCursor = wx.CursorFromImage(Resources.getHandImage())
             self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHandImage())
+            self.MoveCursor = wx.CursorFromImage(Resources.getMoveCursorImage())
         
             img = Resources.getMagPlusImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
@@ -168,26 +169,83 @@ class GUIMouse(GUIBase):
         self.Canvas.MouseOverTest(event)
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
         
-class GUIMouse2(GUIBase):
+class GUIMove(GUIBase):
     """
 
     Mouse mode checks for a hit test, and if nothing is hit,
     raises a FloatCanvas mouse event for each event.
 
     """
-
-    Cursor = wx.NullCursor
+    def __init__(self, canvas=None):
+        GUIBase.__init__(self, canvas)
+        self.Cursor = self.Cursors.MoveCursor
 
     # Handlers
     def OnLeftDown(self, event):
+        self.StartRBBox = N.array( event.GetPosition() )
+        self.PrevRBBox = None
+        self.Canvas.CaptureMouse()
+        
         EventType = FloatCanvas.EVT_FC_LEFT_DOWN
         if not self.Canvas.HitTest(event, EventType):
             self.Canvas._RaiseMouseEvent(event, EventType)
 
     def OnLeftUp(self, event):
-        EventType = FloatCanvas.EVT_FC_LEFT_UP
-        if not self.Canvas.HitTest(event, EventType):
-            self.Canvas._RaiseMouseEvent(event, EventType)
+        if event.LeftUp() and not self.StartRBBox is None:            
+            self.PrevRBBox = None
+            EndRBBox = event.GetPosition()
+            StartRBBox = self.StartRBBox
+            
+            # if mouse has moved less that ten pixels, don't use the box.
+            if ( abs(StartRBBox[0] - EndRBBox[0]) > 10
+                    and abs(StartRBBox[1] - EndRBBox[1]) > 10 ):
+                EndRBBox = self.Canvas.PixelToWorld(EndRBBox)
+                StartRBBox = self.Canvas.PixelToWorld(StartRBBox)
+                self.Canvas.SelBoxStart = StartRBBox
+                self.Canvas.SelBoxEnd   = EndRBBox
+            else:
+                self.Canvas.SelBoxStart = (0,0)
+                self.Canvas.SelBoxEnd   = (0,0)
+            self.StartRBBox = None
+            self.Canvas.Draw(True)
+            
+            EventType = FloatCanvas.EVT_FC_LEFT_UP
+            if not self.Canvas.HitTest(event, EventType):
+                self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMove(self, event):
+        # Always raise the Move event.
+        self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
+        if event.Dragging() and event.LeftIsDown() and not (self.StartRBBox is None):
+            xy0 = self.StartRBBox
+            xy1 = N.array( event.GetPosition() )
+            wh  = abs(xy1 - xy0)
+            wh[0] = max(wh[0], int(wh[1]*self.Canvas.AspectRatio))
+            wh[1] = int(wh[0] / self.Canvas.AspectRatio)
+            xy_c = (xy0 + xy1) / 2
+            dc = wx.ClientDC(self.Canvas)
+            dc.BeginDrawing()
+            dc.SetPen(wx.Pen('WHITE', 2, wx.SHORT_DASH))
+            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            dc.SetLogicalFunction(wx.XOR)
+            if self.PrevRBBox:
+                dc.DrawRectanglePointSize(*self.PrevRBBox)
+            self.PrevRBBox = ( xy_c - wh/2, wh )
+            dc.DrawRectanglePointSize( *self.PrevRBBox )
+            dc.EndDrawing()
+            
+    def UpdateScreen(self):
+        """
+        Update gets called if the screen has been repainted in the middle of a zoom in
+        so the Rubber Band Box can get updated
+        """
+        #if False:
+        if self.PrevRBBox is not None:
+            dc = wx.ClientDC(self.Canvas)
+            dc.SetPen(wx.Pen('WHITE', 2, wx.SHORT_DASH))
+            dc.SetBrush(wx.TRANSPARENT_BRUSH)
+            dc.SetLogicalFunction(wx.XOR)
+            dc.DrawRectanglePointSize(*self.PrevRBBox)
 
     def OnLeftDouble(self, event):
         EventType = FloatCanvas.EVT_FC_LEFT_DCLICK
@@ -228,13 +286,8 @@ class GUIMouse2(GUIBase):
         EventType = FloatCanvas.EVT_FC_MOUSEWHEEL
         self.Canvas._RaiseMouseEvent(event, EventType)
 
-    def OnMove(self, event):
-        ## The Move event always gets raised, even if there is a hit-test
-        self.Canvas.MouseOverTest(event)
-        self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
 
-
-class GUIMove(GUIBase):
+class GUIPan(GUIBase):
     """
     Mode that moves the image (pans).
     It doesn't change any coordinates, it only changes what the viewport is

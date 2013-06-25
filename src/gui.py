@@ -24,19 +24,23 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TODO: check variables on save (new nodes start at ID 0 even if nodes were loaded??)
-#      (not spotted since 14/6/13, assume bug is fixed for now)
+#BUG : check variables on save (new nodes start at ID 0 even if nodes were loaded??)
+#      (not spotted since 14/6/13. assume bug is fixed for now.)
 
-#TODO: opening a file while nodes still on canvas = some node numbers invisible
-#      (doesn't seem to break functionality) 
+#BUG : opening a file while nodes still on canvas = some node numbers invisible
+#      (not spotted since 14/6/13. doesn't seem to break functionality.) 
 
-#TODO: ability to move nodes (arrow keys? click/drag?)
+#TODO: ability to move nodes by dragging
 
 #TODO: function to convert (x,y) into image_data array index
 
-#TODO: figure out something to indicate map is loading @ OnOpen
+#TODO: do something to indicate map is loading @ OnOpen
 
 #TODO: doc comments for new functions
+
+#TODO: change buttons into menu bar? static positioning?
+
+#TODO: change selection logic -> if selected, deselect it
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -51,8 +55,7 @@ class MainFrame(wx.Frame):
                        faceName="lucida sans")    
         
         self.ls = ls.listener(self)
-        self.pb = pb.publisher(self) 
-#         self.tt = TimerThread(self)       
+        self.pb = pb.publisher(self)    
         self.mp = MainPanel(self)
         self.sp = SettingsPanel(self)  
 #         self.sizer = wx.BoxSizer(wx.VERTICAL)
@@ -61,7 +64,6 @@ class MainFrame(wx.Frame):
         self.mp.Show()
         self.sp.Hide()
         self.ls.SetAttributes()
-#         self.tt.start()
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.mp,1,wx.EXPAND)
@@ -120,7 +122,7 @@ class MainPanel(wx.Panel):
         self.buttons = []
         self.contents = []
         
-        self.gg_const = (70,6,35,5,80)
+        self.gg_const = (100,6,30,5,80)
         
         # Set parent frame value
         self.parent_frame = parent 
