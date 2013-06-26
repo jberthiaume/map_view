@@ -5,6 +5,7 @@ Created on May 30, 2013
 '''
 
 import wx
+import wx.lib.agw.pybusyinfo as pbi
 import os, time, shutil
 import math
 import listener as ls
@@ -25,22 +26,23 @@ V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
 #BUG : check variables on save (new nodes start at ID 0 even if nodes were loaded??)
-#      (not spotted since 14/6/13. assume bug is fixed for now.)
+#      (not spotted since 15/6/13. assume bug is fixed for now.)
 
 #BUG : opening a file while nodes still on canvas = some node numbers invisible
 #      (not spotted since 14/6/13. doesn't seem to break functionality.) 
 
-#TODO: ability to move nodes by dragging
+
 
 #TODO: function to convert (x,y) into image_data array index
-
-#TODO: do something to indicate map is loading @ OnOpen
 
 #TODO: doc comments for new functions
 
 #TODO: change buttons into menu bar? static positioning?
 
-#TODO: change selection logic -> if selected, deselect it
+#TODO: set ls image_data on open
+
+#TODO: add width to path checks to prevent paths in narrow holes
+
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -323,9 +325,11 @@ class MainPanel(wx.Panel):
                 self.zp.SetNodeList([])
                 self.zp.SetEdgeList([])
             dlg.Destroy()
-                
         
-        wx.BeginBusyCursor()    
+        msg = "Updating map..."
+        self.zp.SetBusyDialog(msg)
+        self.zp.Show() 
+        wx.Yield()          
         # Start listening for a map
         self.ls.Listen()
         if self.verbose is True:        
@@ -355,9 +359,9 @@ class MainPanel(wx.Panel):
             # Image not found in directory
             pass      
         
+        self.zp.KillBusyDialog()
         self.btn_map.SetLabel("Hide Map")         
-        self.Layout()                
-        wx.EndBusyCursor()
+        self.Layout()           
        
 #---------------------------------------------------------------------------------------------#    
 #    Shows or hides the map, depending on the map's current state.                            #
@@ -418,8 +422,11 @@ class MainPanel(wx.Panel):
             
             if dlg.ShowModal() == wx.ID_OK: 
                 st = datetime.now()
+                self.zp.Show() 
+                msg = "Loading map..."
+                self.zp.SetBusyDialog(msg)
                 wx.BeginBusyCursor()
-#                 self.zp.Hide() 
+                wx.Yield()
                 self.zp.SetNodeList([])
                 self.zp.SetEdgeList([])
                 
@@ -440,8 +447,8 @@ class MainPanel(wx.Panel):
                              
                 self.ls.Listen()       
                 self.zp.SetImage(filename)  
-#                 self.zp.Show()  
-                wx.EndBusyCursor()          
+                wx.EndBusyCursor()  
+                self.zp.KillBusyDialog()       
                 
                 for b in self.buttons:
                     if b.Enabled == False:
@@ -451,7 +458,7 @@ class MainPanel(wx.Panel):
                 
                 et = datetime.now()
                 if self.verbose is True:
-                    print "Total open time: %s" % (et-st)
+                    print "Loaded map in %s seconds" % (et-st)
                             
             dlg.Destroy()
      
@@ -716,7 +723,14 @@ class SettingsPanel(wx.Panel):
         self.txtbxs.append(self.txt_e)
         vbox06.Add(self.txt_e)
         self.hbox06.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)   
-        self.sizer.Add(self.hbox06)
+        self.sizer.Add(self.hbox06)       
+        
+        # Edges Checkbox
+        vbox09 = wx.BoxSizer(wx.VERTICAL)
+        self.chk_edge = wx.CheckBox(self, label="Allow edge creation\nwithin 5px of obstacles")
+        self.chk_edge.SetValue(False)
+        vbox09.Add(self.chk_edge)
+        self.sizer.Add(vbox09,1,wx.LEFT,10)
         
         self.sizer.AddSpacer(15)  
         
@@ -744,7 +758,7 @@ class SettingsPanel(wx.Panel):
         vbox13.Add(self.chk_co)
         self.sizer.Add(vbox13,1,wx.LEFT|wx.TOP,10)
         
-        self.sizer.AddSpacer(50) 
+        self.sizer.AddSpacer(30) 
         
         # Ok button
         hbox30 = wx.BoxSizer(wx.HORIZONTAL)             
@@ -810,12 +824,16 @@ class SettingsPanel(wx.Panel):
     
     def OnTxtFocus(self, event):
         event.GetEventObject().Clear()            
-    
-#TODO: warnings for "strange" values?
+
 #---------------------------------------------------------------------------------------------#    
 #    Saves the settings                                                                       #
 #---------------------------------------------------------------------------------------------#
-    def OnOk(self, event):        
+    def OnOk(self, event):
+        if self.chk_edge.GetValue() is True:
+            self.parent_frame.mp.zp.edgespacing = False
+        else:
+            self.parent_frame.mp.zp.edgespacing = True
+                    
         if self.chk_ec.GetValue() is True:
             self.parent_frame.mp.zp.autoedges = True
         else:

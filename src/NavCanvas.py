@@ -23,8 +23,8 @@ class NavCanvas(wx.Panel):
                    **kwargs): # The rest just get passed into FloatCanvas
         wx.Panel.__init__(self, parent, id, size=size)
 
-        self.Modes = [("Add/Select", GUIMode.GUIMouse(),   Resources.getPointerBitmap()),
-                      ("Move",       GUIMode.GUIMove(),  Resources.getMoveButtonBitmap()),
+        self.Modes = [("Add",      GUIMode.GUIMouse(),   Resources.getPointerBitmap()),
+                      ("Select",   GUIMode.GUIMove(),  Resources.getMoveButtonBitmap()),
                       ("Zoom In",  GUIMode.GUIZoomIn(),  Resources.getMagPlusBitmap()),
                       ("Zoom Out", GUIMode.GUIZoomOut(), Resources.getMagMinusBitmap()),
                       ("Pan",      GUIMode.GUIPan(),    Resources.getHandBitmap()),

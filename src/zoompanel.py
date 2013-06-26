@@ -6,6 +6,7 @@ Created on May 30, 2013
 @author: jon
 '''
 
+import Image,ImageOps
 import wx 
 import pickle
 import math
@@ -17,6 +18,7 @@ import numpy as NP
 import listener as LS
 import publisher as PB
 import NavCanvas, FloatCanvas
+import wx.lib.agw.pybusyinfo as PBI
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
 
@@ -52,12 +54,12 @@ class ZoomPanel(wx.Frame):
         self.verbose = False
         self.redraw = True
         self.autoedges = True 
+        self.edgespacing = False
         self.leftdown = False       
         
         self.origin = None
         self.robot = None
         self.image_width = 2000
-        self.last_sel_node = "" 
         self.gg_const = (100,6,30,5,80)
         self.current_map = []
         
@@ -256,7 +258,7 @@ class ZoomPanel(wx.Frame):
             for idx,edge_id in enumerate(self.conn_matrix[int(ID)]):
                 if idx > len(self.nodelist):
                     break
-                if edge_id != -1:
+                if edge_id != -1 and idx != int(ID):
                     edges_to_redraw.append( int(edge_id) )                    
             
             self.graphics_nodes[int(ID)].Move(dxy)
@@ -537,11 +539,6 @@ class ZoomPanel(wx.Frame):
                     self.GenerateConnectionMatrix()
                     node1 = self.sel_nodes[j]
                     node2 = self.sel_nodes[j+1]
-
-#                      TODO: integrate location checking in normal edge creation
-#                     xxxxx = self.CheckEdgeLocation(self.ls.image_data, 
-#                                            self.nodelist[int(node1.Name)].coords, 
-#                                            self.nodelist[int(node2.Name)].coords, 1)
                     
                     # Only create the edge if no edge exists between the selected points
                     if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
@@ -617,27 +614,38 @@ class ZoomPanel(wx.Frame):
 
 #--------------------------------------------------------------------------------------------#
 #     coords = node's coords                                                                 #
-#     dw = minimum distance to wall                                                          #
-#     dn = minimum distance between nodes                                                    #
+#     w = minimum distance to wall                                                           #
+#     d = minimum distance between nodes                                                     #
 #--------------------------------------------------------------------------------------------#            
-    def CheckNodeLocation(self, image_data, coords, dw, dn):
-        w = self.image_width
+    def CheckNodeLocation(self, image_data, coords, w, d):
+        iw = self.image_width
         x = int(coords[0])
         y = int(coords[1])        
-
-        for i in range(-dw, dw, 1):
-            if image_data[ (w*(y-dw)) + (x+i) ] != 0:
-                return False
-            if image_data[ (w*(y+dw)) + (x+i) ] != 0:
-                return False
-            if image_data[ (w*(y+i)) + (x-dw) ] != 0:
-                return False
-            if image_data[ (w*(y+i)) + (x+dw) ] != 0:
-                return False
+        
+        if self.image_data_format is 'int':
+            for i in range(-w, w, 1):
+                if image_data[ (iw*(y-w)) + (x+i) ] != 0:
+                    return False
+                if image_data[ (iw*(y+w)) + (x+i) ] != 0:
+                    return False
+                if image_data[ (iw*(y+i)) + (x-w) ] != 0:
+                    return False
+                if image_data[ (iw*(y+i)) + (x+w) ] != 0:
+                    return False
+        elif self.image_data_format is 'byte':
+            for i in range(-w, w, 1):
+                if image_data[ (iw*(y-w)) + (x+i) ] != chr(230):
+                    return False
+                if image_data[ (iw*(y+w)) + (x+i) ] != chr(230):
+                    return False
+                if image_data[ (iw*(y+i)) + (x-w) ] != chr(230):
+                    return False
+                if image_data[ (iw*(y+i)) + (x+w) ] != chr(230):
+                    return False
             
         for node2 in self.nodelist:
-            if self.Distance(coords, node2.coords) < dn:
-#                 self.Canvas.AddArc((coords[0],coords[1]+dn), (coords[0],coords[1]+18),
+            if self.Distance(coords, node2.coords) < d:
+#                 self.Canvas.AddArc((coords[0],coords[1]+d), (coords[0],coords[1]+18),
 #                                    coords, LineColor=ROBOT_FILL_2, LineWidth=2)
 #                 print "Collision with node %s" % node2.id
                 return False        
@@ -649,7 +657,7 @@ class ZoomPanel(wx.Frame):
         x1 = int(coords1[0])
         y1 = int(coords1[1])
         x2 = int(coords2[0])
-        y2 = int(coords2[1])
+        y2 = int(coords2[1])       
         
         dx    = x2-x1
         dy    = y2-y1
@@ -658,36 +666,62 @@ class ZoomPanel(wx.Frame):
         kx    = math.cos(theta)
         ky    = math.sin(theta)
         
+        x1_1 = x1 + (( (NODE_DIAM) /2.0)*math.cos(theta+(math.pi/2)))
+        y1_1 = y1 + (( (NODE_DIAM) /2.0)*math.sin(theta+(math.pi/2)))        
+        x1_2 = x1 + (( (NODE_DIAM) /2.0)*math.cos(theta-(math.pi/2)))
+        y1_2 = y1 + (( (NODE_DIAM) /2.0)*math.sin(theta-(math.pi/2)))
+        
         pos = 0
         done = False
         last = False
-        points = []
-        while not done:
-            x = int( x1+(pos*kx) )
-            y = int( y1+(pos*ky) )
-            points.append((x,y))
-            
-            if image_data[ (w*y)+x ] != 0:
-#                 self.Canvas.AddPointSet(points, ROBOT_FILL_2, 2)
-#                 self.Canvas.Draw(True)
-                return False
-            
-            if not last and pos>ln:
-                last = True
-                pos = ln
-            elif last:
-                done = True
+        
+        if self.edgespacing is True:
+            while not done:
+                x1 = int( x1_1+(pos*kx) )
+                y1 = int( y1_1+(pos*ky) )
+                x2 = int( x1_2+(pos*kx) )
+                y2 = int( y1_2+(pos*ky) )                
                 
-            pos += increment
-#         self.Canvas.AddPointSet(points, ROBOT_FILL_2, 2)        
-#         self.Canvas.Draw(True)
+                if self.image_data_format is 'int':
+                    if image_data[ (w*y1)+x1 ] != 0 or image_data[ (w*y2)+x2 ] != 0:
+                        return False                
+                if self.image_data_format is 'byte':
+                    if image_data[ (w*y1)+x1 ] != chr(230) or image_data[ (w*y2)+x2 ] != chr(230):
+                        return False
+                
+                if not last and pos>ln:
+                    last = True
+                    pos = ln
+                elif last:
+                    done = True                    
+                pos += increment
+                
+        else:
+            while not done:
+                x = int( x1+(pos*kx) )
+                y = int( y1+(pos*ky) )     
+                
+                if self.image_data_format is 'int':
+                    if image_data[ (w*y)+x ] != 0:
+                        return False                
+                if self.image_data_format is 'byte':
+                    if image_data[ (w*y)+x ] != chr(230):
+                        return False
+                
+                if not last and pos>ln:
+                    last = True
+                    pos = ln
+                elif last:
+                    done = True                    
+                pos += increment
         return True
 
 #--------------------------------------------------------------------------------------------#    
-#     Automated graph creation algorithm (random)                                            #
+#     Automated graph creation algorithm (random node placement)                             #
 #     n = number of nodes to created                                                         #
 #     k = number of neighbors to analyze for each node                                       #
 #     d = minimum distance between nodes                                                     #
+#     w = minimum distance from nodes to obstacles                                           #
 #     e = maximum edge length                                                                #
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
@@ -706,7 +740,7 @@ class ZoomPanel(wx.Frame):
         self.DeleteSelection(None)        
 #         self.ExportConnectionMatrix("conns.txt", 20, 500)
         
-        data = self.ls.image_data
+        data = self.image_data
         lim = self.FindImageLimit(data,4)        
         b = lim[0]
         t = lim[1]
@@ -754,7 +788,7 @@ class ZoomPanel(wx.Frame):
         rd = self.redraw
         self.redraw = False
         
-        data = self.ls.image_data
+        data = self.image_data
         node1 = self.nodelist[ input_node ]
         distances = self.GetNodeDistances(node1,k)
         
@@ -768,7 +802,7 @@ class ZoomPanel(wx.Frame):
             
             node2 = self.nodelist[ entry[1] ]
             if self.CheckEdgeLocation(data,node1.coords, 
-                                      node2.coords,4) is True:    
+                                      node2.coords,1) is True:    
                 self.DeselectAll(None)                     
                 self.SelectOneNode(self.graphics_nodes[node1.id], False)
                 self.SelectOneNode(self.graphics_nodes[node2.id], False)
@@ -810,7 +844,6 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#        
     def RemoveNode(self, node):
         ID = int(node.Name)
-        node_obj = self.nodelist[ID] # Pointer to the 'node.Node' data structure
 
         self.Canvas.RemoveObject(self.graphics_nodes[ ID ])
         self.graphics_text [ ID ].Visible = False
@@ -837,9 +870,6 @@ class ZoomPanel(wx.Frame):
     def RemoveEdge(self, edge):   
         try:     
             ID = int(edge.Name)
-            edge_obj = self.edgelist[ID]  # Pointer to the 'edge.Edge' data structure
-            
-#             self.graphics_edges[ edge_obj.graphic ].Visible = False   
             self.Canvas.RemoveObject(self.graphics_edges[ID])                   
             self.edgelist[ID] = None
             self.graphics_edges[ID] = None            
@@ -1070,8 +1100,7 @@ class ZoomPanel(wx.Frame):
             self.DeselectAll(event=None)
             if self.verbose is True:
                 print "Selected Node #" + obj.Name      
-        self.sel_nodes.append(obj)         
-        self.last_sel_node = obj.Name
+        self.sel_nodes.append(obj)   
         obj.SetFillColor(HIGHLIGHT_COLOR)
         if self.redraw is True:
             self.Canvas.Draw(True)
@@ -1120,6 +1149,8 @@ class ZoomPanel(wx.Frame):
             self.Canvas.Draw(True)
             
     def SelectBox(self, x_range, y_range):
+        rd = self.redraw
+        self.redraw = False
         self.DeselectAll(None)
         
         for node in self.nodelist:
@@ -1137,6 +1168,8 @@ class ZoomPanel(wx.Frame):
                 (y_range[0] <= mp[1] <= y_range[1] or
                  y_range[1] <= mp[1] <= y_range[0]) ):
                 self.SelectOneEdge(self.graphics_edges[edge.id], False)
+        self.redraw = rd
+        self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
 #     Select/deselect everything                                                             #
@@ -1166,32 +1199,42 @@ class ZoomPanel(wx.Frame):
         if self.redraw is True:            
             self.Canvas.Draw(True)                
         self.sel_nodes = []
-        self.sel_edges = [] 
-        self.last_sel_node = ""   
+        self.sel_edges = []  
 
 #--------------------------------------------------------------------------------------------#    
 #     Event when a node is left-clicked.                                                     #
 #     Adds the node to the selection list and highlights it on the canvas                    #
 #--------------------------------------------------------------------------------------------# 
     def OnClickNode(self, obj):
-        if obj.Name != self.last_sel_node:  
+        if obj in self.sel_nodes:
             coords = self.nodelist[int(obj.Name)].coords   
             if self.verbose is True:        
-                print "Selected Node #%s  (%s, %s)" % (obj.Name, coords[0], coords[1])     
+                print "Deelected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])
+            self.sel_nodes.remove(obj)
+            obj.SetFillColor(NODE_FILL)
+        else:  
+            coords = self.nodelist[int(obj.Name)].coords   
+            if self.verbose is True:        
+                print "Selected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])     
             self.sel_nodes.append(obj)       
-            obj.SetFillColor(HIGHLIGHT_COLOR)    
-            self.last_sel_node = obj.Name
-            self.Canvas.Draw(True)
+            obj.SetFillColor(HIGHLIGHT_COLOR) 
+        self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
 #     Adds the node to the selection list and highlights it on the canvas                    #
 #--------------------------------------------------------------------------------------------#            
-    def OnClickEdge(self, obj):  
-        if self.verbose is True:       
-            print "Selected Edge #" + obj.Name     
-        self.sel_edges.append(obj)        
-        obj.SetLineColor(HIGHLIGHT_COLOR) 
+    def OnClickEdge(self, obj): 
+        if obj in self.sel_edges:  
+            if self.verbose is True:        
+                print "Deselected Edge " + obj.Name
+            self.sel_edges.remove(obj)
+            obj.SetLineColor(EDGE_COLOR)
+        else: 
+            if self.verbose is True:       
+                print "Selected Edge " + obj.Name     
+            self.sel_edges.append(obj)        
+            obj.SetLineColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True) 
 
 #--------------------------------------------------------------------------------------------#    
@@ -1265,49 +1308,85 @@ class ZoomPanel(wx.Frame):
 #         st = datetime.now()       
         w      = self.image_width
         d      = granularity     #interval between scans
-        
-        foundB = False
-        foundT = False
-        foundL = False
-        foundR = False
-        
         top   = w
         bot   = 0
         left  = 0
         right = w
         
-        for i in range(w/(2*d)):
-            for j in range(w/d):
-                if image_data[ (w*i*d)+(j*d) ] >= 0 and foundB is False:
-                    bot = i*d
-                    foundB = True
-                    
-                if image_data[ w-((w*i*d)+(j*d)) ] >= 0 and foundT is False:
-                    top = w-(i*d)
-                    foundT = True
-                    
-                if image_data[ (w*j*d)+(i*d) ] >= 0 and foundL is False:
-                    left = i*d
-                    foundL = True
-                    
-                if image_data[ w-((w*j*d)+(i*d)) ] >= 0 and foundR is False:
-                    right = w-(i*d)
-                    foundR = True
-                    
+        foundB = False
+        foundT = False
+        foundL = False
+        foundR = False 
+        
+               
+        if self.image_data_format is 'int':
+            for i in range(w/(2*d)):
+                for j in range(w/d):
+                    try:
+                        if image_data[ (w*i*d)+(j*d) ] >= 0 and foundB is False:
+                            bot = i*d
+                            foundB = True
+                            
+                        if image_data[ w-((w*i*d)+(j*d)) ] >= 0 and foundT is False:
+                            top = w-(i*d)
+                            foundT = True
+                            
+                        if image_data[ (w*j*d)+(i*d) ] >= 0 and foundL is False:
+                            left = i*d
+                            foundL = True
+                            
+                        if image_data[ w-((w*j*d)+(i*d)) ] >= 0 and foundR is False:
+                            right = w-(i*d)
+                            foundR = True
+                            
+                        if (foundB is True and foundT is True and
+                            foundL is True and foundR is True):
+                            break                
+                    except IndexError:
+                        print "Out of range error"
+                        break
                 if (foundB is True and foundT is True and
                     foundL is True and foundR is True):
-                    break
-            if (foundB is True and foundT is True and
-                foundL is True and foundR is True):
-                break                     
+                    break     
+                
+        #badcodingpraticelol        
+        elif self.image_data_format is 'byte':
+            for i in range(w/(2*d)):
+                for j in range(w/d):
+                    try:
+                        if image_data[ (w*i*d)+(j*d) ] != chr(100) and foundB is False:
+                            bot = i*d
+                            foundB = True
+                            
+                        if image_data[ w-((w*i*d)+(j*d)) ] != chr(100) and foundT is False:
+                            top = w-(i*d)
+                            foundT = True
+                            
+                        if image_data[ (w*j*d)+(i*d) ] != chr(100) and foundL is False:
+                            left = i*d
+                            foundL = True
+                            
+                        if image_data[ w-((w*j*d)+(i*d)) ] != chr(100) and foundR is False:
+                            right = w-(i*d)
+                            foundR = True
+                            
+                        if (foundB is True and foundT is True and
+                            foundL is True and foundR is True):
+                            break                
+                    except IndexError:
+                        print "Out of range error"
+                        break
+                if (foundB is True and foundT is True and
+                    foundL is True and foundR is True):
+                    break                   
       
         et = datetime.now()
         
-#         if self.verbose is True:
-#             print "Top edge at row %s" % (str(top))
-#             print "Bottom edge at row %s" % (str(bot)) 
-#             print "Left edge at column %s" % (str(left))   
-#             print "Right edge at column %s" % (str(right))
+        if self.verbose is True:
+            print "Top edge of map at row %s" % (str(top))
+            print "Bottom edge of map at row %s" % (str(bot)) 
+            print "Left edge of map at column %s" % (str(left))   
+            print "Right edge of map at column %s" % (str(right))
 #              
 #             print "Total time: %s" % str(et-st)
                 
@@ -1334,7 +1413,7 @@ class ZoomPanel(wx.Frame):
         data_ready = False
         while data_ready is False: 
             try:
-                lim = self.FindImageLimit(self.ls.image_data, 10) 
+                lim = self.FindImageLimit(self.image_data, 10) 
                 data_ready = True
             except AttributeError:
                 # Sleep until the image data can be obtained
@@ -1344,6 +1423,12 @@ class ZoomPanel(wx.Frame):
         br = (lim[0],lim[3])
                       
         self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
+        
+    def SetBusyDialog(self, msg):
+        self.bdlg = wx.BusyInfo(msg, parent=self)        
+        
+    def KillBusyDialog(self):
+        del self.bdlg
 
 #--------------------------------------------------------------------------------------------#    
 #     Saves the canvas as an image. (unused)                                                 #
@@ -1354,6 +1439,13 @@ class ZoomPanel(wx.Frame):
         print "Writing a jpeg file:" 
         self.Canvas.SaveAsImage("zzzz.jpg",wx.BITMAP_TYPE_JPEG) 
         
+#---------------------------------------------------------------------------------------------#    
+#    Creates a wx.Image object from the data in a PIL Image                                   #
+#---------------------------------------------------------------------------------------------#
+    def PilImageToWxImage(self, pil_img):
+        wx_img = wx.EmptyImage( pil_img.size[0], pil_img.size[1] )
+        wx_img.SetData( pil_img.convert( 'RGB' ).tostring() )
+        return wx_img        
     
 #--------------------------------------------------------------------------------------------#    
 #     Clears the canvas                                                                      #
@@ -1374,42 +1466,69 @@ class ZoomPanel(wx.Frame):
         self.verbose = False
         self.autoedges = False
         self.redraw = False     
-        self.Clear()    
+        self.Clear()
+        st = datetime.now()    
                  
         try:
             # Creates the image from a .png file (used when loading a .png map file)
-            image = wx.Image(image_obj, wx.BITMAP_TYPE_ANY)
+            self.image_data = []
+#             image = wx.Image(image_obj, wx.BITMAP_TYPE_ANY)
             image_file = image_obj
-            rf_needed = True
             
-        except TypeError:
+            pil_img = Image.open(image_obj)
+            pil_img_flip = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
+            self.image_width = pil_img.size[1]
+            
+            image = self.PilImageToWxImage(pil_img)
+            image_flip = self.PilImageToWxImage(pil_img_flip)
+            
+            image_file = image_obj
+            self.image_data = image_flip.GetData()[0::3]
+            self.image_data_format = "byte"
+                        
+#             st2 = datetime.now()          
+#             for idx,byte in enumerate(self.image_data):                       
+#                 if ord(byte) == 0:
+#                     self.image_data.append(100)
+#                 elif ord(byte) == 100:
+#                     self.image_data.append(-1)
+#                 elif ord(byte) == 230:
+#                     self.image_data.append(0)
+#             et2 = datetime.now()  
+#             L = self.image_width**2 - len(self.image_data)
+#             for i in range(L):
+#                 self.image_data.append(-1)  #Pad the image with pixels if we're missing any data
+            
+        except AttributeError:
             # Creates the image directly from a wx.Image object (used when refreshing a live map)
             image = image_obj
             image_file = self.ls.GetDefaultFilename()
-            rf_needed = False
+            self.image_data = self.ls.image_data
+            self.image_data_format = "int"
+            self.image_width = image.GetHeight()    
            
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
-                                      Position = 'bl')  
-        self.image_width = image.GetHeight()         
-            
+                                      Position = 'bl')             
         self.LoadNodes()
         self.LoadEdges()
         self.GenerateConnectionMatrix()
                 
         self.AddRobot(-1,-1)
-#         if rf_needed is True:
-#             self.RefreshNodes(0, self.image_width, 0, self.image_width)
     
         self.SetCurrentMapPath(image_file)
         self.Show() 
         self.Layout()
         
         self.ZoomToFit()
+        et = datetime.now()
         self.verbose = vb
         self.autoedges = ae
         self.redraw = rd
+#         print "Time taken to traverse array: %s" % str(et2-st2)
+        if self.verbose is True:
+            print "Time taken to set image: %s" % str(et-st)
 
 if __name__ == '__main__':
     app = wx.App(False) 

@@ -199,8 +199,8 @@ class GUIMove(GUIBase):
             # if mouse has moved less that ten pixels, don't use the box.
             if ( abs(StartRBBox[0] - EndRBBox[0]) > 10
                     and abs(StartRBBox[1] - EndRBBox[1]) > 10 ):
-                EndRBBox = self.Canvas.PixelToWorld(EndRBBox)
                 StartRBBox = self.Canvas.PixelToWorld(StartRBBox)
+                EndRBBox = self.Canvas.PixelToWorld(event.GetPosition())
                 self.Canvas.SelBoxStart = StartRBBox
                 self.Canvas.SelBoxEnd   = EndRBBox
             else:
@@ -220,8 +220,8 @@ class GUIMove(GUIBase):
             xy0 = self.StartRBBox
             xy1 = N.array( event.GetPosition() )
             wh  = abs(xy1 - xy0)
-            wh[0] = max(wh[0], int(wh[1]*self.Canvas.AspectRatio))
-            wh[1] = int(wh[0] / self.Canvas.AspectRatio)
+#             wh[0] = max(wh[0], int(wh[1]*self.Canvas.AspectRatio))
+#             wh[1] = int(wh[0] / self.Canvas.AspectRatio)
             xy_c = (xy0 + xy1) / 2
             dc = wx.ClientDC(self.Canvas)
             dc.BeginDrawing()
