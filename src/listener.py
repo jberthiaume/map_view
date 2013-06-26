@@ -47,7 +47,7 @@ class listener():
     
     def Listen(self):
         self.refresh = False
-        rospy.init_node('map_view', anonymous=False)
+        rospy.init_node('map_view', anonymous=True)
         rospy.Subscriber("map", OccupancyGrid, self.MapCB)
         rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, self.PoseCB)
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)

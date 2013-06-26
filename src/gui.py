@@ -5,7 +5,6 @@ Created on May 30, 2013
 '''
 
 import wx
-import wx.lib.agw.pybusyinfo as pbi
 import os, time, shutil
 import math
 import listener as ls
@@ -17,31 +16,23 @@ APP_SIZE        = (240,462)
 APP_SIZE_EXP    = (240,492)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
-TXT_FG_COLOR    = (255,131,79)
+# TXT_FG_COLOR    = (255,131,79)
+TXT_FG_COLOR    = (221,72,20)
 TXT_BG_COLOR    = (85,85,80)
-BG_COLOR        = (205,205,205)
+BG_COLOR        = (205,205,195)
 H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#BUG : check variables on save (new nodes start at ID 0 even if nodes were loaded??)
-#      (not spotted since 15/6/13. assume bug is fixed for now.)
 
-#BUG : opening a file while nodes still on canvas = some node numbers invisible
-#      (not spotted since 14/6/13. doesn't seem to break functionality.) 
+#TODO: doc comments (lol)
 
+#TODO: maybe change buttons into menu bar / static positioning?
 
+#TODO: more intuitive buttons for NavCanvas tools (annoying)
 
-#TODO: function to convert (x,y) into image_data array index
-
-#TODO: doc comments for new functions
-
-#TODO: change buttons into menu bar? static positioning?
-
-#TODO: set ls image_data on open
-
-#TODO: add width to path checks to prevent paths in narrow holes
+#TODO: fix FindImageLimits() code to make it not terrible
 
 
 class MainFrame(wx.Frame):
@@ -79,6 +70,7 @@ class MainFrame(wx.Frame):
         self.SetPosition((0,0)) 
         self.Layout() 
         self.mp.ep.size = self.mp.ep.GetSize()
+        self.ls.Listen()
         
     def SuppressOutput(self, boolean):
         if boolean is True:
@@ -326,14 +318,13 @@ class MainPanel(wx.Panel):
                 self.zp.SetEdgeList([])
             dlg.Destroy()
         
-        msg = "Updating map..."
-        self.zp.SetBusyDialog(msg)
-        self.zp.Show() 
-        wx.Yield()          
-        # Start listening for a map
-        self.ls.Listen()
+        self.zp.Hide()       
+        wx.Yield() 
+        msg = "Retrieving map..."
+        self.zp.SetBusyDialog(msg)  
+        wx.Yield() 
         if self.verbose is True:        
-            print "Creating map..."  
+            print "Retrieving data from /map topic..."  
                 
         try:
             map_file = self.ls.GetDefaultFilename()
@@ -350,16 +341,17 @@ class MainPanel(wx.Panel):
 #             self.zp.SetImage(map_file)
             while self.ls.image is None:
                 time.sleep(0.5)
-                
+                  
             self.zp.SetImage(self.ls.image)
-            self.zp.Show()   
 #             self.tt.paused = False
             
         except IndexError:
-            # Image not found in directory
-            pass      
+            # Image not found
+            pass        
         
+        self.zp.Show()   
         self.zp.KillBusyDialog()
+        wx.EndBusyCursor()
         self.btn_map.SetLabel("Hide Map")         
         self.Layout()           
        
@@ -422,11 +414,13 @@ class MainPanel(wx.Panel):
             
             if dlg.ShowModal() == wx.ID_OK: 
                 st = datetime.now()
-                self.zp.Show() 
                 msg = "Loading map..."
                 self.zp.SetBusyDialog(msg)
                 wx.BeginBusyCursor()
                 wx.Yield()
+#                 self.zp.NavCanvas.Hide()
+                self.zp.Hide()  
+                wx.Yield()               
                 self.zp.SetNodeList([])
                 self.zp.SetEdgeList([])
                 
@@ -444,8 +438,7 @@ class MainPanel(wx.Panel):
                 except IOError:
                     self.zp.SetNodeList([])
                     self.zp.SetEdgeList([])
-                             
-                self.ls.Listen()       
+                                  
                 self.zp.SetImage(filename)  
                 wx.EndBusyCursor()  
                 self.zp.KillBusyDialog()       
@@ -457,6 +450,8 @@ class MainPanel(wx.Panel):
                 self.btn_map.SetLabel("Hide Map")
                 
                 et = datetime.now()
+                self.zp.Show()
+#                 self.zp.NavCanvas.Show()
                 if self.verbose is True:
                     print "Loaded map in %s seconds" % (et-st)
                             
@@ -508,7 +503,8 @@ class MainPanel(wx.Panel):
             graph_filename = "%sgraph" % filename.rstrip("png")
             graph_file = open(graph_filename, "w")
             self.zp.ExportGraph(graph_file)
-            graph_file.close()
+            graph_file.close()            
+            self.zp.current_map = filename
             
             if self.verbose is True:
                 print "Saved: %s" % filename            
@@ -595,179 +591,156 @@ class SettingsPanel(wx.Panel):
         title_font.SetPointSize(12)
         title_font.SetWeight(wx.BOLD)
         
-        # Title Label 1
-        vbox00 = wx.BoxSizer(wx.VERTICAL)   
+        # Title Label 1  
         self.lbl_gg = wx.StaticText(self, label="Graph Generation Settings", 
-                                    size=(243,30), style=wx.CENTER)
+                                    size=(243,30), pos=(20,10), style=wx.CENTER)
         
         self.lbl_gg.SetFont(title_font)
         self.labels.append(self.lbl_gg)
-        vbox00.Add(self.lbl_gg)        
-        self.sizer.Add(vbox00,1,wx.TOP|wx.LEFT,15)
         
-        # LabelN
-        self.hbox00 = wx.BoxSizer(wx.HORIZONTAL)
-        self.hbox00.AddSpacer(10)
-        vbox03 = wx.BoxSizer(wx.VERTICAL)     
-        vbox03.AddSpacer(5)
-        self.lbl_n = wx.StaticText(self, label="Number of nodes to generate",
-                                   size=(130,35))
-#         self.labels.append(self.lbl_n)
-        vbox03.Add(self.lbl_n)
-        self.hbox00.Add(vbox03,1,wx.LEFT|wx.TOP|wx.BOTTOM|wx.RIGHT,10)
+        # LabelN1
+        self.lbl_n1 = wx.StaticText(self, label="Generate",
+                                   size=(70,30), pos=(20,45))
+#         self.labels.append(self.lbl_n1)
         
         # TextboxN
-        vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(10)
-        self.txt_n = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_n = wx.TextCtrl(self, size=(40,30), pos=(85,40),
+                                 style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_n.SetFont(self.parent_frame.font)  
         self.txt_n.SetValue( str(self.GetParent().mp.gg_const[0]) )
         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        self.txtbxs.append(self.txt_n)
-        vbox06.Add(self.txt_n)
-        self.hbox00.Add(vbox06,1,wx.LEFT|wx.TOP|wx.BOTTOM|wx.RIGHT,5)
-        self.sizer.Add(self.hbox00)
         
-        # LabelK
-        self.hbox02 = wx.BoxSizer(wx.HORIZONTAL)
-        self.hbox02.AddSpacer(10)
-        vbox03 = wx.BoxSizer(wx.VERTICAL)     
-        vbox03.AddSpacer(5)
-        self.lbl_k = wx.StaticText(self, label="Number of neighbors to scan",
-                                   size=(130,35))
-#         self.labels.append(self.lbl_k)
-        vbox03.Add(self.lbl_k)
-        self.hbox02.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        # LabelN2
+        self.lbl_n2 = wx.StaticText(self, label="nodes",
+                                   size=(-1,30), pos=(130,45))
+#         self.labels.append(self.lbl_n2)
         
-        # TextboxK
-        vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
-        self.txt_k = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
-        self.txt_k.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt_k.SetFont(self.parent_frame.font)  
-        self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
-        self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        self.txtbxs.append(self.txt_k)
-        vbox06.Add(self.txt_k)
-        self.hbox02.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
-        self.sizer.Add(self.hbox02)
         
-        # LabelD
-        self.hbox04 = wx.BoxSizer(wx.HORIZONTAL)
-        self.hbox04.AddSpacer(10)
-        vbox03 = wx.BoxSizer(wx.VERTICAL)     
-        vbox03.AddSpacer(5)
-        self.lbl_d = wx.StaticText(self, label="Minimum distance between nodes (px)",
-                                   size=(135,35))
-#         self.labels.append(self.lbl_d)
-        vbox03.Add(self.lbl_d)
-        self.hbox04.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        # LabelD1
+        self.lbl_d1 = wx.StaticText(self, label="There must be at least",                                                
+                                   size=(150,20), pos=(20,80))
+#         self.labels.append(self.lbl_d1)
         
         # TextboxD
-        vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
-        self.txt_d = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_d = wx.TextCtrl(self, size=(35,27), pos=(170,75), 
+                                 style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_d.SetFont(self.parent_frame.font)  
         self.txt_d.SetValue( str(self.GetParent().mp.gg_const[2]) )
         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        self.txtbxs.append(self.txt_d)
-        vbox06.Add(self.txt_d)
-        self.hbox04.Add(vbox06,1,wx.BOTTOM|wx.RIGHT,5) 
-        self.sizer.Add(self.hbox04) 
         
-        # LabelW
-        self.hbox05 = wx.BoxSizer(wx.HORIZONTAL)
-        self.hbox05.AddSpacer(10)
-        vbox03 = wx.BoxSizer(wx.VERTICAL)     
-        vbox03.AddSpacer(5)
-        self.lbl_w = wx.StaticText(self, label="Minimum distance to wall (px)",
-                                   size=(130,35))
-#         self.labels.append(self.lbl_w)
-        vbox03.Add(self.lbl_w)
-        self.hbox05.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
+        # LabelD2
+        self.lbl_d2 = wx.StaticText(self, label="px",
+                                   size=(20,20), pos=(205,80))
+#         self.labels.append(self.lbl_d2)
+        
+        # LabelD3
+        self.lbl_d3 = wx.StaticText(self, label="of space between nodes",
+                                   size=(220,20), pos=(20,100))
+#         self.labels.append(self.lbl_d3)
+        
+        # LabelW1
+        self.lbl_w1 = wx.StaticText(self, label="There must be at least",
+                                   size=(150,20), pos=(20,135))
+#         self.labels.append(self.lbl_w1)
         
         # TextboxW
-        vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
-        self.txt_w = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_w = wx.TextCtrl(self, size=(35,27), pos=(170,130),
+                                 style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_w.SetFont(self.parent_frame.font)  
-        self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )        
-        self.txtbxs.append(self.txt_w)
+        self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )   
         self.txt_w.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        vbox06.Add(self.txt_w)
-        self.hbox05.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5) 
-        self.sizer.Add(self.hbox05)
         
-        # LabelE
-        self.hbox06 = wx.BoxSizer(wx.HORIZONTAL)
-        self.hbox06.AddSpacer(10)
-        vbox03 = wx.BoxSizer(wx.VERTICAL)     
-        vbox03.AddSpacer(5)
-        self.lbl_e = wx.StaticText(self, label="Maximum scan radius (px)",
-                                   size=(130,35))
+        # LabelW2
+        self.lbl_w2 = wx.StaticText(self, label="px",
+                                   size=(20,20), pos=(205,135))
+#         self.labels.append(self.lbl_w2)
+        
+        # LabelW3
+        self.lbl_w3 = wx.StaticText(self, label="between nodes and obstacles",
+                                   size=(220,20), pos=(20,155))
+#         self.labels.append(self.lbl_w3)   
+
+     
+        # LabelK1
+        self.lbl_k1 = wx.StaticText(self, label="Scan",
+                                   size=(32,30), pos=(20,190))
+#         self.labels.append(self.lbl_k1)
+        
+        # TextboxK
+        self.txt_k = wx.TextCtrl(self, size=(25,30), pos=(55,185),
+                                 style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_k.SetMaxLength(2)    #Maximum of 2 characters
+        self.txt_k.SetFont(self.parent_frame.font)  
+        self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
+        self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        
+        # LabelK2
+        self.lbl_k2 = wx.StaticText(self, label="neighbors per node",
+                                   size=(-1,30), pos=(85,190))
+#         self.labels.append(self.lbl_k2)
+        
+        
+        # LabelE1
+        self.lbl_e1 = wx.StaticText(self, label="Search no further than",
+                                   size=(158,20), pos=(20,225))
 #         self.labels.append(self.lbl_e)
-        vbox03.Add(self.lbl_e)
-        self.hbox06.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,10)
         
         # TextboxE
-        vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
-        self.txt_e = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        self.txt_e = wx.TextCtrl(self, size=(37,27), pos=(168,220),
+                                 style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_e.SetFont(self.parent_frame.font)  
         self.txt_e.SetValue( str(self.GetParent().mp.gg_const[4]) )
         self.txt_e.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+        
+        # LabelE2
+        self.lbl_e2 = wx.StaticText(self, label="px",
+                                   size=(20,20), pos=(205,225))
+#         self.labels.append(self.lbl_e2)
+        
+        # LabelE3
+        self.lbl_e3 = wx.StaticText(self, label="away for neighboring nodes",
+                                   size=(220,20), pos=(20,245))
+#         self.labels.append(self.lbl_e3)
+        
+        self.txtbxs.append(self.txt_n)        
+        self.txtbxs.append(self.txt_k)
+        self.txtbxs.append(self.txt_d)        
+        self.txtbxs.append(self.txt_w)
         self.txtbxs.append(self.txt_e)
-        vbox06.Add(self.txt_e)
-        self.hbox06.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)   
-        self.sizer.Add(self.hbox06)       
         
         # Edges Checkbox
-        vbox09 = wx.BoxSizer(wx.VERTICAL)
-        self.chk_edge = wx.CheckBox(self, label="Allow edge creation\nwithin 5px of obstacles")
+        self.chk_edge = wx.CheckBox(self, label="Allow edge generation\nwithin 5 px of obstacles",
+                                    pos=(20,280))
         self.chk_edge.SetValue(False)
-        vbox09.Add(self.chk_edge)
-        self.sizer.Add(vbox09,1,wx.LEFT,10)
         
-        self.sizer.AddSpacer(15)  
-        
-        # Title Label 2
-        vbox10 = wx.BoxSizer(wx.VERTICAL)   
+        # Title Label 2 
         self.lbl_gg = wx.StaticText(self, label="Other Settings", 
-                                    size=(243,30), style=wx.CENTER)
+                                    size=(240,30), pos=(10,335), style=wx.CENTER)
         
         self.lbl_gg.SetFont(title_font)
-        self.labels.append(self.lbl_gg)
-        vbox10.Add(self.lbl_gg)        
-        self.sizer.Add(vbox10,1,wx.TOP|wx.LEFT,15) 
+        self.labels.append(self.lbl_gg) 
         
         # Edge Creation Checkbox
-        vbox13 = wx.BoxSizer(wx.VERTICAL)
-        self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes")
+        self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes",
+                                  pos=(10,360))
         self.chk_ec.SetValue(True)
-        vbox13.Add(self.chk_ec)
-        self.sizer.Add(vbox13,1,wx.TOP|wx.LEFT,10)
         
         # Console Output Checkbox
-        vbox13 = wx.BoxSizer(wx.VERTICAL)
-        self.chk_co = wx.CheckBox(self, label="Enable console output")
+        self.chk_co = wx.CheckBox(self, label="Enable console output",
+                                  pos=(10,385))
         self.chk_co.SetValue(False)
-        vbox13.Add(self.chk_co)
-        self.sizer.Add(vbox13,1,wx.LEFT|wx.TOP,10)
         
-        self.sizer.AddSpacer(30) 
+        #TODO: cancel btn?
         
         # Ok button
-        hbox30 = wx.BoxSizer(wx.HORIZONTAL)             
-        hbox30.AddSpacer(H_SPACER_WIDTH)
-        btn_ok = wx.Button(self, label="Ok", size=BUTTON_SIZE)  
-        self.parent_frame.mp.buttons.append(btn_ok)      
-        hbox30.Add(btn_ok)           
-        btn_ok.Bind(wx.EVT_BUTTON, self.OnOk)
-        self.sizer.Add(hbox30,0,wx.TOP|wx.LEFT|wx.RIGHT|wx.BOTTOM,SIZER_BORDER)  
+        btn_ok = wx.Button(self, label="Ok", size=BUTTON_SIZE, 
+                           pos=(30, APP_SIZE_EXP[1]-45))  
+        self.parent_frame.mp.buttons.append(btn_ok) 
+        btn_ok.Bind(wx.EVT_BUTTON, self.OnOk) 
                 
         # Mouse capturing events
         self.bg.Bind(wx.EVT_MOTION, self.OnMouse)
@@ -777,10 +750,9 @@ class SettingsPanel(wx.Panel):
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)   
         
-        self.SetSizer(self.sizer) 
         self.parent_frame.mp.PaintButtons ( (255,255,255),BUTTON_COLOR ) 
         self.PaintLabels(BUTTON_COLOR, BG_COLOR)  
-        self.PaintTextboxes(TXT_FG_COLOR, TXT_BG_COLOR)  
+        self.PaintTextboxes(TXT_FG_COLOR, BG_COLOR)  
         self.Layout()
         
     def DrawBG(self, size):
@@ -796,6 +768,12 @@ class SettingsPanel(wx.Panel):
         solidbrush = wx.Brush(BG_COLOR, wx.SOLID)
         dc.SetBrush(solidbrush)        
         dc.DrawRectangle(3, 3, x-6, y-6)
+        
+        dc.DrawLine(20, 70,220, 70)
+        dc.DrawLine(20,125,220,125)
+        dc.DrawLine(20,180,220,180)
+        dc.DrawLine(20,215,220,215)
+        dc.DrawLine(20,270,220,270)
         
         return wx.StaticBitmap(self, -1, bmp, (0, 0))
     
@@ -818,12 +796,23 @@ class SettingsPanel(wx.Panel):
             for txt in self.txtbxs:
                 txt.SetForegroundColour(foreground)
                 txt.SetBackgroundColour(background)
+                txt.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
+                txt.Bind(wx.EVT_KILL_FOCUS, self.OnTxtLoseFocus)
         except IOError:
             print "Invalid argument: expected (R,G,B) value"
             
     
     def OnTxtFocus(self, event):
-        event.GetEventObject().Clear()            
+        event.GetEventObject().Clear()   
+        
+    def OnTxtLoseFocus(self, event):
+        txt = event.GetEventObject()
+        if txt.GetValue() == "":
+            txt.SetValue(self.GetDefaultValue(txt)) 
+            
+    def GetDefaultValue(self, txt):
+        for i in [i for i,x in enumerate(self.txtbxs) if x == txt]:  
+            return str(self.GetParent().mp.gg_const[i])   
 
 #---------------------------------------------------------------------------------------------#    
 #    Saves the settings                                                                       #
@@ -928,47 +917,6 @@ class ExplorePanel(wx.Panel):
         self.GetParent().buttons.append(self.btn_gg) 
         vbox00.Add(self.btn_gg)        
         self.sizer.Add(vbox00,1,wx.TOP,10)
-        
-#         # TextboxN
-#         vbox03 = wx.BoxSizer(wx.VERTICAL)     
-#         vbox03.AddSpacer(5)
-#         self.txt_n = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
-#         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
-#         self.txt_n.SetFont(self.parent_frame.font)
-#         self.txt_n.SetValue('n')
-#         self.txt_n.SetForegroundColour((255,131,79))
-#         self.txt_n.SetBackgroundColour((85,85,80))
-#         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-#         vbox03.Add(self.txt_n)
-#         self.hbox00.Add(vbox03,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
-#         
-#         # TextboxK
-#         vbox06 = wx.BoxSizer(wx.VERTICAL)     
-#         vbox06.AddSpacer(5)
-#         self.txt_k = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
-#         self.txt_k.SetMaxLength(3)    #Maximum of 3 characters
-#         self.txt_k.SetFont(self.parent_frame.font)        
-#         self.txt_k.SetValue('k')
-#         self.txt_k.SetForegroundColour((255,131,79))
-#         self.txt_k.SetBackgroundColour((85,85,80))
-#         self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-#         vbox06.Add(self.txt_k)
-#         self.hbox00.Add(vbox06,1,wx.LEFT|wx.BOTTOM|wx.RIGHT,5)
-#          
-#         # TextboxD
-#         vbox09 = wx.BoxSizer(wx.VERTICAL)     
-#         vbox09.AddSpacer(5)
-#         self.txt_d = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
-#         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
-#         self.txt_d.SetFont(self.parent_frame.font)       
-#         self.txt_d.SetValue('d')
-#         self.txt_d.SetForegroundColour((255,131,79))
-#         self.txt_d.SetBackgroundColour((85,85,80))
-#         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-#         vbox09.Add(self.txt_d)
-#         self.hbox00.Add(vbox09,1,wx.LEFT|wx.BOTTOM,5)
-#         
-#         self.sizer.Add(self.hbox00)
         
         # Tour button
         vbox10 = wx.BoxSizer(wx.VERTICAL)   

@@ -18,7 +18,6 @@ import numpy as NP
 import listener as LS
 import publisher as PB
 import NavCanvas, FloatCanvas
-import wx.lib.agw.pybusyinfo as PBI
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
 
@@ -90,13 +89,12 @@ class ZoomPanel(wx.Frame):
             print "Warning: GUI publisher object not found"
             self.pb = PB.publisher() 
             
-        # Add the Canvas 
-        Canvas = NavCanvas.NavCanvas(self, 
+        # Add the Canvas
+        self.NavCanvas = NavCanvas.NavCanvas(self, 
                                      ProjectionFun = None, 
                                      BackgroundColor = "DARK GREY", 
-                                     ).Canvas 
-        Canvas.MaxScale=4 
-        self.Canvas = Canvas
+                                     )
+        self.Canvas = self.NavCanvas.Canvas
         
         # Bind canvas mouse events
         self.Bind(wx.EVT_CLOSE, self.OnClose)
@@ -1257,8 +1255,6 @@ class ZoomPanel(wx.Frame):
     def ExportGraph(self, f):
         g = [self.nodelist, self.edgelist]
         pickle.dump(g,f)
-        self.SetNodeList([])
-        self.SetEdgeList([])
 
 #--------------------------------------------------------------------------------------------#    
 #     Unpickles an existing graph file from the file system.                                 #
@@ -1424,8 +1420,8 @@ class ZoomPanel(wx.Frame):
                       
         self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
         
-    def SetBusyDialog(self, msg):
-        self.bdlg = wx.BusyInfo(msg, parent=self)        
+    def SetBusyDialog(self, msg):  
+        self.bdlg = wx.BusyInfo(msg, parent=self)   
         
     def KillBusyDialog(self):
         del self.bdlg
@@ -1485,19 +1481,6 @@ class ZoomPanel(wx.Frame):
             image_file = image_obj
             self.image_data = image_flip.GetData()[0::3]
             self.image_data_format = "byte"
-                        
-#             st2 = datetime.now()          
-#             for idx,byte in enumerate(self.image_data):                       
-#                 if ord(byte) == 0:
-#                     self.image_data.append(100)
-#                 elif ord(byte) == 100:
-#                     self.image_data.append(-1)
-#                 elif ord(byte) == 230:
-#                     self.image_data.append(0)
-#             et2 = datetime.now()  
-#             L = self.image_width**2 - len(self.image_data)
-#             for i in range(L):
-#                 self.image_data.append(-1)  #Pad the image with pixels if we're missing any data
             
         except AttributeError:
             # Creates the image directly from a wx.Image object (used when refreshing a live map)
