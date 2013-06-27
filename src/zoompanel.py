@@ -21,8 +21,6 @@ import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
 
-RESOLUTION = 0.05
-
 #----- Global colors -----#
 NODE_FILL           = (240,240,240)
 NODE_BORDER         = (119,41,83)
@@ -50,12 +48,13 @@ class ZoomPanel(wx.Frame):
         
         # Initialize data structures   
         self.export = False
-        self.verbose = False
+        self.verbose = True
         self.redraw = True
         self.autoedges = True 
-        self.edgespacing = False
+        self.edgespacing = True
         self.leftdown = False       
         
+        self.resolution = None
         self.origin = None
         self.robot = None
         self.image_width = 2000
@@ -74,7 +73,7 @@ class ZoomPanel(wx.Frame):
 #         sys.stdout = open('log.txt', 'w')       
         
         # Connection matrix data structure
-        # See "GenerateConnectionMatrix()" for more info
+        # See GenerateConnectionMatrix()
         self.conn_matrix = NP.empty(shape=(150,150))
         self.conn_matrix[:] = -1  
         
@@ -133,7 +132,9 @@ class ZoomPanel(wx.Frame):
         self.SetAcceleratorTable(self.accel_tbl)  
         self.Layout()
         
-    
+#---------------------------------------------------------------------------------------------#    
+#    Hides the window instead of closing it when the X button is pressed                      #
+#---------------------------------------------------------------------------------------------#    
     def OnClose(self, event):
         self.GetParent().OnShowHideMap(event)            
 
@@ -196,7 +197,6 @@ class ZoomPanel(wx.Frame):
         
         rc_menu.AppendSeparator()
         
-        # Select submenu
         rc_submenu1 = wx.Menu()
         rc_submenu1.Append(311, '&All\tCtrl+A')        
         wx.EVT_MENU(self,311,self.SelectAll)
@@ -214,7 +214,9 @@ class ZoomPanel(wx.Frame):
         self.PopupMenu( rc_menu, (event.GetPosition()[0]+10, event.GetPosition()[1]+30) )
         rc_menu.Destroy()  
         
-      
+#---------------------------------------------------------------------------------------------#    
+#    Event handler for moving nodes around with the arrow keys                                #
+#---------------------------------------------------------------------------------------------#      
     def OnKeyPress(self, event):
         rd = self.redraw
         self.redraw = False
@@ -321,19 +323,19 @@ class ZoomPanel(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Sets a destination for the robot graphic and determines the distance to travel per frame #
 #---------------------------------------------------------------------------------------------#  
-    def MoveRobotTo(self, dest, orient):
-        self.destination = dest        
+    def MoveRobotTo(self, dest, orient, metric):
+        
+        if metric is True:
+            self.destination = self.MetersToPixels(dest)
+            dest = self.destination
+        else:
+            self.destination = dest        
         self.dest_theta = self.ToDegrees( self.Angle(orient) )         
         
         r = self.robot
         r.Coords = ( int(dest[0]), int(dest[1]) )
         a = self.arrow
-        a.Coords = r.Coords 
-        
-#         print "rXY  " + str(r.XY)
-#         print "dest " + str(dest)
-#         print "deg dest " + str(self.dest_theta)
-#         print "rad dest " + str(self.Angle(orient) )         
+        a.Coords = r.Coords         
         
         self.NumTimeSteps = 24  
         
@@ -423,10 +425,15 @@ class ZoomPanel(wx.Frame):
             self.Timer.Stop()
             self.Canvas.Draw(True)
             
-    
+#---------------------------------------------------------------------------------------------#    
+#    Event handler when the user clicks on the robot graphic.                                 #
+#---------------------------------------------------------------------------------------------#    
     def OnClickRobot(self, obj):
         if self.verbose is True:
-            print "Robot location: (%s, %s)" % (obj.Coords[0], obj.Coords[1])
+            print "Robot location:" 
+            print "\t Pixels: (%s, %s)" % (obj.Coords[0], obj.Coords[1])
+            print "\t Metric: (%s, %s)" % (self.PixelsToMeters(obj.Coords[0]), 
+                                           self.PixelsToMeters(obj.Coords[1]))
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -435,6 +442,7 @@ class ZoomPanel(wx.Frame):
         # coords are in float, but we need int values for pixels
         node_coords = [int(coords[0]), int(coords[1])]   
         node = N.Node(len(self.nodelist), node_coords)
+        node.m_coords = self.PixelsToMeters(node.coords)
         
         ID = str(len(self.nodelist))
         xy = node_coords[0], node_coords[1]
@@ -469,8 +477,8 @@ class ZoomPanel(wx.Frame):
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
                 if self.verbose is True:
-                    print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
-                    print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                    print "Created node %s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
+                    print "\tMetric: (%s, %s)" % (node.m_coords[0], node.m_coords[1])
                 if self.autoedges is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
                 
@@ -482,7 +490,7 @@ class ZoomPanel(wx.Frame):
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0 
                 if self.verbose is True:
-                    print "Created Node #%s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
+                    print "Created node %s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
                     print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
                 if self.autoedges is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
@@ -553,13 +561,13 @@ class ZoomPanel(wx.Frame):
                         
                         edge.SetGraphicIndex( int(e.Name) )
                         if self.verbose is True:
-                            print "Created edge #%s between nodes %s and %s" % (str(edge.id), 
+                            print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
                                                                                 str(edge.node2))
-                            print "\t(%s, %s) -> (%s, %s)" % (str(points[j][0]),
-                                                                str(points[j][1]),
-                                                                str(points[j+1][0]),
-                                                                str(points[j+1][1]))
+#                             print "\t(%s, %s) -> (%s, %s)" % (str(points[j][0]),
+#                                                                 str(points[j][1]),
+#                                                                 str(points[j+1][0]),
+#                                                                 str(points[j+1][1]))
                     else:
                         if self.verbose is True:
                             print int(self.conn_matrix[int(node1.Name)][int(node2.Name)])
@@ -577,7 +585,7 @@ class ZoomPanel(wx.Frame):
             self.GetParent().SetSaveStatus(False)
 
 #--------------------------------------------------------------------------------------------#    
-#    (no longer useful)                                                                      #
+#    -deprecated-                                                                            #
 #--------------------------------------------------------------------------------------------#             
     def RefreshNodes(self, min_x, max_x, min_y, max_y):
         for node in self.nodelist:
@@ -611,9 +619,11 @@ class ZoomPanel(wx.Frame):
                 
 
 #--------------------------------------------------------------------------------------------#
-#     coords = node's coords                                                                 #
-#     w = minimum distance to wall                                                           #
-#     d = minimum distance between nodes                                                     #
+#     Returns True if a point is suitable for creation of a new node, False otherwise.       #
+#                                                                                            #
+#     coords: The point in question                                                          #
+#     w: minimum allowable distance between nodes and obstacles                              #
+#     d: minimum allowable distance between any two nodes                                    #
 #--------------------------------------------------------------------------------------------#            
     def CheckNodeLocation(self, image_data, coords, w, d):
         iw = self.image_width
@@ -649,7 +659,14 @@ class ZoomPanel(wx.Frame):
                 return False        
         return True
         
-    
+#--------------------------------------------------------------------------------------------#
+#     Returns True if an edge can be created between two given points, False otherwise.      #
+#                                                                                            #
+#     image_data: The pixel data of the current map                                          #
+#     coords1/2: The endpoints of the potential edge (order doesn't matter)                  #
+#     increment: Increasing this value will take less processing time, but can yield         #
+#                inaccurate results. Default is 1.                                           #
+#--------------------------------------------------------------------------------------------#     
     def CheckEdgeLocation(self, image_data, coords1, coords2, increment):
         w  = self.image_width
         x1 = int(coords1[0])
@@ -715,12 +732,13 @@ class ZoomPanel(wx.Frame):
         return True
 
 #--------------------------------------------------------------------------------------------#    
-#     Automated graph creation algorithm (random node placement)                             #
-#     n = number of nodes to created                                                         #
-#     k = number of neighbors to analyze for each node                                       #
-#     d = minimum distance between nodes                                                     #
-#     w = minimum distance from nodes to obstacles                                           #
-#     e = maximum edge length                                                                #
+#     Generates a random graph on the current map (probabilistic roadmap)                    #                         #
+#                                                                                            #
+#     n: number of nodes to created                                                          #
+#     k: number of neighbors to analyze for each node                                        #
+#     d: minimum distance between nodes                                                      #
+#     w: minimum distance from nodes to obstacles                                            #
+#     e: maximum edge length                                                                 #
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
         wx.BeginBusyCursor()
@@ -736,7 +754,6 @@ class ZoomPanel(wx.Frame):
         
         self.SelectAll(None)
         self.DeleteSelection(None)        
-#         self.ExportConnectionMatrix("conns.txt", 20, 500)
         
         data = self.image_data
         lim = self.FindImageLimit(data,4)        
@@ -763,24 +780,36 @@ class ZoomPanel(wx.Frame):
         self.autoedges = ae
         self.redraw = rd
         wx.EndBusyCursor()
-      
-    def GetNodeDistances(self, node1, k):
+
+#--------------------------------------------------------------------------------------------#
+#     Find the distances from a given node 'node1' to all other nodes in the graph.          # 
+#                                                                                            #
+#     k: Number of nodes to return (function returns the 'k' closest nodes)                  #
+#     e: Maximum search radius                                                               #                                                               #
+#--------------------------------------------------------------------------------------------#     
+    def GetNodeDistances(self, node1, k, e):
         distances = []
         for node2 in self.nodelist:
             d = self.Distance(node1.coords, node2.coords)
-            distances.append((d, node2.id))
+            if d < e:
+                distances.append((d, node2.id))
         
         distances.sort(key=lambda tup: tup[0])
         return distances[0:k+1]
-    
+
+#--------------------------------------------------------------------------------------------#
+#     Event handler for Connect Nodes command. Passes arguments to ConnectNeighbors(..)      #
+#--------------------------------------------------------------------------------------------#    
     def OnConnectNeighbors(self, event):
         for node in self.sel_nodes:
             self.ConnectNeighbors( int(node.Name), self.gg_const[1], self.gg_const[4], True)
         self.DeselectAll(event)
     
 #--------------------------------------------------------------------------------------------#
-#     k = number of neighbors to analyze for each node                                       #
-#     m = maximum edge length                                                                #
+#     Tries to connect edges from a given 'input_node' to its closest neighbors              #
+#                                                                                            #
+#     k: The number of neighbors to analyze                                                  #
+#     e: Maximum edge length (furthest distance to search for neighbors)                     #
 #--------------------------------------------------------------------------------------------#    
     def ConnectNeighbors(self, input_node, k, e, refresh):  
         rd = self.redraw
@@ -788,7 +817,7 @@ class ZoomPanel(wx.Frame):
         
         data = self.image_data
         node1 = self.nodelist[ input_node ]
-        distances = self.GetNodeDistances(node1,k)
+        distances = self.GetNodeDistances(node1, k, e)
         
         for entry in distances:                      
             
@@ -1016,10 +1045,7 @@ class ZoomPanel(wx.Frame):
             except AttributeError:
                 pass
         return -1  
-    
-#     def SetOrigin(self, origin):
-#         self.origin = origin
-    
+        
 #--------------------------------------------------------------------------------------------#    
 #     Basic distance formula. Returns the distance between two points.                       #
 #--------------------------------------------------------------------------------------------# 
@@ -1030,7 +1056,10 @@ class ZoomPanel(wx.Frame):
         y2 = float(p2[1])
         dist = math.sqrt( (x2 - x1)**2 + (y2 - y1)**2 )  
         return dist  
-    
+
+#--------------------------------------------------------------------------------------------#    
+#     Basic midpoint formula. Returns the center of two points.                              #
+#--------------------------------------------------------------------------------------------#     
     def Midpoint(self, p1, p2):
         x1 = float(p1[0])
         x2 = float(p2[0])
@@ -1041,7 +1070,7 @@ class ZoomPanel(wx.Frame):
         return mpx,mpy 
     
 #---------------------------------------------------------------------------------------------#    
-#    Returns an angle (in radians) from an input orientation quaternion                       #
+#    Returns an angle (in radians) from a given orientation quaternion                        #
 #---------------------------------------------------------------------------------------------#    
     def Angle(self, orient):
         try:
@@ -1052,8 +1081,7 @@ class ZoomPanel(wx.Frame):
             w = 1.0        
         w=w     #placeholder
         theta = 2*math.asin(z)    
-        return theta % (2*math.pi)
-    
+        return theta % (2*math.pi)    
     
 #---------------------------------------------------------------------------------------------#    
 #    Converts a degree angle to radians and transforms it into the robot's coordinate plane   #
@@ -1087,7 +1115,17 @@ class ZoomPanel(wx.Frame):
 #                                                                                             #
 #---------------------------------------------------------------------------------------------#   
     def ToDegrees(self, angle):
-        return ( 90 - (angle*(180/math.pi)) ) % 360   
+        return ( 90 - (angle*(180/math.pi)) ) % 360     
+    
+    def PixelsToMeters(self, xy_p):
+        x = (xy_p[0] * self.resolution) + self.origin.x
+        y = (xy_p[1] * self.resolution) + self.origin.y
+        return (x,y)  
+    
+    def MetersToPixels(self, xy_m):
+        x = (xy_m[0] - self.origin.x) / self.resolution
+        y = (xy_m[1] - self.origin.y) / self.resolution
+        return (x,y)
 
     
 #--------------------------------------------------------------------------------------------#    
@@ -1145,7 +1183,11 @@ class ZoomPanel(wx.Frame):
             print "Selected all edges"
         if self.redraw is True:    
             self.Canvas.Draw(True)
-            
+
+#--------------------------------------------------------------------------------------------#
+#     Selects all nodes/edges located within a given X and Y range. This is used with the    #
+#     'box selection' tool on the NavCanvas.                                                   #
+#--------------------------------------------------------------------------------------------#           
     def SelectBox(self, x_range, y_range):
         rd = self.redraw
         self.redraw = False
@@ -1205,15 +1247,18 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------# 
     def OnClickNode(self, obj):
         if obj in self.sel_nodes:
-            coords = self.nodelist[int(obj.Name)].coords   
+            coords = self.nodelist[int(obj.Name)].coords  
             if self.verbose is True:        
-                print "Deelected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])
+                print "Deselected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])
             self.sel_nodes.remove(obj)
             obj.SetFillColor(NODE_FILL)
         else:  
             coords = self.nodelist[int(obj.Name)].coords   
+            m_coords = self.nodelist[int(obj.Name)].m_coords 
             if self.verbose is True:        
-                print "Selected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])     
+                print "Selected Node %s" % (obj.Name)   
+                print "\tPixel Location:   (%s, %s)" % (coords[0]  , coords[1]  )
+                print "\tMetric Location:  (%s, %s)" % (m_coords[0], m_coords[1])
             self.sel_nodes.append(obj)       
             obj.SetFillColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True)
@@ -1253,7 +1298,8 @@ class ZoomPanel(wx.Frame):
 #     Pickles the NodeList and EdgeList data structures and saves them on the file system    #
 #--------------------------------------------------------------------------------------------#        
     def ExportGraph(self, f):
-        g = [self.nodelist, self.edgelist]
+        metadata = [self.image_width, self.resolution, self.origin]
+        g = [self.nodelist, self.edgelist, metadata]
         pickle.dump(g,f)
 
 #--------------------------------------------------------------------------------------------#    
@@ -1263,7 +1309,8 @@ class ZoomPanel(wx.Frame):
     def ImportGraph(self, f):
         g = pickle.load(f)
         self.SetNodeList( g[0] )   
-        self.SetEdgeList( g[1] )     
+        self.SetEdgeList( g[1] ) 
+        self.SetMapMetadata(g[2][0], g[2][1], g[2][2]) #TODO: fixme 
 
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported node list and creates the nodes.                          #
@@ -1276,8 +1323,7 @@ class ZoomPanel(wx.Frame):
         self.graphics_text = []
              
         for node in tmp_nodelist:
-            self.CreateNode((node.coords[0],node.coords[1]))
-            
+            self.CreateNode((node.coords[0],node.coords[1]))            
     
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported edge list and creates the edges.                          #
@@ -1286,22 +1332,27 @@ class ZoomPanel(wx.Frame):
     def LoadEdges(self):
         tmp_edgelist = self.edgelist
         self.edgelist = []        
-        self.graphics_edges = []
-            
+        self.graphics_edges = []       
         
         for edge in tmp_edgelist:
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node1) ] )
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
-            self.CreateEdges(event=None)     
-        
+            self.CreateEdges(event=None)   
+              
+    
+    def SetMapMetadata(self, width, res, origin):
+        self.image_width = width
+        self.resolution = float(res)
+        self.origin = origin
+                
 #--------------------------------------------------------------------------------------------#    
 #    Finds and returns the extremities of the graph (the topmost point, the leftmost point,  #
 #    etc).                                                                                   #
 #    The 'granularity' argument defines how extensively the search is performed: Higher      #
-#    values for this argument will execute the subroutine faster, but with less accuracy     #                                                        #
+#    values for this argument will execute the function faster, but with less accuracy       #                                                        #
 #--------------------------------------------------------------------------------------------#
     def FindImageLimit(self, image_data, granularity):
-#         st = datetime.now()       
+        st = datetime.now()       
         w      = self.image_width
         d      = granularity     #interval between scans
         top   = w
@@ -1312,8 +1363,7 @@ class ZoomPanel(wx.Frame):
         foundB = False
         foundT = False
         foundL = False
-        foundR = False 
-        
+        foundR = False         
                
         if self.image_data_format is 'int':
             for i in range(w/(2*d)):
@@ -1382,11 +1432,12 @@ class ZoomPanel(wx.Frame):
             print "Top edge of map at row %s" % (str(top))
             print "Bottom edge of map at row %s" % (str(bot)) 
             print "Left edge of map at column %s" % (str(left))   
-            print "Right edge of map at column %s" % (str(right))
-#              
-#             print "Total time: %s" % str(et-st)
+            print "Right edge of map at column %s" % (str(right))#              
+            print "Total time to scan map data: %s" % str(et-st)
                 
         return bot,top,left,right
+    
+
 
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to a given location with a given floating-point magnification.                   #
@@ -1419,10 +1470,12 @@ class ZoomPanel(wx.Frame):
         br = (lim[0],lim[3])
                       
         self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
-        
+
+#--------------------------------------------------------------------------------------------#
+#     Displays a dialog box for showing 'loading' messages                                   #
+#--------------------------------------------------------------------------------------------#        
     def SetBusyDialog(self, msg):  
-        self.bdlg = wx.BusyInfo(msg, parent=self)   
-        
+        self.bdlg = wx.BusyInfo(msg, parent=self)          
     def KillBusyDialog(self):
         del self.bdlg
 
@@ -1468,16 +1521,14 @@ class ZoomPanel(wx.Frame):
         try:
             # Creates the image from a .png file (used when loading a .png map file)
             self.image_data = []
-#             image = wx.Image(image_obj, wx.BITMAP_TYPE_ANY)
             image_file = image_obj
             
+            # Load as a PIL image so that we can "flip" the data (otherwise it's wrong)
             pil_img = Image.open(image_obj)
             pil_img_flip = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
-            self.image_width = pil_img.size[1]
             
             image = self.PilImageToWxImage(pil_img)
-            image_flip = self.PilImageToWxImage(pil_img_flip)
-            
+            image_flip = self.PilImageToWxImage(pil_img_flip)            
             image_file = image_obj
             self.image_data = image_flip.GetData()[0::3]
             self.image_data_format = "byte"
@@ -1487,29 +1538,26 @@ class ZoomPanel(wx.Frame):
             image = image_obj
             image_file = self.ls.GetDefaultFilename()
             self.image_data = self.ls.image_data
-            self.image_data_format = "int"
-            self.image_width = image.GetHeight()    
+            self.image_data_format = "int"    
            
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
-                                      Position = 'bl')             
+                                      Position = 'bl')    
         self.LoadNodes()
         self.LoadEdges()
         self.GenerateConnectionMatrix()
                 
-        self.AddRobot(-1,-1)
-    
+        self.AddRobot(-1,-1)    
         self.SetCurrentMapPath(image_file)
         self.Show() 
-        self.Layout()
-        
+        self.Layout()        
         self.ZoomToFit()
+        
         et = datetime.now()
         self.verbose = vb
         self.autoedges = ae
         self.redraw = rd
-#         print "Time taken to traverse array: %s" % str(et2-st2)
         if self.verbose is True:
             print "Time taken to set image: %s" % str(et-st)
 

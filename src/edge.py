@@ -26,6 +26,7 @@ class Edge():
     
     def SetGraphicIndex(self, new_object):
         self.graphic = new_object
-        
+    
+    #TODO: fixme    
     def GetMetricLength(self):
         return self.length * RESOLUTION

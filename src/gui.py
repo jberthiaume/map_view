@@ -18,22 +18,20 @@ BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 # TXT_FG_COLOR    = (255,131,79)
 TXT_FG_COLOR    = (221,72,20)
-TXT_BG_COLOR    = (85,85,80)
+TXT_BG_COLOR    = (185,185,180)
 BG_COLOR        = (205,205,195)
 H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-
-#TODO: doc comments (lol)
-
 #TODO: maybe change buttons into menu bar / static positioning?
 
-#TODO: more intuitive buttons for NavCanvas tools (annoying)
+#TODO: more intuitive button icons for NavCanvas tools (annoying)
 
-#TODO: fix FindImageLimits() code to make it not terrible
+#TODO: set origin data
 
+#TODO: clean up node/edge classes
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -51,8 +49,6 @@ class MainFrame(wx.Frame):
         self.pb = pb.publisher(self)    
         self.mp = MainPanel(self)
         self.sp = SettingsPanel(self)  
-#         self.sizer = wx.BoxSizer(wx.VERTICAL)
-#         self.sizer.Add(self.mp, 1, wx.EXPAND)
         
         self.mp.Show()
         self.sp.Hide()
@@ -292,6 +288,7 @@ class MainPanel(wx.Panel):
 #    exported the map file, it is passed to ZoomPanel, which sets the image in the viewer     #
 #---------------------------------------------------------------------------------------------#                
     def OnRefreshMap(self, event):
+        self.ls.refresh = False
         
         if self.saved is False:
             
@@ -336,8 +333,7 @@ class MainPanel(wx.Panel):
                     b.Enable(True)
             self.SetSaveStatus(False)            
             
-            # Show the image panel                  
-            self.zp.origin = (self.ls.origin_pos, self.ls.origin_orient)
+            # Show the image panel   
 #             self.zp.SetImage(map_file)
             while self.ls.image is None:
                 time.sleep(0.5)
@@ -604,7 +600,7 @@ class SettingsPanel(wx.Panel):
 #         self.labels.append(self.lbl_n1)
         
         # TextboxN
-        self.txt_n = wx.TextCtrl(self, size=(40,30), pos=(85,40),
+        self.txt_n = wx.TextCtrl(self, size=(32,25), pos=(89,42),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_n.SetFont(self.parent_frame.font)  
@@ -613,7 +609,7 @@ class SettingsPanel(wx.Panel):
         
         # LabelN2
         self.lbl_n2 = wx.StaticText(self, label="nodes",
-                                   size=(-1,30), pos=(130,45))
+                                   size=(-1,30), pos=(128,45))
 #         self.labels.append(self.lbl_n2)
         
         
@@ -623,7 +619,7 @@ class SettingsPanel(wx.Panel):
 #         self.labels.append(self.lbl_d1)
         
         # TextboxD
-        self.txt_d = wx.TextCtrl(self, size=(35,27), pos=(170,75), 
+        self.txt_d = wx.TextCtrl(self, size=(32,25), pos=(171,77), 
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_d.SetFont(self.parent_frame.font)  
@@ -646,7 +642,7 @@ class SettingsPanel(wx.Panel):
 #         self.labels.append(self.lbl_w1)
         
         # TextboxW
-        self.txt_w = wx.TextCtrl(self, size=(35,27), pos=(170,130),
+        self.txt_w = wx.TextCtrl(self, size=(32,25), pos=(171,132),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_w.SetFont(self.parent_frame.font)  
@@ -670,7 +666,7 @@ class SettingsPanel(wx.Panel):
 #         self.labels.append(self.lbl_k1)
         
         # TextboxK
-        self.txt_k = wx.TextCtrl(self, size=(25,30), pos=(55,185),
+        self.txt_k = wx.TextCtrl(self, size=(32,25), pos=(55,187),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_k.SetMaxLength(2)    #Maximum of 2 characters
         self.txt_k.SetFont(self.parent_frame.font)  
@@ -679,7 +675,7 @@ class SettingsPanel(wx.Panel):
         
         # LabelK2
         self.lbl_k2 = wx.StaticText(self, label="neighbors per node",
-                                   size=(-1,30), pos=(85,190))
+                                   size=(-1,30), pos=(90,190))
 #         self.labels.append(self.lbl_k2)
         
         
@@ -689,7 +685,7 @@ class SettingsPanel(wx.Panel):
 #         self.labels.append(self.lbl_e)
         
         # TextboxE
-        self.txt_e = wx.TextCtrl(self, size=(37,27), pos=(168,220),
+        self.txt_e = wx.TextCtrl(self, size=(32,25), pos=(171,222),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_e.SetFont(self.parent_frame.font)  
@@ -732,7 +728,7 @@ class SettingsPanel(wx.Panel):
         # Console Output Checkbox
         self.chk_co = wx.CheckBox(self, label="Enable console output",
                                   pos=(10,385))
-        self.chk_co.SetValue(False)
+        self.chk_co.SetValue(True)
         
         #TODO: cancel btn?
         
@@ -752,7 +748,7 @@ class SettingsPanel(wx.Panel):
         
         self.parent_frame.mp.PaintButtons ( (255,255,255),BUTTON_COLOR ) 
         self.PaintLabels(BUTTON_COLOR, BG_COLOR)  
-        self.PaintTextboxes(TXT_FG_COLOR, BG_COLOR)  
+        self.PaintTextboxes(TXT_FG_COLOR, TXT_BG_COLOR)  
         self.Layout()
         
     def DrawBG(self, size):
@@ -1067,7 +1063,7 @@ class ExplorePanel(wx.Panel):
         self.zp.GenerateGraph(n,k,d,w,e)        
                    
 #---------------------------------------------------------------------------------------------#    
-#    TODO: Publish some stuff                                                                 #
+#    Publish some stuff                                                                 #
 #---------------------------------------------------------------------------------------------#             
     def OnTour(self, event):                       
 #         self.parent_Frame.tt.paused = True

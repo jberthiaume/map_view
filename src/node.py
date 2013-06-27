@@ -3,9 +3,6 @@ Created on Jun 4, 2013
 
 @author: jon
 '''
-
-RESOLUTION = 0.05   # Meters per pixel
-
 class Node():
     
     def __init__(self, id_number, coords):        
@@ -13,7 +10,7 @@ class Node():
         self.prev_id = -1       # Used to save the old node id when renumbering is done
         self.graphic = -1       # Used to link to the graphical object which represents the node
         self.coords = coords        
-        self.m_coords = self.MetricCoords(self.coords)
+        self.m_coords = None
         
     def GetId(self):
         return self.id
@@ -32,8 +29,3 @@ class Node():
     
     def SetGraphicIndex(self, new_object):
         self.graphic = new_object
-        
-    def MetricCoords(self, xy):
-        x = xy[0] * RESOLUTION
-        y = xy[1] * RESOLUTION
-        return (x,y)

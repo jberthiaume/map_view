@@ -38,6 +38,7 @@ class listener():
         self.vel_angular = None
                  
         self.image_width = 1000
+        self.resolution = None
         self.refresh = False
         self.image = None
         self.filename = FILENAME       
@@ -55,15 +56,15 @@ class listener():
         
         if __name__ == '__main__':
             rospy.spin()  
-                
+
+#TODO: allow self.refresh to be reset on update                
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/map" topic                                                   #
 #---------------------------------------------------------------------------------------------#       
     def MapCB(self, data):
         if self.refresh==False:
             self.ProcessMapCB(data)
-            self.refresh=True
-            
+            self.refresh=True            
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/move_base/goal" topic                                        #
@@ -78,13 +79,10 @@ class listener():
         self.pose_pos = data.pose.pose.position
         self.pose_orient = data.pose.pose.orientation
                 
-        destination = self.ConvertToPixels((self.pose_pos.x, self.pose_pos.y))
+        destination = (self.pose_pos.x, self.pose_pos.y)
         orient = self.pose_orient
-        
-#         try:        
-        self.zp.MoveRobotTo(destination, orient)
-#         except AttributeError:
-#             print "Unexpected error while issuing move command"
+               
+        self.zp.MoveRobotTo(destination, orient, True)
         
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/cmd_vel" topic                                             #
@@ -103,7 +101,7 @@ class listener():
     def ProcessMapCB(self, data):  
         array_length = len(data.data)
         self.image_width = int(np.sqrt(array_length))
-        
+        self.resolution = self.Truncate(data.info.resolution, 5)
         self.origin_pos = data.info.origin.position
         self.origin_orient = data.info.origin.orientation        
 
@@ -124,7 +122,7 @@ class listener():
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)
         self.image_data = data.data
-         
+        self.zp.SetMapMetadata(self.image_width,self.resolution,self.origin_pos) 
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #
@@ -151,16 +149,10 @@ class listener():
                 pass #unexpected value
                     
         return output_array
-      
     
-#---------------------------------------------------------------------------------------------#    
-#    Converts metric coordinates to pixel coordinates.                                        #
-#---------------------------------------------------------------------------------------------#    
-    def ConvertToPixels(self, m_coords):
-        x = (m_coords[0] / RESOLUTION)
-        y = (m_coords[1] / RESOLUTION)
-        return (x,y)
-        
+    def Truncate(self, f, n):
+        return ('%.*f' % (n + 1, f))[:-1]  
+            
 #---------------------------------------------------------------------------------------------#    
 #    Returns the filename used by this listener when exporting map files.                     #
 #---------------------------------------------------------------------------------------------#    
