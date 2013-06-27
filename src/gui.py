@@ -29,8 +29,6 @@ SIZER_BORDER    = 10
 
 #TODO: more intuitive button icons for NavCanvas tools (annoying)
 
-#TODO: set origin data
-
 #TODO: clean up node/edge classes
 
 class MainFrame(wx.Frame):
@@ -729,14 +727,18 @@ class SettingsPanel(wx.Panel):
         self.chk_co = wx.CheckBox(self, label="Enable console output",
                                   pos=(10,385))
         self.chk_co.SetValue(True)
-        
-        #TODO: cancel btn?
-        
+                
         # Ok button
-        btn_ok = wx.Button(self, label="Ok", size=BUTTON_SIZE, 
-                           pos=(30, APP_SIZE_EXP[1]-45))  
+        btn_ok = wx.Button(self, label="Accept", size=(95,30), 
+                           pos=(20, APP_SIZE_EXP[1]-45))  
         self.parent_frame.mp.buttons.append(btn_ok) 
         btn_ok.Bind(wx.EVT_BUTTON, self.OnOk) 
+        
+        # Cancel button
+        btn_cnc = wx.Button(self, label="Cancel", size=(95,30), 
+                           pos=(125, APP_SIZE_EXP[1]-45))  
+        self.parent_frame.mp.buttons.append(btn_cnc) 
+        btn_cnc.Bind(wx.EVT_BUTTON, self.OnCancel) 
                 
         # Mouse capturing events
         self.bg.Bind(wx.EVT_MOTION, self.OnMouse)
@@ -853,7 +855,15 @@ class SettingsPanel(wx.Panel):
         self.parent_frame.mp.zp.gg_const = (n,k,d,w,e)      
         self.Hide()
         self.parent_frame.mp.Show()
-        self.parent_frame.Layout()      
+        self.parent_frame.Layout() 
+        
+    
+    def OnCancel(self, event):
+        self.Hide()
+        for txt in self.txtbxs:
+            txt.SetValue(self.GetDefaultValue(txt))
+        self.parent_frame.mp.Show()
+        self.parent_frame.Layout()
         
         
 #---------------------------------------------------------------------------------------------#    

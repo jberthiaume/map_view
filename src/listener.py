@@ -55,16 +55,7 @@ class listener():
         rospy.Subscriber("tour", String, self.TourCB)
         
         if __name__ == '__main__':
-            rospy.spin()  
-
-#TODO: allow self.refresh to be reset on update                
-#---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/map" topic                                                   #
-#---------------------------------------------------------------------------------------------#       
-    def MapCB(self, data):
-        if self.refresh==False:
-            self.ProcessMapCB(data)
-            self.refresh=True            
+            rospy.spin()       
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/move_base/goal" topic                                        #
@@ -92,13 +83,13 @@ class listener():
         self.vel_angular = (data.angular.z)
         
     def TourCB(self, data):
-        print "received tour message"
+        print "Received tour message"
         print data
             
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #
 #---------------------------------------------------------------------------------------------#   
-    def ProcessMapCB(self, data):  
+    def MapCB(self, data):  
         array_length = len(data.data)
         self.image_width = int(np.sqrt(array_length))
         self.resolution = self.Truncate(data.info.resolution, 5)
@@ -112,12 +103,15 @@ class listener():
         img = img.rotate(180)
         img_mirror = ImageOps.mirror(img)
         
-        try:
-            os.remove(self.filename)
-        except OSError:
-            pass        
-        img_mirror.save(self.filename)         
-#         print "Map file created. (%s)" % self.filename
+        if self.refresh is False:
+            try:
+                os.remove(self.filename)
+            except OSError:
+                pass        
+            img_mirror.save(self.filename)
+            if self.zp.verbose is True:         
+                print "Map file created. (%s)" % self.filename
+            self.refresh = True
 
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)

@@ -15,18 +15,6 @@ class Edge():
         self.length = length
         self.graphic = -1   # Used to link to the graphical object which represents the edge
         
-    def GetId(self):
-        return self.id
-    
-    def SetId(self, new_id):
-        self.id = new_id
-
-    def GetGraphicIndex(self):
-        return self.graphic
-    
-    def SetGraphicIndex(self, new_object):
-        self.graphic = new_object
-    
     #TODO: fixme    
     def GetMetricLength(self):
         return self.length * RESOLUTION

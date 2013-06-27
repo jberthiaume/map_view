@@ -471,7 +471,7 @@ class ZoomPanel(wx.Frame):
             self.graphics_text.append(t)        
             
             # Assign the Circle to its node
-            node.SetGraphicIndex( int(c.Name) )        
+            node.graphic =  int(c.Name)        
             self.nodelist.append(node) 
             try:
                 # Tell the connection matrix that this node now exists
@@ -559,7 +559,7 @@ class ZoomPanel(wx.Frame):
                         
                         e.Name = str(edge.id)
                         
-                        edge.SetGraphicIndex( int(e.Name) )
+                        edge.graphic = int(e.Name)
                         if self.verbose is True:
                             print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
@@ -1298,6 +1298,7 @@ class ZoomPanel(wx.Frame):
 #     Pickles the NodeList and EdgeList data structures and saves them on the file system    #
 #--------------------------------------------------------------------------------------------#        
     def ExportGraph(self, f):
+        print self.nodelist[0].m_coords
         metadata = [self.image_width, self.resolution, self.origin]
         g = [self.nodelist, self.edgelist, metadata]
         pickle.dump(g,f)
@@ -1310,7 +1311,7 @@ class ZoomPanel(wx.Frame):
         g = pickle.load(f)
         self.SetNodeList( g[0] )   
         self.SetEdgeList( g[1] ) 
-        self.SetMapMetadata(g[2][0], g[2][1], g[2][2]) #TODO: fixme 
+        self.SetMapMetadata( *g[2] )
 
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported node list and creates the nodes.                          #
