@@ -714,6 +714,7 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
         wx.BeginBusyCursor()
+        st = datetime.now()
         
         # Save current states
         vb = self.verbose
@@ -752,6 +753,9 @@ class ZoomPanel(wx.Frame):
         self.autoedges = ae
         self.redraw = rd
         wx.EndBusyCursor()
+        et = datetime.now()
+        if self.verbose is True:
+            print "Total time to generate graph: %s" % str(et-st)
 
 #--------------------------------------------------------------------------------------------#
 #     Find the distances from a given node 'node1' to all other nodes in the graph.          # 
@@ -1270,7 +1274,6 @@ class ZoomPanel(wx.Frame):
 #     Pickles the NodeList and EdgeList data structures and saves them on the file system    #
 #--------------------------------------------------------------------------------------------#        
     def ExportGraph(self, f):
-        print self.nodelist[0].m_coords
         metadata = [self.image_width, self.resolution, self.origin]
         g = [self.nodelist, self.edgelist, metadata]
         pickle.dump(g,f)
@@ -1281,9 +1284,15 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#       
     def ImportGraph(self, f):
         g = pickle.load(f)
-        self.SetNodeList( g[0] )   
-        self.SetEdgeList( g[1] ) 
-        self.SetMapMetadata( *g[2] )
+        try:
+            self.SetNodeList( g[0] )   
+            self.SetEdgeList( g[1] ) 
+            self.SetMapMetadata( *g[2] )
+        except IndexError:
+            dlg = wx.MessageDialog(self, "Incompatible map file (old version)", 
+                                   "Error", wx.ICON_ERROR)
+            dlg.ShowModal()
+            dlg.Destroy()
 
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported node list and creates the nodes.                          #
@@ -1312,7 +1321,9 @@ class ZoomPanel(wx.Frame):
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
             self.CreateEdges(event=None)   
               
-    
+#--------------------------------------------------------------------------------------------#    
+#     Sets global variables for metadata obtained from the ROS listener                      #
+#--------------------------------------------------------------------------------------------#     
     def SetMapMetadata(self, width, res, origin):
         self.image_width = width
         self.resolution = float(res)
@@ -1362,7 +1373,6 @@ class ZoomPanel(wx.Frame):
                             foundL is True and foundR is True):
                             break                
                     except IndexError:
-                        print "Out of range error"
                         break
                 if (foundB is True and foundT is True and
                     foundL is True and foundR is True):
@@ -1393,7 +1403,6 @@ class ZoomPanel(wx.Frame):
                             foundL is True and foundR is True):
                             break                
                     except IndexError:
-                        print "Out of range error"
                         break
                 if (foundB is True and foundT is True and
                     foundL is True and foundR is True):
@@ -1405,7 +1414,7 @@ class ZoomPanel(wx.Frame):
             print "Top edge of map at row %s" % (str(top))
             print "Bottom edge of map at row %s" % (str(bot)) 
             print "Left edge of map at column %s" % (str(left))   
-            print "Right edge of map at column %s" % (str(right))#              
+            print "Right edge of map at column %s" % (str(right))              
             print "Total time to scan map data: %s" % str(et-st)
                 
         return bot,top,left,right

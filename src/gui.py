@@ -29,6 +29,8 @@ SIZER_BORDER    = 10
 
 #TODO: figure out something with move_base_msgs
 
+#TODO: change conditions in map scanning to recognize different shades of grey
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE_EXP,
