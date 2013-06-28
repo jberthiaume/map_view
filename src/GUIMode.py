@@ -22,7 +22,8 @@ class Cursors(object):
     
     """
     def __init__(self):
-        if "wxMac" in wx.PlatformInfo: # use 16X16 cursors for wxMac
+        if "wxMac" in wx.PlatformInfo: 
+            # use 16X16 cursors for wxMac
             self.HandCursor = wx.CursorFromImage(Resources.getHand16Image())
             self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHand16Image())
         
@@ -35,7 +36,8 @@ class Cursors(object):
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 6)
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 6)
             self.MagMinusCursor = wx.CursorFromImage(img)
-        else: # use 24X24 cursors for GTK and Windows
+        else: 
+            # use 24X24 cursors for GTK and Windows
             self.HandCursor = wx.CursorFromImage(Resources.getHandImage())
             self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHandImage())
             self.SelectCursor = wx.CursorFromImage(Resources.getSelectCursorImage())

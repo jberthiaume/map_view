@@ -525,6 +525,7 @@ class ZoomPanel(wx.Frame):
                     if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
                         edge = E.Edge(len(self.edgelist), node1.Name, node2.Name, 
                                       self.Distance(node1.Coords, node2.Coords))
+                        edge.m_length = edge.length*self.resolution
                         self.edgelist.append(edge)
                                
                         e = self.Canvas.AddLine([points[j], points[j+1]], 
