@@ -59,18 +59,12 @@ class GUIBase(object):
 
     """
     def __init__(self, Canvas=None):
-        self.Canvas = Canvas # set the FloatCanvas for the mode
-                             # it gets set when the Mode is set on the Canvas.
+        self.Canvas = Canvas
         self.Cursors = Cursors()
 
     Cursor = wx.NullCursor
     def UnSet(self):
-        """
-        this method gets called by FloatCanvas when a new mode is being set
-        on the Canvas
-        """
         pass
-    # Handlers
     def OnLeftDown(self, event):
         pass
     def OnLeftUp(self, event):
@@ -98,10 +92,6 @@ class GUIBase(object):
     def OnKeyUp(self, event):
         pass
     def UpdateScreen(self):
-        """
-        Update gets called if the screen has been repainted in the middle of a zoom in
-        so the Rubber Band Box can get updated. Other GUIModes may require something similar
-        """
         pass
 
 class GUIMouse(GUIBase):
@@ -170,17 +160,11 @@ class GUIMouse(GUIBase):
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
         
 class GUISelect(GUIBase):
-    """
-
-    Mouse mode checks for a hit test, and if nothing is hit,
-    raises a FloatCanvas mouse event for each event.
-
-    """
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
         self.Cursor = self.Cursors.SelectCursor
 
-    # Handlers
+    # Starts drawing the selection box when the left mouse button is pressed
     def OnLeftDown(self, event):
         self.StartRBBox = N.array( event.GetPosition() )
         self.PrevRBBox = None
@@ -189,7 +173,8 @@ class GUISelect(GUIBase):
         EventType = FloatCanvas.EVT_FC_LEFT_DOWN
         if not self.Canvas.HitTest(event, EventType):
             self.Canvas._RaiseMouseEvent(event, EventType)
-
+    
+    # Records the coordinates of the box when the left button is no longer held down
     def OnLeftUp(self, event):
         if event.LeftUp() and not self.StartRBBox is None:            
             self.PrevRBBox = None
@@ -212,9 +197,9 @@ class GUISelect(GUIBase):
             EventType = FloatCanvas.EVT_FC_LEFT_UP
             if not self.Canvas.HitTest(event, EventType):
                 self.Canvas._RaiseMouseEvent(event, EventType)
-
+    
+    # Keep track of the mouse position while the left button is held down
     def OnMove(self, event):
-        # Always raise the Move event.
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
         if event.Dragging() and event.LeftIsDown() and not (self.StartRBBox is None):
             xy0 = self.StartRBBox
@@ -235,10 +220,6 @@ class GUISelect(GUIBase):
             dc.EndDrawing()
             
     def UpdateScreen(self):
-        """
-        Update gets called if the screen has been repainted in the middle of a zoom in
-        so the Rubber Band Box can get updated
-        """
         #if False:
         if self.PrevRBBox is not None:
             dc = wx.ClientDC(self.Canvas)
