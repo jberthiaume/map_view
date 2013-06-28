@@ -6,12 +6,13 @@ Created on May 30, 2013
 @author: jon
 '''
 
-import Image,ImageOps
 import wx 
+import sys
 import pickle
 import math
 import time
-import edge as ED
+import Image
+import edge as E
 import node as N
 import random as R
 import numpy as NP
@@ -44,7 +45,8 @@ class ZoomPanel(wx.Frame):
 
     def __init__(self, *args, **kwargs): 
         wx.Frame.__init__(self, *args, **kwargs) 
-        self.CreateStatusBar() 
+        self.CreateStatusBar()
+#         self.LogOutput(True) 
         
         # Initialize data structures   
         self.export = False
@@ -68,9 +70,7 @@ class ZoomPanel(wx.Frame):
         self.graphics_text = []
         
         self.sel_nodes = []
-        self.sel_edges = []  
-        
-#         sys.stdout = open('log.txt', 'w')       
+        self.sel_edges = []        
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
@@ -152,12 +152,12 @@ class ZoomPanel(wx.Frame):
         current_mode = self.Canvas.GetMode()        
         if current_mode=='GUIMouse':
             self.CreateNode(event.Coords)            
-        elif current_mode=='GUIMove':
+        elif current_mode=='GUISelect':
             pass               
     
     def OnLeftUp(self, event):
         current_mode = self.Canvas.GetMode()        
-        if current_mode=='GUIMove':
+        if current_mode=='GUISelect':
             while self.Canvas.SelBoxStart is None:
                 time.sleep(0.1)
             
@@ -253,8 +253,9 @@ class ZoomPanel(wx.Frame):
             else:
                 fs = FONT_SIZE_2            
             node.coords = xy
-            node.m_coords = node.MetricCoords(xy)
+            node.m_coords = self.PixelsToMeters(xy)
             
+            # Flag edges for redrawing if they are connected to a node which will move
             for idx,edge_id in enumerate(self.conn_matrix[int(ID)]):
                 if idx > len(self.nodelist):
                     break
@@ -268,6 +269,7 @@ class ZoomPanel(wx.Frame):
                 print "Moved node %s to location %s" % ( str(node.id), str(xy) )
             self.SelectOneNode(self.graphics_nodes[int(ID)],False)
         
+        # Redraw edges to correspond to the new coordinates of their endpoints
         for edge_id in edges_to_redraw: 
             n1 = self.nodelist[ int(self.edgelist[edge_id].node1) ]  
             n2 = self.nodelist[ int(self.edgelist[edge_id].node2) ]    
@@ -317,14 +319,12 @@ class ZoomPanel(wx.Frame):
         self.Timer = wx.PyTimer(self.ShowFrame)
         self.FrameDelay = 16        ## 16ms per frame = framerate of 60 FPS
         self.Canvas.Draw(True)
-#         return r
 
 
 #---------------------------------------------------------------------------------------------#    
-#    Sets a destination for the robot graphic and determines the distance to travel per frame #
+#    Sets a destination for the robot graphic and starts the animation timer                  #
 #---------------------------------------------------------------------------------------------#  
-    def MoveRobotTo(self, dest, orient, metric):
-        
+    def MoveRobotTo(self, dest, orient, metric):        
         if metric is True:
             self.destination = self.MetersToPixels(dest)
             dest = self.destination
@@ -355,7 +355,7 @@ class ZoomPanel(wx.Frame):
         
              
 #---------------------------------------------------------------------------------------------#    
-#    Moves the robot graphic forward 1 frame until the frame limit (NumTimeSteps) is reached. #
+#    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
 #---------------------------------------------------------------------------------------------#        
     def ShowFrame(self):
         r = self.robot
@@ -364,16 +364,7 @@ class ZoomPanel(wx.Frame):
         dest_theta = self.dest_theta       
         
         x,y = r.XY
-        theta = a.Theta           
-#         if ((x+self.dx >= dest[0] and self.dx > 0 or
-#              x+self.dx <= dest[0] and self.dx < 0 ) and
-#            ( y+self.dy >= dest[1] and self.dy > 0 or
-#              y+self.dy <= dest[1] and self.dy < 0 ) and
-#             ( theta+self.dt >= dest_theta and self.dt > 0 or
-#               theta+self.dt <= dest_theta and self.dt < 0) 
-#             ):            
-#             print "stopped"
-#             self.TimeStep = self.NumTimeSteps
+        theta = a.Theta 
         
         if  self.TimeStep < self.NumTimeSteps:
             xy1 = (x+self.dx, y+self.dy) 
@@ -403,14 +394,11 @@ class ZoomPanel(wx.Frame):
                 new_theta = theta + self.dt             
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
-                 
-#                 print "rad " + str(new_theta_rad)
-#                 print "deg " + str(new_theta)
-                 
+                                  
                 a = self.Canvas.AddArrowLine((xy1,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                                         LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
                 a.Coords = xy1
-                a.Theta  = new_theta   ##fixme
+                a.Theta  = new_theta
                 a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 self.arrow = a
                 
@@ -418,8 +406,7 @@ class ZoomPanel(wx.Frame):
                 self.Canvas.Draw(True)
                 wx.GetApp().Yield(True)
         
-        else:
-#             print "stopped (timer)"            
+        else:         
             self.robot.SetFillColor(ROBOT_FILL_2)
             self.arrow.Visible = True
             self.Timer.Stop()
@@ -521,19 +508,7 @@ class ZoomPanel(wx.Frame):
             
             # Add the coordinates of the nodes to be connected to a list of points
             points = []
-            for i in range(len(self.sel_nodes)):
-                
-                # Taking note of the maximum and minimum coordinates for later
-#                 if self.sel_nodes[i].Coords[0] > max_x:
-#                     max_x = self.sel_nodes[i].Coords[0] + (NODE_DIAM/2)
-#                 if self.sel_nodes[i].Coords[0] < min_x:
-#                     min_x = self.sel_nodes[i].Coords[0] - (NODE_DIAM/2)
-#                 if self.sel_nodes[i].Coords[1] > max_y:
-#                     max_y = self.sel_nodes[i].Coords[1] + (NODE_DIAM/2)
-#                 if self.sel_nodes[i].Coords[1] < min_y:
-#                     min_y = self.sel_nodes[i].Coords[1] - (NODE_DIAM/2)
-#                                     
-#                 points.append(self.sel_nodes[i].Coords)   
+            for i in range(len(self.sel_nodes)): 
                 points.append( self.nodelist[ int(self.sel_nodes[i].Name) ].coords)  
                 
             # Create the edges 
@@ -548,7 +523,7 @@ class ZoomPanel(wx.Frame):
                     
                     # Only create the edge if no edge exists between the selected points
                     if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
-                        edge = ED.Edge(len(self.edgelist), node1.Name, node2.Name, 
+                        edge = E.Edge(len(self.edgelist), node1.Name, node2.Name, 
                                       self.Distance(node1.Coords, node2.Coords))
                         self.edgelist.append(edge)
                                
@@ -564,10 +539,6 @@ class ZoomPanel(wx.Frame):
                             print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
                                                                                 str(edge.node2))
-#                             print "\t(%s, %s) -> (%s, %s)" % (str(points[j][0]),
-#                                                                 str(points[j][1]),
-#                                                                 str(points[j+1][0]),
-#                                                                 str(points[j+1][1]))
                     else:
                         if self.verbose is True:
                             print int(self.conn_matrix[int(node1.Name)][int(node2.Name)])
@@ -1479,15 +1450,6 @@ class ZoomPanel(wx.Frame):
         self.bdlg = wx.BusyInfo(msg, parent=self)          
     def KillBusyDialog(self):
         del self.bdlg
-
-#--------------------------------------------------------------------------------------------#    
-#     Saves the canvas as an image. (unused)                                                 #
-#--------------------------------------------------------------------------------------------#
-    def Binding(self, event): 
-        print "Writing a png file:" 
-        self.Canvas.SaveAsImage("zzzz.png") 
-        print "Writing a jpeg file:" 
-        self.Canvas.SaveAsImage("zzzz.jpg",wx.BITMAP_TYPE_JPEG) 
         
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #
@@ -1495,7 +1457,13 @@ class ZoomPanel(wx.Frame):
     def PilImageToWxImage(self, pil_img):
         wx_img = wx.EmptyImage( pil_img.size[0], pil_img.size[1] )
         wx_img.SetData( pil_img.convert( 'RGB' ).tostring() )
-        return wx_img        
+        return wx_img      
+    
+    def LogOutput(self, enabled):      
+        if enabled is True: 
+            sys.stdout = open('stdout.log', 'a')
+        else:
+            sys.stdout = sys.__stdout__
     
 #--------------------------------------------------------------------------------------------#    
 #     Clears the canvas                                                                      #

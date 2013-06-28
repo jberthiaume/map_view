@@ -13,7 +13,7 @@ version of the code.
 import wx
 import FloatCanvas
 import numpy as N
-from wx.lib.floatcanvas import Resources
+import Resources
 from wx.lib.floatcanvas.Utilities import BBox
 
 class Cursors(object):
@@ -38,7 +38,7 @@ class Cursors(object):
         else: # use 24X24 cursors for GTK and Windows
             self.HandCursor = wx.CursorFromImage(Resources.getHandImage())
             self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHandImage())
-            self.MoveCursor = wx.CursorFromImage(Resources.getMoveCursorImage())
+            self.SelectCursor = wx.CursorFromImage(Resources.getSelectCursorImage())
         
             img = Resources.getMagPlusImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
@@ -169,7 +169,7 @@ class GUIMouse(GUIBase):
         self.Canvas.MouseOverTest(event)
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
         
-class GUIMove(GUIBase):
+class GUISelect(GUIBase):
     """
 
     Mouse mode checks for a hit test, and if nothing is hit,
@@ -178,7 +178,7 @@ class GUIMove(GUIBase):
     """
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
-        self.Cursor = self.Cursors.MoveCursor
+        self.Cursor = self.Cursors.SelectCursor
 
     # Handlers
     def OnLeftDown(self, event):

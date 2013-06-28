@@ -2,19 +2,18 @@
 
 import wx
 import os, time
-import rospy
+import rospy                                                #@UnresolvedImport
 import numpy as np
 from datetime import datetime
-from std_msgs.msg import String
-from nav_msgs.msg import OccupancyGrid
-from geometry_msgs.msg import PoseWithCovarianceStamped
-from geometry_msgs.msg import Twist
+from std_msgs.msg import String                             #@UnresolvedImport
+from nav_msgs.msg import OccupancyGrid                      #@UnresolvedImport
+from geometry_msgs.msg import PoseWithCovarianceStamped     #@UnresolvedImport
+from geometry_msgs.msg import Twist                         #@UnresolvedImport
 # from move_base_msgs.msg import MoveBaseActionGoal    ##incompatible with catkin##
 import Image
 import ImageOps
 
 FILENAME = "map.png"
-RESOLUTION = 0.05
 
 class listener():
     
@@ -48,7 +47,7 @@ class listener():
     
     def Listen(self):
         self.refresh = False
-        rospy.init_node('map_view', anonymous=True)
+        rospy.init_node('map_view', anonymous=False)
         rospy.Subscriber("map", OccupancyGrid, self.MapCB)
         rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, self.PoseCB)
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)

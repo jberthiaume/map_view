@@ -27,9 +27,7 @@ SIZER_BORDER    = 10
 
 #TODO: maybe change buttons into menu bar / static positioning?
 
-#TODO: more intuitive button icons for NavCanvas tools (annoying)
-
-#TODO: clean up node/edge classes
+#TODO: figure out something with move_base_msgs
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):

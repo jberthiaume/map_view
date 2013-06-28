@@ -4,7 +4,8 @@ Created on Jun 5, 2013
 @author: jon
 '''
 
-RESOLUTION = 0.05   # Meters per pixel
+#TODO: fixme    
+RESOLUTION = 0.05
 
 class Edge():
     
@@ -15,6 +16,5 @@ class Edge():
         self.length = length
         self.graphic = -1   # Used to link to the graphical object which represents the edge
         
-    #TODO: fixme    
     def GetMetricLength(self):
         return self.length * RESOLUTION

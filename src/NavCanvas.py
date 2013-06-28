@@ -5,7 +5,7 @@ A Panel that includes the FloatCanvas and Navigation controls
 
 import wx
 import FloatCanvas, GUIMode
-from wx.lib.floatcanvas import Resources
+import Resources
 
 class NavCanvas(wx.Panel):
     """
@@ -24,7 +24,7 @@ class NavCanvas(wx.Panel):
         wx.Panel.__init__(self, parent, id, size=size)
 
         self.Modes = [("Add",      GUIMode.GUIMouse(),   Resources.getPointerBitmap()),
-                      ("Select",   GUIMode.GUIMove(),  Resources.getMoveButtonBitmap()),
+                      ("Select",   GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
                       ("Zoom In",  GUIMode.GUIZoomIn(),  Resources.getMagPlusBitmap()),
                       ("Zoom Out", GUIMode.GUIZoomOut(), Resources.getMagMinusBitmap()),
                       ("Pan",      GUIMode.GUIPan(),    Resources.getHandBitmap()),
