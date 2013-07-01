@@ -247,6 +247,8 @@ class ZoomPanel(wx.Frame):
             elif event.GetKeyCode() == wx.WXK_RIGHT:
                 xy = node.coords[0]+step, node.coords[1]
                 dxy = 5,0
+            else:
+                return
                 
             if int(ID) < 100:  
                 fs = FONT_SIZE_1
@@ -542,7 +544,6 @@ class ZoomPanel(wx.Frame):
                                                                                 str(edge.node2))
                     else:
                         if self.verbose is True:
-                            print int(self.conn_matrix[int(node1.Name)][int(node2.Name)])
                             print "Did not create edge between nodes %s and %s\n\t(already exists)" \
                             % (node1.Name,node2.Name)
                 except IndexError:
@@ -1479,6 +1480,8 @@ class ZoomPanel(wx.Frame):
 #     Clears the canvas                                                                      #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
+        self.SetNodeList([])
+        self.SetEdgeList([])
         self.Canvas.InitAll()        
     
 #--------------------------------------------------------------------------------------------#    
