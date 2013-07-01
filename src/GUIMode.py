@@ -38,16 +38,22 @@ class Cursors(object):
             self.MagMinusCursor = wx.CursorFromImage(img)
         else: 
             # use 24X24 cursors for GTK and Windows
-            self.HandCursor = wx.CursorFromImage(Resources.getHandImage())
-            self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHandImage())
+#             self.HandCursor = wx.CursorFromImage(Resources.getHandImage())
+#             self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHandImage())
+            self.PanCursor = wx.CursorFromImage(Resources.getAeroMoveCursorImage())
             self.SelectCursor = wx.CursorFromImage(Resources.getSelectCursorImage())
+            
+            img = Resources.getAeroHandCursorImage()
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 1)
+            self.PointerHandCursor = wx.CursorFromImage(img)
         
-            img = Resources.getMagPlusImage()
+            img = Resources.getZoomInIconImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 9)
             self.MagPlusCursor = wx.CursorFromImage(img)
         
-            img = Resources.getMagMinusImage()
+            img = Resources.getZoomOutIconImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 9)
             self.MagMinusCursor = wx.CursorFromImage(img)
@@ -103,8 +109,9 @@ class GUIMouse(GUIBase):
     raises a FloatCanvas mouse event for each event.
 
     """
-
-    Cursor = wx.NullCursor
+    def __init__(self, canvas=None):
+        GUIBase.__init__(self, canvas)
+        self.Cursor = self.Cursors.PointerHandCursor
 
     # Handlers
     def OnLeftDown(self, event):
@@ -277,8 +284,8 @@ class GUIPan(GUIBase):
     """
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
-        self.Cursor = self.Cursors.HandCursor
-        self.GrabCursor = self.Cursors.GrabHandCursor
+        self.Cursor = self.Cursors.PanCursor
+        self.GrabCursor = self.Cursors.PanCursor
         self.StartMove = None
         self.MidMove = None
         self.PrevMoveXY = None

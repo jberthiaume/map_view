@@ -75,18 +75,11 @@ class ZoomPanel(wx.Frame):
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
         self.conn_matrix = NP.empty(shape=(150,150))
-        self.conn_matrix[:] = -1  
-        
-        try:
-            self.ls = self.GetParent().ls
-        except AttributeError:
-            print "Warning: GUI listener object not found"
-            self.ls = LS.listener() 
-        try:
-            self.pb = self.GetParent().pb
-        except AttributeError:
-            print "Warning: GUI publisher object not found"
-            self.pb = PB.publisher() 
+        self.conn_matrix[:] = -1          
+       
+        self.mp = self.GetParent()
+        self.ls = self.mp.ls
+        self.pb = self.mp.pb
             
         # Add the Canvas
         self.NavCanvas = NavCanvas.NavCanvas(self, 
@@ -94,6 +87,26 @@ class ZoomPanel(wx.Frame):
                                      BackgroundColor = "DARK GREY", 
                                      )
         self.Canvas = self.NavCanvas.Canvas
+        
+        # Menu bar                 
+        file_menu = wx.Menu()
+        file_menu.Append(1001, '&Open Map\t')
+        file_menu.Append(1002, '&Save Map\tCtrl+S')        
+        file_menu.Append(1003, 'Save &As...\tCtrl+Shift+S')
+        file_menu.AppendSeparator()      
+        file_menu.Append(1008, 'Close Map\tCtrl+W')
+        file_menu.Append(1009, 'Q&uit\tCtrl+Q')
+                
+        menu_bar = wx.MenuBar()
+        menu_bar.Append(file_menu, '&File')
+        self.SetMenuBar(menu_bar)
+         
+        # Menu event binders
+        wx.EVT_MENU(self,1001,self.OnOpen)
+        wx.EVT_MENU(self,1002,self.OnSave)        
+        wx.EVT_MENU(self,1003,self.OnSaveAs)
+        wx.EVT_MENU(self,1008,self.OnCloseMap)
+        wx.EVT_MENU(self,1009,self.OnExit)
         
         # Bind canvas mouse events
         self.Bind(wx.EVT_CLOSE, self.OnClose)
@@ -136,7 +149,7 @@ class ZoomPanel(wx.Frame):
 #    Hides the window instead of closing it when the X button is pressed                      #
 #---------------------------------------------------------------------------------------------#    
     def OnClose(self, event):
-        self.GetParent().OnShowHideMap(event)            
+        self.mp.OnShowHideMap(event)            
 
 #---------------------------------------------------------------------------------------------#    
 #    Writes the current cursor coordinates to the status bar at the bottom                    #
@@ -144,6 +157,26 @@ class ZoomPanel(wx.Frame):
     def OnMove(self, event): 
         self.SetStatusText("%i, %i"%tuple(event.Coords))
         
+#---------------------------------------------------------------------------------------------#    
+#    Event handlers passed down to the main panel                                             #
+#---------------------------------------------------------------------------------------------#        
+    def OnOpen(self, event):
+        self.mp.OnOpen(event)
+         
+    def OnSave(self, event):
+        self.mp.OnSave(event) 
+                
+    def OnSaveAs(self, event):
+        self.mp.OnSaveAs(event)         
+        
+    def OnSettings(self, event):
+        self.mp.OnSettings(event)  
+        
+    def OnCloseMap(self, event):
+        self.mp.OnCloseMap(event)       
+        
+    def OnExit(self, event):
+        self.mp.OnExit(event)        
     
 #---------------------------------------------------------------------------------------------#    
 #    Mouse click handler: left button                                                         #
@@ -486,7 +519,7 @@ class ZoomPanel(wx.Frame):
             
             if self.redraw is True:
                 self.Canvas.Draw(True)
-            self.GetParent().SetSaveStatus(False) 
+            self.mp.SetSaveStatus(False) 
             return True 
                   
         else:
@@ -555,7 +588,7 @@ class ZoomPanel(wx.Frame):
             if self.redraw is True:
                 self.Canvas.Draw(True)
             self.DeselectAll(event)
-            self.GetParent().SetSaveStatus(False)
+            self.mp.SetSaveStatus(False)
 
 #--------------------------------------------------------------------------------------------#    
 #    -deprecated-                                                                            #
@@ -837,7 +870,7 @@ class ZoomPanel(wx.Frame):
         
         self.DeselectAll(event=None)
         self.Canvas.Draw(True)
-        self.GetParent().SetSaveStatus(False)
+        self.mp.SetSaveStatus(False)
         
         self.redraw = rd
         self.verbose = vb
@@ -1306,7 +1339,7 @@ class ZoomPanel(wx.Frame):
         self.graphics_text = []
              
         for node in tmp_nodelist:
-            self.CreateNode((node.coords[0],node.coords[1]))            
+            self.CreateNode((node.coords[0],node.coords[1])) 
     
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported edge list and creates the edges.                          #
@@ -1480,8 +1513,6 @@ class ZoomPanel(wx.Frame):
 #     Clears the canvas                                                                      #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
-        self.SetNodeList([])
-        self.SetEdgeList([])
         self.Canvas.InitAll()        
     
 #--------------------------------------------------------------------------------------------#    

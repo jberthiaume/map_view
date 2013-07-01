@@ -25,13 +25,11 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TODO: maybe change buttons into menu bar / static positioning?
+#TODO: figure out something with move_base_msgs (not catkin-compatible)
 
-#TODO: figure out something with move_base_msgs
+#TODO: change conditions in map scanning to recognize different shades of grey?
 
-#TODO: change conditions in map scanning to recognize different shades of grey
-
-#TODO: add menubar to zoompanel
+#TODO: block update if no listener data
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -80,7 +78,7 @@ class MainFrame(wx.Frame):
         wx.EVT_MENU(self,101,self.OnOpen)
         wx.EVT_MENU(self,102,self.OnSave)        
         wx.EVT_MENU(self,103,self.OnSaveAs)
-        wx.EVT_MENU(self,108,self.OnClose)
+        wx.EVT_MENU(self,108,self.OnCloseMap)
         wx.EVT_MENU(self,109,self.OnExit)
 #         wx.EVT_MENU(self,209,self.OnSettings)
           
@@ -145,8 +143,8 @@ class MainFrame(wx.Frame):
     def OnSettings(self, event):
         self.mp.OnSettings(event)  
         
-    def OnClose(self, event):
-        self.mp.OnClose(event)       
+    def OnCloseMap(self, event):
+        self.mp.OnCloseMap(event)       
         
     def OnExit(self, event):
         self.mp.OnExit(event)    
@@ -544,9 +542,9 @@ class MainPanel(wx.Panel):
             filename = dlg.GetPath()
             
             try:
-                shutil.copy(current_map,filename) 
+                shutil.copy(current_map,filename)
             except shutil.Error:
-                shutil.move(filename, filename)   
+                shutil.move(filename, filename)
             
             # The graph filename must be the same as the map filename (except the extension)
             graph_filename = "%sgraph" % filename.rstrip("png")
@@ -578,7 +576,7 @@ class MainPanel(wx.Panel):
         self.parent_frame.Layout()
         self.Layout()        
     
-    def OnClose(self, event):  
+    def OnCloseMap(self, event):  
         if self.saved is False:
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it before closing?", 
@@ -593,6 +591,8 @@ class MainPanel(wx.Panel):
             dlg.Destroy()
               
         self.zp.Clear()
+        self.zp.SetNodeList([])
+        self.zp.SetEdgeList([])
         self.zp.Hide()
         self.btn_map.SetLabel("Show Map")
         for btn in self.btn_disabled:
