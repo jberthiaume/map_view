@@ -312,6 +312,8 @@ class ZoomPanel(wx.Frame):
             
             e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
             e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
+            e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
+            e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
             self.graphics_edges[edge_id] = e           
             e.Name = str(edge_id)
         
@@ -484,6 +486,8 @@ class ZoomPanel(wx.Frame):
             c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
                                       InForeground = True)
             c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'
+            c.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
+            c.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
             self.graphics_nodes.append(c)
             c.Name = ID
             c.Coords = node_coords    
@@ -535,11 +539,6 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#         
     def CreateEdges(self, event):
         if len(self.sel_nodes) >= 2:
-                        
-            max_x = 0
-            max_y = 0
-            min_x = 4000
-            min_y = 4000
             
             # Add the coordinates of the nodes to be connected to a list of points
             points = []
@@ -566,6 +565,8 @@ class ZoomPanel(wx.Frame):
                         e = self.Canvas.AddLine([points[j], points[j+1]], 
                                                 LineWidth = lw, LineColor = cl)
                         e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
+                        e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
+                        e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
                         self.graphics_edges.append(e)
                         
                         e.Name = str(edge.id)
@@ -1272,6 +1273,11 @@ class ZoomPanel(wx.Frame):
             self.sel_nodes.append(obj)       
             obj.SetFillColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True)
+    
+    def OnMouseEnterNode(self, obj):
+        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.PointerHandCursor)         
+    def OnMouseLeaveNode(self, obj):
+        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.ArrowCursor)   
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
@@ -1289,6 +1295,11 @@ class ZoomPanel(wx.Frame):
             self.sel_edges.append(obj)        
             obj.SetLineColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True) 
+        
+    def OnMouseEnterEdge(self, obj):
+        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.PointerHandCursor)         
+    def OnMouseLeaveEdge(self, obj):
+        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.ArrowCursor)
 
 #--------------------------------------------------------------------------------------------#    
 #     "Setter" functions for file paths and data structures                                  #

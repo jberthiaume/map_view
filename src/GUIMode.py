@@ -43,17 +43,22 @@ class Cursors(object):
             self.PanCursor = wx.CursorFromImage(Resources.getAeroMoveCursorImage())
             self.SelectCursor = wx.CursorFromImage(Resources.getSelectCursorImage())
             
+            img = Resources.getAeroArrowCursorImage()
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 6)
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 1)
+            self.ArrowCursor = wx.CursorFromImage(img)
+            
             img = Resources.getAeroHandCursorImage()
-            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 7)
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 1)
             self.PointerHandCursor = wx.CursorFromImage(img)
         
-            img = Resources.getZoomInIconImage()
+            img = Resources.getZoomInCursorImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 9)
             self.MagPlusCursor = wx.CursorFromImage(img)
         
-            img = Resources.getZoomOutIconImage()
+            img = Resources.getZoomOutCursorImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 9)
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 9)
             self.MagMinusCursor = wx.CursorFromImage(img)
@@ -111,7 +116,7 @@ class GUIMouse(GUIBase):
     """
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
-        self.Cursor = self.Cursors.PointerHandCursor
+        self.Cursor = self.Cursors.ArrowCursor
 
     # Handlers
     def OnLeftDown(self, event):
@@ -172,6 +177,7 @@ class GUISelect(GUIBase):
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
         self.Cursor = self.Cursors.SelectCursor
+        self.PrevRBBox = None
 
     # Starts drawing the selection box when the left mouse button is pressed
     def OnLeftDown(self, event):

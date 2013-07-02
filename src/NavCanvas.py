@@ -23,16 +23,17 @@ class NavCanvas(wx.Panel):
                    **kwargs): # The rest just get passed into FloatCanvas
         wx.Panel.__init__(self, parent, id, size=size)
         self.parent = parent
+        self.Canvas = FloatCanvas.FloatCanvas(self, **kwargs)
         
         self.Utils = [("Open",      self.OnOpen,         Resources.getFolderIconBitmap()),
                       ("Save",      self.OnSave,         Resources.getSaveIconBitmap()),
                       ]
 
-        self.Modes = [("Zoom In",  GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
-                      ("Zoom Out", GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),
-                      ("Pan",      GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
-                      ("Add",      GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
-                      ("Select",   GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
+        self.Modes = [("Zoom In",     GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
+                      ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),
+                      ("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
+                      ("Add/Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
+                      ("Lasso Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
                       ]
         
         self.tools = []
@@ -40,14 +41,12 @@ class NavCanvas(wx.Panel):
         box = wx.BoxSizer(wx.VERTICAL)
         box.Add(self.ToolBar, 0, wx.ALL | wx.ALIGN_LEFT | wx.GROW, 4)
 
-        self.Canvas = FloatCanvas.FloatCanvas(self, **kwargs)
         box.Add(self.Canvas, 1, wx.GROW)
 
         self.SetSizerAndFit(box)
 
         # default to first mode
         self.ToolBar.ToggleTool(self.tools[3].GetId(), True)
-        self.Canvas.SetMode(self.Modes[3][1])
         return None
 
     def BuildToolbar(self):
@@ -66,7 +65,8 @@ class NavCanvas(wx.Panel):
     
     def AddToolbarUtilButtons(self, tb, utils):
         for util in utils:
-            button = wx.BitmapButton(tb, -1, util[2], style=wx.NO_BORDER)
+            button = wx.BitmapButton(tb, -1, util[2], size=(45,45), style=wx.NO_BORDER)
+            button.SetToolTip( wx.ToolTip(util[0]) )
             tb.AddControl(button)
             button.Bind(wx.EVT_BUTTON, util[1])
             button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus)
@@ -77,8 +77,9 @@ class NavCanvas(wx.Panel):
         self.ModesDict = {}
         for Mode in Modes:
             tool = tb.AddRadioTool(wx.ID_ANY, shortHelp=Mode[0], bitmap=Mode[2])
-            self.Bind(wx.EVT_TOOL, self.SetMode, tool)
+            self.Bind(wx.EVT_TOOL, self.SetMode, tool)            
             self.ModesDict[tool.GetId()]=Mode[1]
+            
             self.tools.append(tool)
         #self.ZoomOutTool = tb.AddRadioTool(wx.ID_ANY, bitmap=Resources.getMagMinusBitmap(), shortHelp = "Zoom Out")
         #self.Bind(wx.EVT_TOOL, lambda evt : self.SetMode(Mode=self.GUIZoomOut), self.ZoomOutTool)        
@@ -86,18 +87,21 @@ class NavCanvas(wx.Panel):
     def AddToolbarZoomButton(self, tb):
         tb.AddSeparator()
 
-        self.ZoomButton = wx.Button(tb, label="Zoom To Fit", size=(110,30))
+        self.ZoomButton = wx.BitmapButton(tb, -1, Resources.getZoomToFitIconBitmap(),
+                                         size=(45,45), style=wx.NO_BORDER)
+                                          
+        self.ZoomButton.SetToolTip( wx.ToolTip("Zoom to Fit") )
         tb.AddControl(self.ZoomButton)
         self.ZoomButton.Bind(wx.EVT_BUTTON, self.ZoomToFit)
-#                 
+                 
 #         self.CanvasButton = wx.Button(tb, label="View Canvas", size=(110,30))
 #         tb.AddControl(self.CanvasButton)       
 #         self.CanvasButton.Bind(wx.EVT_BUTTON, self.ZoomToCanvas)
-        try:            
-            self.GetParent().GetParent().buttons.append(self.ZoomButton)
+#         try:            
+#             self.GetParent().GetParent().buttons.append(self.ZoomButton)
 #             self.GetParent().GetParent().buttons.append(self.CanvasButton)
-        except AttributeError:
-            pass
+#         except AttributeError:
+#             pass
         
 #---------------------------------------------------------------------------------------------#    
 #    Event handlers passed down to the main panel                                             #
@@ -133,11 +137,11 @@ class NavCanvas(wx.Panel):
         self.ZoomButton.Show()
 
     def SetMode(self, event):
-        Mode = self.ModesDict[event.GetId()]
+        ID = event.GetId()
+        Mode = self.ModesDict[ID]
         self.Canvas.SetMode(Mode)
 
-    def ZoomToFit(self,event):
-        self.Canvas.GetMode()
+    def ZoomToFit(self,event):                
         try:
 #             iw = self.GetParent().image_width
 #             self.GetParent().Zoom((iw/2,iw/2), (iw/1000.0))

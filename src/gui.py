@@ -29,7 +29,11 @@ SIZER_BORDER    = 10
 
 #TODO: change conditions in map scanning to recognize different shades of grey?
 
-#TODO: block update if no listener data
+#TODO: block update if no listener data, block save if no map loaded
+
+#TODO: add clear button
+
+#TODO: only re-scan map data if map hasn't been updated
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
