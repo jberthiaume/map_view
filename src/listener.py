@@ -6,6 +6,7 @@ import rospy                                                #@UnresolvedImport
 import numpy as np
 from datetime import datetime
 from std_msgs.msg import String                             #@UnresolvedImport
+from std_msgs.msg import UInt32
 from nav_msgs.msg import OccupancyGrid                      #@UnresolvedImport
 from geometry_msgs.msg import PoseWithCovarianceStamped     #@UnresolvedImport
 from geometry_msgs.msg import Twist                         #@UnresolvedImport
@@ -88,7 +89,9 @@ class listener():
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #
 #---------------------------------------------------------------------------------------------#   
-    def MapCB(self, data):  
+    def MapCB(self, data):
+        self.parent.mp.btn_rf.Enable(True)
+          
         array_length = len(data.data)
         self.image_width = int(np.sqrt(array_length))
         self.resolution = self.Truncate(data.info.resolution, 5)

@@ -13,7 +13,7 @@ from datetime import datetime
 from zoompanel import ZoomPanel
 
 APP_SIZE        = (240,312)
-APP_SIZE_EXP    = (240,492)
+APP_SIZE_EXP    = (240,565)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 # TXT_FG_COLOR    = (255,131,79)
@@ -25,15 +25,19 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TODO: figure out something with move_base_msgs (not catkin-compatible)
-
 #TODO: change conditions in map scanning to recognize different shades of grey?
 
-#TODO: block update if no listener data, block save if no map loaded
-
-#TODO: add clear button
-
 #TODO: only re-scan map data if map hasn't been updated
+
+#TODO: pointer hand cursor bug on leave hitbox
+
+#TODO: zoom to fit / image limit bugs
+
+#TODO: edge intersections -> nodes
+
+#TODO: integrate destination messages
+
+#TODO: toggle ignore unknown areas when connecting nodes
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -62,21 +66,25 @@ class MainFrame(wx.Frame):
         self.SetSizer(self.sizer)
         
         # Menu bar                 
-        file_menu = wx.Menu()
-        file_menu.Append(101, '&Open Map\t')
-        file_menu.Append(102, '&Save Map\tCtrl+S')        
-        file_menu.Append(103, 'Save &As...\tCtrl+Shift+S')
-        file_menu.AppendSeparator()      
-        file_menu.Append(108, 'Close Map\tCtrl+W')
-        file_menu.Append(109, 'Q&uit\tCtrl+Q')
+        self.file_menu = wx.Menu()
+        self.file_menu.Append(101, '&Open Map\t')
+        self.file_menu.Append(102, '&Save Map\tCtrl+S')        
+        self.file_menu.Append(103, 'Save &As...\tCtrl+Shift+S')
+        self.file_menu.AppendSeparator()      
+        self.file_menu.Append(108, 'Close Map\tCtrl+W')
+        self.file_menu.Append(109, 'Q&uit\tCtrl+Q')             
         
 #         options_menu = wx.Menu()  
 #         options_menu.Append(209, 'Settings\tCtrl+T')
                 
         menu_bar = wx.MenuBar()
-        menu_bar.Append(file_menu, '&File')
+        menu_bar.Append(self.file_menu, '&File')
 #         menu_bar.Append(options_menu, '&Options')
-        self.SetMenuBar(menu_bar)
+        self.SetMenuBar(menu_bar)      
+         
+        self.disabled_items = (102,103,108)
+        for key in self.disabled_items:
+            self.file_menu.Enable(key, False)
          
         # Menu event binders
         wx.EVT_MENU(self,101,self.OnOpen)
@@ -195,7 +203,8 @@ class MainPanel(wx.Panel):
         # Refresh map button
         hbox00 = wx.BoxSizer(wx.HORIZONTAL)     
         hbox00.AddSpacer(H_SPACER_WIDTH)
-        self.btn_rf = wx.Button(self, label="Update Map", size=BUTTON_SIZE)        
+        self.btn_rf = wx.Button(self, label="Update Map", size=BUTTON_SIZE)
+        self.btn_rf.Enable(False)        
         self.btn_rf.Bind(wx.EVT_BUTTON, self.OnRefreshMap)
         self.buttons.append(self.btn_rf) 
         hbox00.Add(self.btn_rf)        
@@ -289,7 +298,7 @@ class MainPanel(wx.Panel):
 #         self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)   
                       
         self.PaintButtons( (255,255,255),BUTTON_COLOR )
-        self.DisableButtons()  
+        self.EnableButtons(self.btn_disabled, False)  
                 
         # Mouse capturing events
         self.bg.Bind(wx.EVT_MOTION, self.OnMouse)
@@ -335,9 +344,15 @@ class MainPanel(wx.Panel):
         except IOError:
             print "Invalid argument: expected (R,G,B) value"
             
-    def DisableButtons(self):
-        for btn in self.btn_disabled:
-            btn.Enable(False)
+            
+    def EnableButtons(self, btn_list, boolean):
+        for btn in btn_list:
+            btn.Enable(boolean)
+            
+    def EnableMenuOptions(self, key_list, boolean):
+        for key in key_list:
+            self.parent_frame.file_menu.Enable(key, boolean)
+            self.zp.file_menu.Enable(key, boolean)
                 
 #---------------------------------------------------------------------------------------------#    
 #    Starts a listener process which listens on the "/map" topic. Once the listener has       #
@@ -384,17 +399,13 @@ class MainPanel(wx.Panel):
             self.parent_frame.SetTitle("%s" % map_file)
             
             # Update some statuses
-            for btn in self.btn_disabled:
-                btn.Enable(True)
-            self.SetSaveStatus(False)            
+            self.EnableButtons(self.btn_disabled, True)
+            self.EnableMenuOptions(self.parent_frame.disabled_items, True)
+            self.SetSaveStatus(False)     
             
-            # Show the image panel   
-#             self.zp.SetImage(map_file)
             while self.ls.image is None:
-                time.sleep(0.5)
-                  
+                time.sleep(0.5)                  
             self.zp.SetImage(self.ls.image)
-#             self.tt.paused = False
             
         except IndexError:
             # Image not found
@@ -493,10 +504,9 @@ class MainPanel(wx.Panel):
                                   
                 self.zp.SetImage(filename)  
                 wx.EndBusyCursor()  
-                self.zp.KillBusyDialog()       
-                
-                for btn in self.btn_disabled:
-                    btn.Enable(True)                 
+                self.zp.KillBusyDialog()  
+                self.EnableButtons(self.btn_disabled, True)  
+                self.EnableMenuOptions(self.parent_frame.disabled_items, True)             
                 self.SetSaveStatus(True) 
                 self.btn_map.SetLabel("Hide Map")
                 
@@ -599,8 +609,8 @@ class MainPanel(wx.Panel):
         self.zp.SetEdgeList([])
         self.zp.Hide()
         self.btn_map.SetLabel("Show Map")
-        for btn in self.btn_disabled:
-            btn.Enable(False)
+        self.EnableButtons(self.btn_disabled, False)
+        self.EnableMenuOptions(self.parent_frame.disabled_items, False)
         self.SetSaveStatus(True)
 
 #---------------------------------------------------------------------------------------------#    
@@ -793,21 +803,31 @@ class SettingsPanel(wx.Panel):
                                     pos=(20,280))
         self.chk_edge.SetValue(False)
         
+        # Clear Checkbox
+        self.chk_clr = wx.CheckBox(self, label="Clear nodes and edges\nwhen generating new graph",
+                                    pos=(20,325))
+        self.chk_clr.SetValue(True)
+        
+        # Ignore Unknowns Checkbox
+        self.chk_ig = wx.CheckBox(self, label="Placeholder\nxxxx",
+                                    pos=(20,370))
+        self.chk_ig.SetValue(True)
+        
         # Title Label 2 
         self.lbl_gg = wx.StaticText(self, label="Other Settings", 
-                                    size=(240,30), pos=(10,335), style=wx.CENTER)
+                                    size=(240,30), pos=(10,425), style=wx.CENTER)
         
         self.lbl_gg.SetFont(title_font)
         self.lbl_titles.append(self.lbl_gg) 
         
         # Edge Creation Checkbox
         self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes",
-                                  pos=(10,360))
+                                  pos=(10,450))
         self.chk_ec.SetValue(True)
         
         # Console Output Checkbox
         self.chk_co = wx.CheckBox(self, label="Enable console output",
-                                  pos=(10,385))
+                                  pos=(10,475))
         self.chk_co.SetValue(True)
                 
         # Ok button
@@ -900,20 +920,10 @@ class SettingsPanel(wx.Panel):
 #    Saves the settings                                                                       #
 #---------------------------------------------------------------------------------------------#
     def OnOk(self, event):
-        if self.chk_edge.GetValue() is True:
-            self.parent_frame.mp.zp.edgespacing = False
-        else:
-            self.parent_frame.mp.zp.edgespacing = True
-                    
-        if self.chk_ec.GetValue() is True:
-            self.parent_frame.mp.zp.autoedges = True
-        else:
-            self.parent_frame.mp.zp.autoedges = False
-            
-        if self.chk_co.GetValue() is True:
-            self.parent_frame.SuppressOutput(False)
-        else:
-            self.parent_frame.SuppressOutput(True)
+        self.parent_frame.mp.zp.edgespacing = not self.chk_edge.GetValue()
+        self.parent_frame.mp.zp.cleargraph = self.chk_clr.GetValue()            
+        self.parent_frame.mp.zp.autoedges = self.chk_ec.GetValue()         
+        self.parent_frame.SuppressOutput(not self.chk_co.GetValue())
         
         try:
             n = int( self.txt_n.GetValue() )

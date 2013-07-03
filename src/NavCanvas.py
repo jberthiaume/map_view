@@ -33,7 +33,7 @@ class NavCanvas(wx.Panel):
                       ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),
                       ("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
                       ("Add/Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
-                      ("Lasso Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
+                      ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
                       ]
         
         self.tools = []
@@ -71,8 +71,8 @@ class NavCanvas(wx.Panel):
             button.Bind(wx.EVT_BUTTON, util[1])
             button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus)
     
-    def AddToolbarModeButtons(self, tb, Modes):
-        tb.AddSeparator()
+    def AddToolbarModeButtons(self, tb, Modes):        
+        self.AddSpacer(tb)
         
         self.ModesDict = {}
         for Mode in Modes:
@@ -85,23 +85,31 @@ class NavCanvas(wx.Panel):
         #self.Bind(wx.EVT_TOOL, lambda evt : self.SetMode(Mode=self.GUIZoomOut), self.ZoomOutTool)        
 
     def AddToolbarZoomButton(self, tb):
-        tb.AddSeparator()
+        self.AddSpacer(tb)
 
         self.ZoomButton = wx.BitmapButton(tb, -1, Resources.getZoomToFitIconBitmap(),
-                                         size=(45,45), style=wx.NO_BORDER)
-                                          
+                                         size=(45,45), style=wx.NO_BORDER)                                          
         self.ZoomButton.SetToolTip( wx.ToolTip("Zoom to Fit") )
         tb.AddControl(self.ZoomButton)
         self.ZoomButton.Bind(wx.EVT_BUTTON, self.ZoomToFit)
                  
-#         self.CanvasButton = wx.Button(tb, label="View Canvas", size=(110,30))
-#         tb.AddControl(self.CanvasButton)       
-#         self.CanvasButton.Bind(wx.EVT_BUTTON, self.ZoomToCanvas)
+        self.XButton = wx.BitmapButton(tb, -1, Resources.getXIconBitmap(),
+                                         size=(45,45), style=wx.NO_BORDER)
+                                          
+        self.XButton.SetToolTip( wx.ToolTip("Clear Graph") )
+        tb.AddControl(self.XButton)
+        self.XButton.Bind(wx.EVT_BUTTON, self.Clear)
 #         try:            
 #             self.GetParent().GetParent().buttons.append(self.ZoomButton)
 #             self.GetParent().GetParent().buttons.append(self.CanvasButton)
 #         except AttributeError:
 #             pass
+
+    def AddSpacer(self, tb):
+        spacer = wx.BitmapButton(tb, -1, Resources.getVSpacer10Bitmap(),
+                                         size=(25,45), style=wx.NO_BORDER)                                          
+        spacer.Enable(False)
+        tb.AddControl(spacer)
         
 #---------------------------------------------------------------------------------------------#    
 #    Event handlers passed down to the main panel                                             #
@@ -141,15 +149,14 @@ class NavCanvas(wx.Panel):
         Mode = self.ModesDict[ID]
         self.Canvas.SetMode(Mode)
 
-    def ZoomToFit(self,event):                
-        try:
-#             iw = self.GetParent().image_width
-#             self.GetParent().Zoom((iw/2,iw/2), (iw/1000.0))
-            self.GetParent().ZoomToFit()
-        except IndexError:
-            pass
+    def ZoomToFit(self,event): 
+        self.GetParent().ZoomToFit()
         self.Canvas.SetFocus() # Otherwise the focus stays on the Button, and wheel events are lost.
 
+    def Clear(self, event):
+        self.GetParent().ClearGraph()
+        self.Canvas.SetFocus()
+    
     def ZoomToCanvas(self,event):
         self.Canvas.GetMode()
         self.Canvas.ZoomToBB()

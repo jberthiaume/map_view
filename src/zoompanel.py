@@ -14,6 +14,7 @@ import time
 import Image
 import edge as E
 import node as N
+import origin as O
 import random as R
 import numpy as NP
 import listener as LS
@@ -46,7 +47,6 @@ class ZoomPanel(wx.Frame):
     def __init__(self, *args, **kwargs): 
         wx.Frame.__init__(self, *args, **kwargs) 
         self.CreateStatusBar()
-#         self.LogOutput(True) 
         
         # Initialize data structures   
         self.export = False
@@ -54,12 +54,13 @@ class ZoomPanel(wx.Frame):
         self.redraw = True
         self.autoedges = True 
         self.edgespacing = True
+        self.cleargraph = True
         self.leftdown = False       
         
         self.resolution = None
         self.origin = None
         self.robot = None
-        self.image_width = 2000
+        self.image_width = None
         self.gg_const = (100,6,30,5,80)
         self.current_map = []
         
@@ -89,16 +90,16 @@ class ZoomPanel(wx.Frame):
         self.Canvas = self.NavCanvas.Canvas
         
         # Menu bar                 
-        file_menu = wx.Menu()
-        file_menu.Append(1001, '&Open Map\t')
-        file_menu.Append(1002, '&Save Map\tCtrl+S')        
-        file_menu.Append(1003, 'Save &As...\tCtrl+Shift+S')
-        file_menu.AppendSeparator()      
-        file_menu.Append(1008, 'Close Map\tCtrl+W')
-        file_menu.Append(1009, 'Q&uit\tCtrl+Q')
+        self.file_menu = wx.Menu()
+        self.file_menu.Append(1001, '&Open Map\t')
+        self.file_menu.Append(1002, '&Save Map\tCtrl+S')        
+        self.file_menu.Append(1003, 'Save &As...\tCtrl+Shift+S')
+        self.file_menu.AppendSeparator()      
+        self.file_menu.Append(1008, 'Close Map\tCtrl+W')
+        self.file_menu.Append(1009, 'Q&uit\tCtrl+Q')
                 
         menu_bar = wx.MenuBar()
-        menu_bar.Append(file_menu, '&File')
+        menu_bar.Append(self.file_menu, '&File')
         self.SetMenuBar(menu_bar)
          
         # Menu event binders
@@ -312,8 +313,8 @@ class ZoomPanel(wx.Frame):
             
             e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
             e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-            e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
-            e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
+            e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
+            e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
             self.graphics_edges[edge_id] = e           
             e.Name = str(edge_id)
         
@@ -455,9 +456,9 @@ class ZoomPanel(wx.Frame):
     def OnClickRobot(self, obj):
         if self.verbose is True:
             print "Robot location:" 
-            print "\t Pixels: (%s, %s)" % (obj.Coords[0], obj.Coords[1])
-            print "\t Metric: (%s, %s)" % (self.PixelsToMeters(obj.Coords[0]), 
-                                           self.PixelsToMeters(obj.Coords[1]))
+            print "\t Pixels: (%s, %s)" % (int(obj.Coords[0]), int(obj.Coords[1]))
+            m_Coords = self.PixelsToMeters(obj.Coords)
+            print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -565,8 +566,8 @@ class ZoomPanel(wx.Frame):
                         e = self.Canvas.AddLine([points[j], points[j+1]], 
                                                 LineWidth = lw, LineColor = cl)
                         e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-                        e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
-                        e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
+                        e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
+                        e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
                         self.graphics_edges.append(e)
                         
                         e.Name = str(edge.id)
@@ -705,10 +706,10 @@ class ZoomPanel(wx.Frame):
                 y2 = int( y1_2+(pos*ky) )                
                 
                 if self.image_data_format is 'int':
-                    if image_data[ (w*y1)+x1 ] != 0 or image_data[ (w*y2)+x2 ] != 0:
+                    if image_data[ (w*y1)+x1 ] > 0 or image_data[ (w*y2)+x2 ] > 0:
                         return False                
                 if self.image_data_format is 'byte':
-                    if image_data[ (w*y1)+x1 ] != chr(230) or image_data[ (w*y2)+x2 ] != chr(230):
+                    if (image_data[ (w*y1)+x1 ] != chr(230) or image_data[ (w*y2)+x2 ] != chr(230)):
                         return False
                 
                 if not last and pos>ln:
@@ -760,8 +761,9 @@ class ZoomPanel(wx.Frame):
         self.autoedges = False
         self.redraw = False
         
-        self.SelectAll(None)
-        self.DeleteSelection(None)        
+        if self.cleargraph is True:
+            self.SelectAll(None)
+            self.DeleteSelection(None)        
         
         data = self.image_data
         lim = self.FindImageLimit(data,4)        
@@ -1325,7 +1327,7 @@ class ZoomPanel(wx.Frame):
 
 #--------------------------------------------------------------------------------------------#    
 #     Unpickles an existing graph file from the file system.                                 #
-#     NodeList is in slot 0, EdgeList is in slot 1.                                          #
+#     NodeList is in slot 0, EdgeList is in slot 1, Metadata is in slot 2.                   #
 #--------------------------------------------------------------------------------------------#       
     def ImportGraph(self, f):
         g = pickle.load(f)
@@ -1334,10 +1336,8 @@ class ZoomPanel(wx.Frame):
             self.SetEdgeList( g[1] ) 
             self.SetMapMetadata( *g[2] )
         except IndexError:
-            dlg = wx.MessageDialog(self, "Incompatible map file (old version)", 
-                                   "Error", wx.ICON_ERROR)
-            dlg.ShowModal()
-            dlg.Destroy()
+            ori = O.Origin((0,0))
+            self.SetMapMetaData(None, 0.05, ori)
 
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported node list and creates the nodes.                          #
@@ -1519,9 +1519,13 @@ class ZoomPanel(wx.Frame):
             sys.stdout = open('stdout.log', 'a')
         else:
             sys.stdout = sys.__stdout__
+            
+    def ClearGraph(self):
+        self.SelectAll(None)
+        self.DeleteSelection(None)
     
 #--------------------------------------------------------------------------------------------#    
-#     Clears the canvas                                                                      #
+#     Clears the entire canvas                                                               #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
         self.Canvas.InitAll()        
@@ -1563,7 +1567,12 @@ class ZoomPanel(wx.Frame):
             image_file = self.ls.GetDefaultFilename()
             self.image_data = self.ls.image_data
             self.image_data_format = "int"    
-           
+        
+        if self.image_width is None:
+            self.image_width = image.GetHeight()   
+            print self.image_width
+        else:
+            print "e" + str(self.image_width)
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 

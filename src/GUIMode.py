@@ -40,8 +40,13 @@ class Cursors(object):
             # use 24X24 cursors for GTK and Windows
 #             self.HandCursor = wx.CursorFromImage(Resources.getHandImage())
 #             self.GrabHandCursor = wx.CursorFromImage(Resources.getGrabHandImage())
-            self.PanCursor = wx.CursorFromImage(Resources.getAeroMoveCursorImage())
+            self.PanCursor = wx.CursorFromImage(Resources.getAeroMoveCursorImage())            
             self.SelectCursor = wx.CursorFromImage(Resources.getSelectCursorImage())
+            
+            img = Resources.getCrossCursorImage()
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 11)
+            img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_Y, 11)
+            self.CrossCursor = wx.CursorFromImage(img)
             
             img = Resources.getAeroArrowCursorImage()
             img.SetOptionInt(wx.IMAGE_OPTION_CUR_HOTSPOT_X, 6)
@@ -176,7 +181,7 @@ class GUIMouse(GUIBase):
 class GUISelect(GUIBase):
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
-        self.Cursor = self.Cursors.SelectCursor
+        self.Cursor = self.Cursors.CrossCursor
         self.PrevRBBox = None
 
     # Starts drawing the selection box when the left mouse button is pressed
