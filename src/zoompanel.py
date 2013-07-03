@@ -73,7 +73,7 @@ class ZoomPanel(wx.Frame):
         
         self.sel_nodes = []
         self.sel_edges = []  
-        self.destination = None      
+        self.curr_dest = None      
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
@@ -464,12 +464,10 @@ class ZoomPanel(wx.Frame):
             
             
     def HighlightDestination(self, dest):
-        print dest
-        print int(dest)
-        if self.destination is not None: 
-            self.graphics_nodes[ self.destination ].SetFillColor(NODE_FILL) 
+        if self.curr_dest is not None: 
+            self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
         self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)      
-        self.destination = dest
+        self.curr_dest = dest
         self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
