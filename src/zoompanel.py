@@ -31,6 +31,7 @@ ROBOT_FILL_1        = (100,100,100)
 ROBOT_FILL_2        = (180,0,0)
 ROBOT_BORDER        = (50,0,0)
 HIGHLIGHT_COLOR     = (255,106,54)
+DESTINATION_COLOR   = (50,200,50)
 TEXT_COLOR          = (119,41,83)
 
 #----- Global dimensions for graphical objects -----#
@@ -462,9 +463,11 @@ class ZoomPanel(wx.Frame):
             print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
             
             
-    def SetDestination(self, dest): 
-        self.graphics_nodes       
-        self.current_dest = destfffff
+    def HighlightDestination(self, dest): 
+        self.graphics_nodes[ self.destination ].SetFillColor(NODE_FILL) 
+        self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)      
+        self.destination = dest
+        self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #

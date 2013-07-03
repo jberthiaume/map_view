@@ -62,7 +62,9 @@ class listener():
 #    Callback function for the "/node_traveller/dest" topic                                        #
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
-        print "map viewer received data: %s" % str(data)               
+        print "map viewer received data: %s" % str(data.data)
+        dest = int(data.data) 
+        self.zp.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
