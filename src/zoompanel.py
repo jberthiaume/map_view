@@ -71,7 +71,8 @@ class ZoomPanel(wx.Frame):
         self.graphics_text = []
         
         self.sel_nodes = []
-        self.sel_edges = []        
+        self.sel_edges = []  
+        self.destination = None      
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
@@ -459,6 +460,11 @@ class ZoomPanel(wx.Frame):
             print "\t Pixels: (%s, %s)" % (int(obj.Coords[0]), int(obj.Coords[1]))
             m_Coords = self.PixelsToMeters(obj.Coords)
             print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
+            
+            
+    def SetDestination(self, dest): 
+        self.graphics_nodes       
+        self.current_dest = destfffff
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #

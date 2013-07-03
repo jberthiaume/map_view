@@ -6,7 +6,7 @@ import rospy                                                #@UnresolvedImport
 import numpy as np
 from datetime import datetime
 from std_msgs.msg import String                             #@UnresolvedImport
-from std_msgs.msg import UInt32
+from std_msgs.msg import UInt32                             #@UnresolvedImport
 from nav_msgs.msg import OccupancyGrid                      #@UnresolvedImport
 from geometry_msgs.msg import PoseWithCovarianceStamped     #@UnresolvedImport
 from geometry_msgs.msg import Twist                         #@UnresolvedImport
@@ -53,15 +53,16 @@ class listener():
         rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, self.PoseCB)
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
         rospy.Subscriber("tour", String, self.TourCB)
+        rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
         
         if __name__ == '__main__':
             rospy.spin()       
 
 #---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/move_base/goal" topic                                        #
+#    Callback function for the "/node_traveller/dest" topic                                        #
 #---------------------------------------------------------------------------------------------#                
-    def GoalCB(self, data):
-        pass               
+    def DestCB(self, data):
+        print "map viewer received data: %s" % str(data)               
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
