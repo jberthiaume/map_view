@@ -463,8 +463,11 @@ class ZoomPanel(wx.Frame):
             print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
             
             
-    def HighlightDestination(self, dest): 
-        self.graphics_nodes[ self.destination ].SetFillColor(NODE_FILL) 
+    def HighlightDestination(self, dest):
+        print dest
+        print int(dest)
+        if self.destination is not None: 
+            self.graphics_nodes[ self.destination ].SetFillColor(NODE_FILL) 
         self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)      
         self.destination = dest
         self.Canvas.Draw(True)
@@ -1581,7 +1584,7 @@ class ZoomPanel(wx.Frame):
             self.image_width = image.GetHeight()   
             print self.image_width
         else:
-            print "e" + str(self.image_width)
+            print str(self.image_width)
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
