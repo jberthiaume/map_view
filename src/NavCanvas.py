@@ -29,12 +29,12 @@ class NavCanvas(wx.Panel):
                       ("Save",      self.OnSave,         Resources.getSaveIconBitmap()),
                       ]
 
-        self.Modes = [("Zoom In",     GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
-                      ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),
-                      ("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
+        self.Modes = [("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
                       ("Add/Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
                       ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
-                      ("2D Pose Estimate",  GUIMode.GUIPoseEst(),   Resources.getMoveRLCursorBitmap())
+                      ("2D Pose Estimate",  GUIMode.GUIPoseEst(),   Resources.getMoveRLCursorBitmap()),
+                      ("Zoom In",     GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
+                      ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),
                       ]
         
         self.tools = []
@@ -70,9 +70,11 @@ class NavCanvas(wx.Panel):
             button.SetToolTip( wx.ToolTip(util[0]) )
             tb.AddControl(button)
             button.Bind(wx.EVT_BUTTON, util[1])
-            button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus)
+            button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus)       
+            self.AddSpacer(tb)
     
-    def AddToolbarModeButtons(self, tb, Modes):        
+    def AddToolbarModeButtons(self, tb, Modes): 
+        tb.AddSeparator()
         self.AddSpacer(tb)
         
         self.ModesDict = {}
@@ -86,6 +88,8 @@ class NavCanvas(wx.Panel):
         #self.Bind(wx.EVT_TOOL, lambda evt : self.SetMode(Mode=self.GUIZoomOut), self.ZoomOutTool)        
 
     def AddToolbarZoomButton(self, tb):
+        self.AddSpacer(tb)        
+        tb.AddSeparator()
         self.AddSpacer(tb)
 
         self.ZoomButton = wx.BitmapButton(tb, -1, Resources.getZoomToFitIconBitmap(),
@@ -108,7 +112,7 @@ class NavCanvas(wx.Panel):
 
     def AddSpacer(self, tb):
         spacer = wx.BitmapButton(tb, -1, Resources.getVSpacer10Bitmap(),
-                                         size=(25,45), style=wx.NO_BORDER)                                          
+                                         size=(10,45), style=wx.NO_BORDER)                                          
         spacer.Enable(False)
         tb.AddControl(spacer)
         

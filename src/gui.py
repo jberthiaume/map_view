@@ -18,7 +18,7 @@ BUTTON_SIZE     = (180,30)
 # TXT_FG_COLOR    = (255,131,79)
 TXT_FG_COLOR    = (221,72,20)
 TXT_BG_COLOR    = (185,185,180)
-BG_COLOR        = (205,205,195)
+BG_COLOR        = (205,205,205)
 H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
@@ -30,13 +30,15 @@ SIZER_BORDER    = 10
 
 #TODO: pointer hand cursor bug on leave hitbox
 
-#TODO: zoom to fit / image limit bugs
+#TODO: figure out something to do about the stupid GTK global menu glitch
 
 #TODO: edge intersections -> nodes
 
 #TODO: toggle ignore unknown areas when connecting nodes
 
-#TODO: finish 2d pose estimate + icon
+#TODO: finish 2d pose estimate + make toolbar icon
+
+#TODO: check +/- resolution
 
 #TODO: bug in robot representation angles (inaccurate)
 
@@ -100,7 +102,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp) 
         self.Bind(wx.EVT_SIZE, self.OnResize)
         
-        self.SetPosition((0,0)) 
+        self.SetPosition((0,0))  
         self.Layout() 
         self.mp.ep.size = self.mp.ep.GetSize()
         self.ros.Listen()       
@@ -210,18 +212,29 @@ class MainPanel(wx.Panel):
         self.buttons.append(self.btn_rf) 
         hbox00.Add(self.btn_rf)        
         self.sizer_menu.Add(hbox00,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER) 
+        
+        # Open button
+        hbox10 = wx.BoxSizer(wx.HORIZONTAL)            
+        hbox10.AddSpacer(H_SPACER_WIDTH)
+        self.btn_open = wx.Button(self, label="Open Map File", size=BUTTON_SIZE)   
+        self.buttons.append(self.btn_open)        
+        self.btn_open.Bind(wx.EVT_BUTTON, self.OnOpen)  
+        hbox10.Add(self.btn_open)           
+        self.sizer_menu.Add(hbox10,0,
+                            wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER) 
 
         # Show/Hide map viewer button
-        hbox03 = wx.BoxSizer(wx.HORIZONTAL)            
-        hbox03.AddSpacer(H_SPACER_WIDTH)
+#         hbox03 = wx.BoxSizer(wx.HORIZONTAL)            
+#         hbox03.AddSpacer(H_SPACER_WIDTH)
         self.btn_map = wx.Button(self, label="Show Map", size=BUTTON_SIZE)        
         self.btn_map.Bind(wx.EVT_BUTTON, self.OnShowHideMap)   
         self.btn_disabled.append(self.btn_map)   
         self.buttons.append(self.btn_map)   
-        hbox03.Add(self.btn_map)        
-        self.sizer_menu.Add(hbox03,0,
-                            wx.TOP|wx.LEFT|wx.RIGHT
-                            ,SIZER_BORDER)  
+#         hbox03.Add(self.btn_map)        
+#         self.sizer_menu.Add(hbox03,0,
+#                             wx.TOP|wx.LEFT|wx.RIGHT
+#                             ,SIZER_BORDER)  
+        self.btn_map.Hide()
                
 #         # Explore button
 #         hbox06 = wx.BoxSizer(wx.HORIZONTAL)     

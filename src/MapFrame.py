@@ -1069,7 +1069,7 @@ class MapFrame(wx.Frame):
                 pass
         return -1  
     
-    #---MOVE ME---#
+    #TODO:
     def Publish2DPoseEstimate(self, start_pt, end_pt):
         x1 = start_pt[0]
         y1 = start_pt[1]
@@ -1079,11 +1079,14 @@ class MapFrame(wx.Frame):
         pose = self.PixelsToMeters(start_pt)
         
         theta = math.atan2(y2-y1, x2-x1)
-        print "theta :: %s rad /  %s deg" % (theta, theta*(180/math.pi))
         z = math.sin(theta/2.0)
-        w = math.cos(theta/2.0)
-        
+        w = math.cos(theta/2.0)        
         orient = (0,0,z,w)        
+        
+        if self.verbose is True:
+            x = self.Truncate(pose[0], 4)
+            y = self.Truncate(pose[1], 4)
+            print "Created 2D Pose estimate at point (%s, %s)" % (x, y)
         self.ros.Publish2DPoseEstimate(pose, orient)
         
 #--------------------------------------------------------------------------------------------#    
@@ -1167,6 +1170,9 @@ class MapFrame(wx.Frame):
         x = (xy_m[0] - self.origin.x) / self.resolution
         y = (xy_m[1] - self.origin.y) / self.resolution
         return (x,y)
+    
+    def Truncate(self, f, n):
+        return ('%.*f' % (n + 1, f))[:-1] 
     
 #--------------------------------------------------------------------------------------------#    
 #     Selects a single node. If desel is True, deselects everything else.                    #
@@ -1422,7 +1428,7 @@ class MapFrame(wx.Frame):
         foundR = False         
                
         if self.image_data_format is 'int':
-            for i in range(w/(2*d)):
+            for i in range(w/d):
                 for j in range(w/d):
                     try:
                         if image_data[ (w*i*d)+(j*d) ] >= 0 and foundB is False:
@@ -1452,14 +1458,14 @@ class MapFrame(wx.Frame):
                 
         #badcodingpraticelol        
         elif self.image_data_format is 'byte':
-            for i in range(w/(2*d)):
+            for i in range(w/d):
                 for j in range(w/d):
                     try:
                         if image_data[ (w*i*d)+(j*d) ] != chr(100) and foundB is False:
                             bot = i*d
                             foundB = True
                             
-                        if image_data[ w-((w*i*d)+(j*d)) ] != chr(100) and foundT is False:
+                        if image_data[ w**2-((w*i*d)+(j*d)) ] != chr(100) and foundT is False:
                             top = w-(i*d)
                             foundT = True
                             
@@ -1467,7 +1473,7 @@ class MapFrame(wx.Frame):
                             left = i*d
                             foundL = True
                             
-                        if image_data[ w-((w*j*d)+(i*d)) ] != chr(100) and foundR is False:
+                        if image_data[ w**2-((w*j*d)+(i*d)) ] != chr(100) and foundR is False:
                             right = w-(i*d)
                             foundR = True
                             
@@ -1520,9 +1526,8 @@ class MapFrame(wx.Frame):
                 # Sleep until the image data can be obtained
                 time.sleep(0.5)
         
-        tl = (lim[1],lim[2])
-        br = (lim[0],lim[3])
-                      
+        tl = (lim[2],lim[1])
+        br = (lim[3],lim[0])              
         self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
 
 #--------------------------------------------------------------------------------------------#
@@ -1540,12 +1545,6 @@ class MapFrame(wx.Frame):
         wx_img = wx.EmptyImage( pil_img.size[0], pil_img.size[1] )
         wx_img.SetData( pil_img.convert( 'RGB' ).tostring() )
         return wx_img      
-    
-    def LogOutput(self, enabled):      
-        if enabled is True: 
-            sys.stdout = open('stdout.log', 'a')
-        else:
-            sys.stdout = sys.__stdout__
             
     def ClearGraph(self):
         self.SelectAll(None)
@@ -1595,8 +1594,8 @@ class MapFrame(wx.Frame):
             self.image_data = self.ros.image_data
             self.image_data_format = "int"    
         
-        if self.image_width is None:
-            self.image_width = image.GetHeight() # Case where metadata was not set
+#         if self.image_width is None: #TODO: figure out something here
+        self.image_width = image.GetHeight() # Case where metadata was not set
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
@@ -1617,8 +1616,3 @@ class MapFrame(wx.Frame):
         self.redraw = rd
         if self.verbose is True:
             print "Time taken to set image: %s" % str(et-st)
-
-if __name__ == '__main__':
-    app = wx.App(False) 
-    F = ZoomPanel(None, title="Map Viewer", size=(700,700) ) 
-    app.MainLoop() 

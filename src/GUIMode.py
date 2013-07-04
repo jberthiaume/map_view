@@ -16,7 +16,7 @@ import numpy as N
 import Resources
 from wx.lib.floatcanvas.Utilities import BBox
 
-LINE_WIDTH = 2
+LINE_WIDTH = 3
 LINE_COLOR = (20,200,0)
 
 class Cursors(object):
@@ -305,10 +305,6 @@ class GUIPoseEst(GUIBase):
         self.Line = None        
         self.PrevPoint = None
         self.Canvas.CaptureMouse()
-        
-        EventType = FloatCanvas.EVT_FC_LEFT_DOWN
-        if not self.Canvas.HitTest(event, EventType):
-            self.Canvas._RaiseMouseEvent(event, EventType)
     
     # Records the coordinates of the box when the left button is no longer held down
     def OnLeftUp(self, event):
@@ -330,10 +326,6 @@ class GUIPoseEst(GUIBase):
                 self.Canvas.PoseEstEnd   = (0,0)
             self.StartPoint = None
             self.Canvas.Draw(True)
-            
-            EventType = FloatCanvas.EVT_FC_LEFT_UP
-            if not self.Canvas.HitTest(event, EventType):
-                self.Canvas._RaiseMouseEvent(event, EventType)
     
     # Keep track of the mouse position while the left button is held down
     def OnMove(self, event):
@@ -346,7 +338,7 @@ class GUIPoseEst(GUIBase):
                 self.Canvas.RemoveObject(self.Line)
             self.Line = self.Canvas.AddArrowLine((xy0,xy1), 
                                                  LineWidth=LINE_WIDTH, LineColor=LINE_COLOR,
-                                                 ArrowHeadSize=10)
+                                                 ArrowHeadSize=10, InForeground=True)
             self.PrevPoint = xy1
             self.Canvas.Draw(True)
 
