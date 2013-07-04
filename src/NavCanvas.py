@@ -34,6 +34,7 @@ class NavCanvas(wx.Panel):
                       ("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
                       ("Add/Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
                       ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
+                      ("2D Pose Estimate",  GUIMode.GUIPoseEst(),   Resources.getMoveRLCursorBitmap())
                       ]
         
         self.tools = []

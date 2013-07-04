@@ -8,7 +8,7 @@ import wx
 import os, time, shutil
 import math
 import listener as ls
-import publisher as pb
+# import publisher as pb
 from datetime import datetime
 from zoompanel import ZoomPanel
 
@@ -35,9 +35,9 @@ SIZER_BORDER    = 10
 
 #TODO: edge intersections -> nodes
 
-#TODO: integrate destination messages
-
 #TODO: toggle ignore unknown areas when connecting nodes
+
+#TODO: 2d pose estimate
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -52,7 +52,7 @@ class MainFrame(wx.Frame):
                        faceName="lucida sans")    
         
         self.ls = ls.listener(self)
-        self.pb = pb.publisher(self)    
+#         self.pb = pb.publisher(self)    
         self.mp = MainPanel(self)
         self.sp = SettingsPanel(self)  
         
@@ -67,7 +67,7 @@ class MainFrame(wx.Frame):
         
         # Menu bar                 
         self.file_menu = wx.Menu()
-        self.file_menu.Append(101, '&Open Map\t')
+        self.file_menu.Append(101, '&Open Map\tCtrl+O')
         self.file_menu.Append(102, '&Save Map\tCtrl+S')        
         self.file_menu.Append(103, 'Save &As...\tCtrl+Shift+S')
         self.file_menu.AppendSeparator()      
@@ -181,7 +181,7 @@ class MainPanel(wx.Panel):
             self.parent_frame = self.parent_frame.GetParent()
         
         self.ls = self.parent_frame.ls
-        self.pb = self.parent_frame.pb
+#         self.pb = self.parent_frame.pb
         self.verbose = self.parent_frame.verbose
         
         # Create the sizers 
@@ -670,7 +670,7 @@ class SettingsPanel(wx.Panel):
         self.lbl_text = []
         self.txtbxs = []
         self.ls = self.parent_frame.ls
-        self.pb = self.parent_frame.pb
+#         self.pb = self.parent_frame.pb
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         
         title_font = self.parent_frame.font
@@ -1177,7 +1177,7 @@ class ExplorePanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#             
     def OnTour(self, event):                       
 #         self.parent_Frame.tt.paused = True
-        self.parent_frame.pb.PublishTour()
+        self.parent_frame.ls.PublishTour()
     
 if __name__ == '__main__':
     app = wx.App(False)

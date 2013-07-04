@@ -44,7 +44,20 @@ class listener():
         self.filename = FILENAME       
         
         self.parent = parent
-
+        self.tour_pub = rospy.Publisher('tour', String)
+        self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
+        
+    def PublishTour(self):  
+        msg = "Tour %s" % rospy.get_time()
+        self.tour_pub.publish(String(msg))        
+    
+    def Publish2DPoseEstimate(self, point, orient):
+        pwc = PoseWithCovarianceStamped()
+        pwc.pose.pose.position.x = point[0]
+        pwc.pose.pose.position.y = point[1]
+        pwc.pose.pose.orientation.z = orient[2]
+        pwc.pose.pose.orientation.w = orient[3]
+        self.pose_pub.publish(pwc)        
     
     def Listen(self):
         self.refresh = False
@@ -59,7 +72,7 @@ class listener():
             rospy.spin()       
 
 #---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/node_traveller/dest" topic                                        #
+#    Callback function for the "/node_traveller/dest" topic                                   #
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
 #         print "map viewer received data: %s" % str(data.data)

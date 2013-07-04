@@ -18,7 +18,7 @@ import origin as O
 import random as R
 import numpy as NP
 import listener as LS
-import publisher as PB
+# import publisher as PB
 import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
@@ -82,7 +82,7 @@ class ZoomPanel(wx.Frame):
        
         self.mp = self.GetParent()
         self.ls = self.mp.ls
-        self.pb = self.mp.pb
+#         self.pb = self.mp.pb
             
         # Add the Canvas
         self.NavCanvas = NavCanvas.NavCanvas(self, 
@@ -93,7 +93,7 @@ class ZoomPanel(wx.Frame):
         
         # Menu bar                 
         self.file_menu = wx.Menu()
-        self.file_menu.Append(1001, '&Open Map\t')
+        self.file_menu.Append(1001, '&Open Map\tCtrl+O')
         self.file_menu.Append(1002, '&Save Map\tCtrl+S')        
         self.file_menu.Append(1003, 'Save &As...\tCtrl+Shift+S')
         self.file_menu.AppendSeparator()      
@@ -1058,8 +1058,7 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
 #     Returns -1 if there is no collision with another node. If there is a collision,        #
 #     returns the ID of the first node there was a collision with.                           #
-#--------------------------------------------------------------------------------------------#     
-    
+#--------------------------------------------------------------------------------------------#    
     def DetectCollision(self, new_node): 
         for existing_node in self.nodelist:
             try:
@@ -1068,6 +1067,23 @@ class ZoomPanel(wx.Frame):
             except AttributeError:
                 pass
         return -1  
+    
+    #---MOVE ME---#
+    def Publish2DPoseEstimate(self, start_pt, end_pt):
+        x1 = start_pt[0]
+        y1 = start_pt[1]
+        x2 = end_pt[0]
+        y2 = end_pt[1]
+        
+        pose = self.PixelsToMeters(start_pt)
+        
+        theta = math.atan2(y2-y1, x2-x1)
+        print "theta :: %s rad /  %s deg" % (theta, theta*(180/math.pi))
+        z = math.sin(theta/2.0)
+        w = math.cos(theta/2.0)
+        
+        orient = (0,0,z,w)        
+        self.ls.Publish2DPoseEstimate(pose, orient)
         
 #--------------------------------------------------------------------------------------------#    
 #     Basic distance formula. Returns the distance between two points.                       #
@@ -1103,7 +1119,8 @@ class ZoomPanel(wx.Frame):
             z = 0.0
             w = 1.0        
         w=w     #placeholder
-        theta = 2*math.asin(z)    
+        theta = 2*math.asin(z)  
+          
         return theta % (2*math.pi)    
     
 #---------------------------------------------------------------------------------------------#    
@@ -1149,7 +1166,6 @@ class ZoomPanel(wx.Frame):
         x = (xy_m[0] - self.origin.x) / self.resolution
         y = (xy_m[1] - self.origin.y) / self.resolution
         return (x,y)
-
     
 #--------------------------------------------------------------------------------------------#    
 #     Selects a single node. If desel is True, deselects everything else.                    #
