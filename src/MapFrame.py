@@ -12,13 +12,9 @@ import pickle
 import math
 import time
 import Image
-import edge as E
-import node as N
-import origin as O
-import random as R
-import numpy as NP
-import listener as LS
-# import publisher as PB
+import numpy as np
+import random as rand
+import GraphStructs as gs
 import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
 from datetime import datetime
@@ -43,7 +39,7 @@ ROBOT_BORDER_WIDTH  = 2
 FONT_SIZE_1         = 4     # for one/two-digit numbers
 FONT_SIZE_2         = 3     # for three-digit numbers
 
-class ZoomPanel(wx.Frame): 
+class MapFrame(wx.Frame): 
 
     def __init__(self, *args, **kwargs): 
         wx.Frame.__init__(self, *args, **kwargs) 
@@ -77,12 +73,11 @@ class ZoomPanel(wx.Frame):
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
-        self.conn_matrix = NP.empty(shape=(150,150))
+        self.conn_matrix = np.empty(shape=(150,150))
         self.conn_matrix[:] = -1          
        
         self.mp = self.GetParent()
-        self.ls = self.mp.ls
-#         self.pb = self.mp.pb
+        self.ros = self.mp.ros
             
         # Add the Canvas
         self.NavCanvas = NavCanvas.NavCanvas(self, 
@@ -377,11 +372,17 @@ class ZoomPanel(wx.Frame):
         a = self.arrow
         a.Coords = r.Coords         
         
-        self.NumTimeSteps = 24  
+        distance = self.Distance(dest, r.XY)
+        if distance < 150:
+            self.NumTimeSteps = 24  
+        else:
+            self.NumTimeSteps = 60 
         
         self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
-        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps        
+        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps  
+        
+#         print "dt: %s" % self.dt      
         
         self.arrow_drawn = False
         if self.dt > 6 or self.dt <-6:
@@ -476,7 +477,7 @@ class ZoomPanel(wx.Frame):
     def CreateNode(self, coords): 
         # coords are in float, but we need int values for pixels
         node_coords = [int(coords[0]), int(coords[1])]   
-        node = N.Node(len(self.nodelist), node_coords)
+        node = gs.Node(len(self.nodelist), node_coords)
         node.m_coords = self.PixelsToMeters(node.coords)
         
         ID = str(len(self.nodelist))
@@ -568,7 +569,7 @@ class ZoomPanel(wx.Frame):
                     
                     # Only create the edge if no edge exists between the selected points
                     if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
-                        edge = E.Edge(len(self.edgelist), node1.Name, node2.Name, 
+                        edge = gs.Edge(len(self.edgelist), node1.Name, node2.Name, 
                                       self.Distance(node1.Coords, node2.Coords))
                         edge.m_length = edge.length*self.resolution
                         self.edgelist.append(edge)
@@ -784,8 +785,8 @@ class ZoomPanel(wx.Frame):
                 
         nodes_created = 0
         while nodes_created < n:
-            x = int( l + ((r-l)*R.random()) )
-            y = int( b + ((t-b)*R.random()) )
+            x = int( l + ((r-l)*rand.random()) )
+            y = int( b + ((t-b)*rand.random()) )
             
             if self.CheckNodeLocation(data, (x,y), w, d) is True:
                 if self.CreateNode( (x,y) ) is True:
@@ -1019,7 +1020,7 @@ class ZoomPanel(wx.Frame):
 #--------------------------------------------------------------------------------------------#       
     def GenerateConnectionMatrix(self):        
         Shape = self.conn_matrix.shape
-        conn_mtx = NP.empty(shape=Shape)        
+        conn_mtx = np.empty(shape=Shape)        
         conn_mtx[:] = -1 
         
         # put the edge data into the matrix
@@ -1039,7 +1040,7 @@ class ZoomPanel(wx.Frame):
 #     For debugging purposes. Writes the connection matrix to a text file.                   #
 #--------------------------------------------------------------------------------------------#    
     def ExportConnectionMatrix(self, filename, edgeitems, linewidth):         
-        NP.set_printoptions(edgeitems=edgeitems, linewidth=linewidth)  
+        np.set_printoptions(edgeitems=edgeitems, linewidth=linewidth)  
               
         if self.export is False:
             conn_file = open(filename, "w")
@@ -1083,7 +1084,7 @@ class ZoomPanel(wx.Frame):
         w = math.cos(theta/2.0)
         
         orient = (0,0,z,w)        
-        self.ls.Publish2DPoseEstimate(pose, orient)
+        self.ros.Publish2DPoseEstimate(pose, orient)
         
 #--------------------------------------------------------------------------------------------#    
 #     Basic distance formula. Returns the distance between two points.                       #
@@ -1362,7 +1363,7 @@ class ZoomPanel(wx.Frame):
             self.SetEdgeList( g[1] ) 
             self.SetMapMetadata( *g[2] )
         except IndexError:
-            ori = O.Origin((0,0))
+            ori = gs.Origin((0,0))
             self.SetMapMetaData(None, 0.05, ori)
 
 #--------------------------------------------------------------------------------------------#    
@@ -1504,7 +1505,7 @@ class ZoomPanel(wx.Frame):
         tl = ( x-(iw/m), y+(iw/m) )
         br = ( x+(iw/m), y-(iw/m) )
                
-        self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
+        self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
         
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to fit the currently displayed map                                               #
@@ -1522,7 +1523,7 @@ class ZoomPanel(wx.Frame):
         tl = (lim[1],lim[2])
         br = (lim[0],lim[3])
                       
-        self.Canvas.ZoomToBB(BBox.fromPoints(NP.r_[tl,br]))
+        self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
 
 #--------------------------------------------------------------------------------------------#
 #     Displays a dialog box for showing 'loading' messages                                   #
@@ -1590,15 +1591,12 @@ class ZoomPanel(wx.Frame):
         except AttributeError:
             # Creates the image directly from a wx.Image object (used when refreshing a live map)
             image = image_obj
-            image_file = self.ls.GetDefaultFilename()
-            self.image_data = self.ls.image_data
+            image_file = self.ros.GetDefaultFilename()
+            self.image_data = self.ros.image_data
             self.image_data_format = "int"    
         
         if self.image_width is None:
-            self.image_width = image.GetHeight()   
-            print self.image_width
-        else:
-            print str(self.image_width)
+            self.image_width = image.GetHeight() # Case where metadata was not set
         img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 

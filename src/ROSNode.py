@@ -16,7 +16,7 @@ import ImageOps
 
 FILENAME = "map.png"
 
-class listener():
+class ROSNode():
     
     def __init__(self, parent): 
         # pos -> geometry_msgs/Point: 
@@ -176,5 +176,5 @@ class listener():
     
     
 if __name__ == '__main__':
-    ls = listener(None)
-    ls.Listen()
+    ros = ROSNode(None)
+    ros.Listen()

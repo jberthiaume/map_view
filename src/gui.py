@@ -7,10 +7,9 @@ Created on May 30, 2013
 import wx
 import os, time, shutil
 import math
-import listener as ls
-# import publisher as pb
+import ROSNode
 from datetime import datetime
-from zoompanel import ZoomPanel
+from MapFrame import MapFrame
 
 APP_SIZE        = (240,312)
 APP_SIZE_EXP    = (240,565)
@@ -37,13 +36,16 @@ SIZER_BORDER    = 10
 
 #TODO: toggle ignore unknown areas when connecting nodes
 
-#TODO: 2d pose estimate
+#TODO: finish 2d pose estimate + icon
+
+#TODO: bug in robot representation angles (inaccurate)
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE,
                         style=wx.FRAME_SHAPED
                         )
+        
         self.resolution = wx.GetDisplaySize()
         self.verbose = False
         self.leftDown = False                                 
@@ -51,14 +53,13 @@ class MainFrame(wx.Frame):
                        style=wx.FONTSTYLE_NORMAL, weight=wx.FONTWEIGHT_NORMAL, 
                        faceName="lucida sans")    
         
-        self.ls = ls.listener(self)
-#         self.pb = pb.publisher(self)    
+        self.ros = ROSNode.ROSNode(self)  
         self.mp = MainPanel(self)
         self.sp = SettingsPanel(self)  
         
         self.mp.Show()
         self.sp.Hide()
-        self.ls.SetAttributes()
+        self.ros.SetAttributes()
 
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.mp,1,wx.EXPAND)
@@ -102,7 +103,7 @@ class MainFrame(wx.Frame):
         self.SetPosition((0,0)) 
         self.Layout() 
         self.mp.ep.size = self.mp.ep.GetSize()
-        self.ls.Listen()
+        self.ros.Listen()       
         
     def SuppressOutput(self, boolean):
         if boolean is True:
@@ -180,7 +181,7 @@ class MainPanel(wx.Panel):
         while self.parent_frame.GetParent() is not None: 
             self.parent_frame = self.parent_frame.GetParent()
         
-        self.ls = self.parent_frame.ls
+        self.ros = self.parent_frame.ros
 #         self.pb = self.parent_frame.pb
         self.verbose = self.parent_frame.verbose
         
@@ -191,7 +192,7 @@ class MainPanel(wx.Panel):
         
         # The map viewer panel
         zp_size = self.parent_frame.resolution[1]-60     
-        self.zp=ZoomPanel(self, title="Map View",
+        self.zp=MapFrame(self, title="Map View",
                                   size=((zp_size,zp_size)), 
 #                                   style=wx.FRAME_SHAPED
                                   )  
@@ -359,7 +360,7 @@ class MainPanel(wx.Panel):
 #    exported the map file, it is passed to ZoomPanel, which sets the image in the viewer     #
 #---------------------------------------------------------------------------------------------#                
     def OnRefreshMap(self, event):
-        self.ls.refresh = False
+        self.ros.refresh = False
         
         if self.saved is False:
             
@@ -395,7 +396,7 @@ class MainPanel(wx.Panel):
             print "Retrieving data from /map topic..."  
                 
         try:
-            map_file = self.ls.GetDefaultFilename()
+            map_file = self.ros.GetDefaultFilename()
             self.parent_frame.SetTitle("%s" % map_file)
             
             # Update some statuses
@@ -403,9 +404,9 @@ class MainPanel(wx.Panel):
             self.EnableMenuOptions(self.parent_frame.disabled_items, True)
             self.SetSaveStatus(False)     
             
-            while self.ls.image is None:
+            while self.ros.image is None:
                 time.sleep(0.5)                  
-            self.zp.SetImage(self.ls.image)
+            self.zp.SetImage(self.ros.image)
             
         except IndexError:
             # Image not found
@@ -524,7 +525,7 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#   
     def OnSave(self, event):    
         current_map = self.zp.current_map 
-        if current_map is [] or os.path.basename(current_map)==self.ls.GetDefaultFilename():
+        if current_map is [] or os.path.basename(current_map)==self.ros.GetDefaultFilename():
             self.OnSaveAs(event)  
         else:
             shutil.move(current_map,current_map)
@@ -626,7 +627,7 @@ class MainPanel(wx.Panel):
                 # User has chosen to save the map
                 self.OnSaveAs(event)
             dlg.Destroy()        
-             
+            
         self.zp.Close()
         self.parent_frame.Close()
                 
@@ -669,7 +670,7 @@ class SettingsPanel(wx.Panel):
         self.lbl_titles = []
         self.lbl_text = []
         self.txtbxs = []
-        self.ls = self.parent_frame.ls
+        self.ros = self.parent_frame.ros
 #         self.pb = self.parent_frame.pb
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         
@@ -1177,10 +1178,11 @@ class ExplorePanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#             
     def OnTour(self, event):                       
 #         self.parent_Frame.tt.paused = True
-        self.parent_frame.ls.PublishTour()
+        self.parent_frame.ros.PublishTour()
     
 if __name__ == '__main__':
     app = wx.App(False)
+    
     wx.Log_SetActiveTarget(wx.LogStderr())
     frame = MainFrame(None, "Map Viewer")
     frame.Show()
