@@ -26,21 +26,21 @@ SIZER_BORDER    = 10
 
 #TODO: change conditions in map scanning to recognize different shades of grey?
 
+#TODO: dedicated edge creation tool?
+
 #TODO: only re-scan map data if map hasn't been updated
 
-#TODO: pointer hand cursor bug on leave hitbox
+#TODO: clean up node/edge structs (redundant graphics indices)
+
+#TODO: pointer hand cursor bug when leaving hitbox
 
 #TODO: figure out something to do about the stupid GTK global menu glitch
 
 #TODO: edge intersections -> nodes
 
-#TODO: toggle ignore unknown areas when connecting nodes
-
-#TODO: finish 2d pose estimate + make toolbar icon
-
-#TODO: check +/- resolution
-
 #TODO: bug in robot representation angles (inaccurate)
+
+#TODO: when to remove pose estimate graphic?
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -48,7 +48,7 @@ class MainFrame(wx.Frame):
                         style=wx.FRAME_SHAPED
                         )
         
-        self.resolution = wx.GetDisplaySize()
+        self.screensize = wx.GetDisplaySize()
         self.verbose = False
         self.leftDown = False                                 
         self.font = wx.Font(pointSize=14, family=wx.FONTFAMILY_DEFAULT, 
@@ -193,7 +193,7 @@ class MainPanel(wx.Panel):
         self.sizer_display = wx.BoxSizer(wx.VERTICAL)
         
         # The map viewer panel
-        zp_size = self.parent_frame.resolution[1]-60     
+        zp_size = self.parent_frame.screensize[1]-60     
         self.zp=MapFrame(self, title="Map View",
                                   size=((zp_size,zp_size)), 
 #                                   style=wx.FRAME_SHAPED
@@ -698,12 +698,11 @@ class SettingsPanel(wx.Panel):
         self.lbl_gg.SetFont(title_font)
         self.lbl_titles.append(self.lbl_gg)
         
-        # LabelN1
+        # LabelN
         self.lbl_n1 = wx.StaticText(self, label="Generate",
                                    size=(70,30), pos=(20,45))
         self.lbl_text.append(self.lbl_n1)
         
-        # TextboxN
         self.txt_n = wx.TextCtrl(self, size=(32,25), pos=(89,42),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
@@ -711,97 +710,87 @@ class SettingsPanel(wx.Panel):
         self.txt_n.SetValue( str(self.GetParent().mp.gg_const[0]) )
         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
         
-        # LabelN2
+
         self.lbl_n2 = wx.StaticText(self, label="nodes",
                                    size=(-1,30), pos=(128,45))
         self.lbl_text.append(self.lbl_n2)
         
         
-        # LabelD1
+        # LabelD
         self.lbl_d1 = wx.StaticText(self, label="There must be at least",                                                
                                    size=(150,20), pos=(20,80))
         self.lbl_text.append(self.lbl_d1)
-        
-        # TextboxD
+
         self.txt_d = wx.TextCtrl(self, size=(32,25), pos=(171,77), 
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_d.SetFont(self.parent_frame.font)  
         self.txt_d.SetValue( str(self.GetParent().mp.gg_const[2]) )
         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        
-        # LabelD2
+
         self.lbl_d2 = wx.StaticText(self, label="px",
                                    size=(20,20), pos=(205,80))
         self.lbl_text.append(self.lbl_d2)
-        
-        # LabelD3
+
         self.lbl_d3 = wx.StaticText(self, label="of space between nodes",
                                    size=(220,20), pos=(20,100))
         self.lbl_text.append(self.lbl_d3)
         
-        # LabelW1
+        
+        # LabelW
         self.lbl_w1 = wx.StaticText(self, label="There must be at least",
                                    size=(150,20), pos=(20,135))
         self.lbl_text.append(self.lbl_w1)
-        
-        # TextboxW
+
         self.txt_w = wx.TextCtrl(self, size=(32,25), pos=(171,132),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_w.SetFont(self.parent_frame.font)  
         self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )   
         self.txt_w.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        
-        # LabelW2
+
         self.lbl_w2 = wx.StaticText(self, label="px",
                                    size=(20,20), pos=(205,135))
         self.lbl_text.append(self.lbl_w2)
-        
-        # LabelW3
+
         self.lbl_w3 = wx.StaticText(self, label="between nodes and obstacles",
                                    size=(220,20), pos=(20,155))
         self.lbl_text.append(self.lbl_w3)   
 
      
-        # LabelK1
+        # LabelK
         self.lbl_k1 = wx.StaticText(self, label="Scan",
                                    size=(32,30), pos=(20,190))
         self.lbl_text.append(self.lbl_k1)
-        
-        # TextboxK
+
         self.txt_k = wx.TextCtrl(self, size=(32,25), pos=(55,187),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_k.SetMaxLength(2)    #Maximum of 2 characters
         self.txt_k.SetFont(self.parent_frame.font)  
         self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
         self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        
-        # LabelK2
+
         self.lbl_k2 = wx.StaticText(self, label="neighbors per node",
                                    size=(-1,30), pos=(90,190))
         self.lbl_text.append(self.lbl_k2)
         
         
-        # LabelE1
+        # LabelE
         self.lbl_e1 = wx.StaticText(self, label="Search no further than",
                                    size=(158,20), pos=(20,225))
         self.lbl_text.append(self.lbl_e1)
-        
-        # TextboxE
+
         self.txt_e = wx.TextCtrl(self, size=(32,25), pos=(171,222),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_e.SetFont(self.parent_frame.font)  
         self.txt_e.SetValue( str(self.GetParent().mp.gg_const[4]) )
         self.txt_e.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
-        
-        # LabelE2
+
         self.lbl_e2 = wx.StaticText(self, label="px",
                                    size=(20,20), pos=(205,225))
         self.lbl_text.append(self.lbl_e2)
-        
-        # LabelE3
+
         self.lbl_e3 = wx.StaticText(self, label="away for neighboring nodes",
                                    size=(220,20), pos=(20,245))
         self.lbl_text.append(self.lbl_e3)
@@ -817,15 +806,16 @@ class SettingsPanel(wx.Panel):
                                     pos=(20,280))
         self.chk_edge.SetValue(False)
         
+        # Unknown Edges Checkbox
+        self.chk_uk = wx.CheckBox(self, label="Allow edge generation\nthrough unknown map areas",
+                                    pos=(20,325))
+        self.chk_uk.SetValue(True)
+        
         # Clear Checkbox
         self.chk_clr = wx.CheckBox(self, label="Clear nodes and edges\nwhen generating new graph",
-                                    pos=(20,325))
+                                    pos=(20,370))
         self.chk_clr.SetValue(True)
         
-        # Ignore Unknowns Checkbox
-        self.chk_ig = wx.CheckBox(self, label="Placeholder\nxxxx",
-                                    pos=(20,370))
-        self.chk_ig.SetValue(True)
         
         # Title Label 2 
         self.lbl_gg = wx.StaticText(self, label="Other Settings", 
@@ -934,9 +924,10 @@ class SettingsPanel(wx.Panel):
 #    Saves the settings                                                                       #
 #---------------------------------------------------------------------------------------------#
     def OnOk(self, event):
-        self.parent_frame.mp.zp.edgespacing = not self.chk_edge.GetValue()
-        self.parent_frame.mp.zp.cleargraph = self.chk_clr.GetValue()            
-        self.parent_frame.mp.zp.autoedges = self.chk_ec.GetValue()         
+        self.parent_frame.mp.zp.spaced_edges = not self.chk_edge.GetValue()
+        self.parent_frame.mp.zp.clear_graph = self.chk_clr.GetValue()            
+        self.parent_frame.mp.zp.auto_edges = self.chk_ec.GetValue()     
+        self.parent_frame.mp.zp.unknown_edges = self.chk_uk.GetValue()    
         self.parent_frame.SuppressOutput(not self.chk_co.GetValue())
         
         try:

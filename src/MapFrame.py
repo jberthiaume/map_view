@@ -49,9 +49,10 @@ class MapFrame(wx.Frame):
         self.export = False
         self.verbose = True
         self.redraw = True
-        self.autoedges = True 
-        self.edgespacing = True
-        self.cleargraph = True
+        self.auto_edges = True 
+        self.spaced_edges = True
+        self.unknown_edges = True
+        self.clear_graph = True
         self.leftdown = False       
         
         self.resolution = None
@@ -517,7 +518,7 @@ class MapFrame(wx.Frame):
                 if self.verbose is True:
                     print "Created node %s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
                     print "\tMetric: (%s, %s)" % (node.m_coords[0], node.m_coords[1])
-                if self.autoedges is True:
+                if self.auto_edges is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
                 
             except IndexError:
@@ -530,7 +531,7 @@ class MapFrame(wx.Frame):
                 if self.verbose is True:
                     print "Created node %s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
                     print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
-                if self.autoedges is True:
+                if self.auto_edges is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
             
             if self.redraw is True:
@@ -709,19 +710,30 @@ class MapFrame(wx.Frame):
         done = False
         last = False
         
-        if self.edgespacing is True:
+        if self.spaced_edges is True:
             while not done:
                 x1 = int( x1_1+(pos*kx) )
                 y1 = int( y1_1+(pos*ky) )
                 x2 = int( x1_2+(pos*kx) )
-                y2 = int( y1_2+(pos*ky) )                
+                y2 = int( y1_2+(pos*ky) )                 
+                data1 = image_data[ (w*y1)+x1 ]
+                data2 = image_data[ (w*y2)+x2 ]               
                 
                 if self.image_data_format is 'int':
-                    if image_data[ (w*y1)+x1 ] > 0 or image_data[ (w*y2)+x2 ] > 0:
-                        return False                
-                if self.image_data_format is 'byte':
-                    if (image_data[ (w*y1)+x1 ] != chr(230) or image_data[ (w*y2)+x2 ] != chr(230)):
-                        return False
+                    if self.unknown_edges is False:
+                        if data1 != 0 or data2 != 0:
+                            return False      
+                    else:
+                        if data1 > 0 or data2 > 0:
+                            return False 
+                                 
+                if self.image_data_format is 'byte':                    
+                    if self.unknown_edges is False:
+                        if ord(data1) != 230 or ord(data2) != 230:
+                            return False
+                    else:
+                        if ord(data1) < 100 or ord(data2) < 100:
+                            return False
                 
                 if not last and pos>ln:
                     last = True
@@ -765,14 +777,14 @@ class MapFrame(wx.Frame):
         
         # Save current states
         vb = self.verbose
-        ae = self.autoedges
+        ae = self.auto_edges
         rd = self.redraw
         
         self.verbose = False
-        self.autoedges = False
+        self.auto_edges = False
         self.redraw = False
         
-        if self.cleargraph is True:
+        if self.clear_graph is True:
             self.SelectAll(None)
             self.DeleteSelection(None)        
         
@@ -798,7 +810,7 @@ class MapFrame(wx.Frame):
         
         # Restore saved states
         self.verbose = vb  
-        self.autoedges = ae
+        self.auto_edges = ae
         self.redraw = rd
         wx.EndBusyCursor()
         et = datetime.now()
@@ -1069,7 +1081,7 @@ class MapFrame(wx.Frame):
                 pass
         return -1  
     
-    #TODO:
+    #TODO: moveme
     def Publish2DPoseEstimate(self, start_pt, end_pt):
         x1 = start_pt[0]
         y1 = start_pt[1]
@@ -1563,11 +1575,11 @@ class MapFrame(wx.Frame):
     def SetImage(self, image_obj):
         # Save current states
         vb = self.verbose
-        ae = self.autoedges
+        ae = self.auto_edges
         rd = self.redraw
         
         self.verbose = False
-        self.autoedges = False
+        self.auto_edges = False
         self.redraw = False     
         self.Clear()
         st = datetime.now()    
@@ -1612,7 +1624,7 @@ class MapFrame(wx.Frame):
         
         et = datetime.now()
         self.verbose = vb
-        self.autoedges = ae
+        self.auto_edges = ae
         self.redraw = rd
         if self.verbose is True:
             print "Time taken to set image: %s" % str(et-st)

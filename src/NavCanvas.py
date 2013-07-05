@@ -25,16 +25,18 @@ class NavCanvas(wx.Panel):
         self.parent = parent
         self.Canvas = FloatCanvas.FloatCanvas(self, **kwargs)
         
-        self.Utils = [("Open",      self.OnOpen,         Resources.getFolderIconBitmap()),
-                      ("Save",      self.OnSave,         Resources.getSaveIconBitmap()),
+        self.Utils = [
+          ("Open",      self.OnOpen,         Resources.getFolderIconBitmap()),
+          ("Save",      self.OnSave,         Resources.getSaveIconBitmap()),
                       ]
 
-        self.Modes = [("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
-                      ("Add/Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
-                      ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
-                      ("2D Pose Estimate",  GUIMode.GUIPoseEst(),   Resources.getMoveRLCursorBitmap()),
-                      ("Zoom In",     GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
-                      ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),
+        self.Modes = [
+          ("Add/Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
+          ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
+          ("2D Pose Estimate",  GUIMode.GUIPoseEst(),   Resources.getDiagonalArrowBitmap()),
+          ("Zoom In",     GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
+          ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),          
+          ("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
                       ]
         
         self.tools = []
@@ -47,7 +49,7 @@ class NavCanvas(wx.Panel):
         self.SetSizerAndFit(box)
 
         # default to first mode
-        self.ToolBar.ToggleTool(self.tools[3].GetId(), True)
+        self.ToolBar.ToggleTool(self.tools[0].GetId(), True)
         return None
 
     def BuildToolbar(self):
