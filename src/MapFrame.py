@@ -559,7 +559,7 @@ class MapFrame(wx.Frame):
                   
         else:
             if self.verbose is True:
-                print "Could not create node at (%s, %s). (Collision with node %s)" \
+                print "Could not create node at (%s, %s). (Too close to node %s)" \
                         % (node_coords[0], node_coords[1], str(collision))
             return False
         
@@ -790,23 +790,6 @@ class MapFrame(wx.Frame):
                     done = True                    
                 pos += increment
         return True
-    
-#     def CheckEdgeIntersections(self, e1):
-#         intersections = []
-#         e1_x1 = self.nodelist[ e1.node1 ].coords[0]
-#         e1_y1 = self.nodelist[ e1.node1 ].coords[1]
-#         e1_x2 = self.nodelist[ e1.node2 ].coords[0]
-#         e1_y2 = self.nodelist[ e1.node2 ].coords[1]
-#         
-#         for e2 in self.edgelist:
-#             e2_x1 = self.nodelist[ e2.node1 ].coords[0]
-#             e2_y1 = self.nodelist[ e2.node1 ].coords[1]            
-#             e2_x2 = self.nodelist[ e2.node2 ].coords[0]
-#             e2_y2 = self.nodelist[ e2.node2 ].coords[1]
-#             
-#             if max(e1_x1,e1_x2) < min(e2_x1,e2_x2):
-#                 print "Edge %s: no intersection (no common interval)" % e2.id
-#                 continue
 
     def Perp(self, a) :
         b = np.empty_like(a)
@@ -822,16 +805,21 @@ class MapFrame(wx.Frame):
         a1 = np.array([e1_x1, e1_y1])
         a2 = np.array([e1_x2, e1_y2])        
         intersections = {}
-        interval = ( min(e1_x1, e1_x2), max(e1_x1, e1_x2))
+        e1_interval = ( min(e1_x1, e1_x2), max(e1_x1, e1_x2))
         
         for e2 in self.edgelist:
             if e2 == e1:
+                continue
+            if (e1.node1 == e2.node1 or e1.node1 == e2.node2 or 
+                e1.node2 == e2.node2 or e1.node2 == e2.node1):
                 continue
             
             e2_x1 = float(self.nodelist[ int(e2.node1) ].coords[0])
             e2_y1 = float(self.nodelist[ int(e2.node1) ].coords[1])            
             e2_x2 = float(self.nodelist[ int(e2.node2) ].coords[0])
-            e2_y2 = float(self.nodelist[ int(e2.node2) ].coords[1])
+            e2_y2 = float(self.nodelist[ int(e2.node2) ].coords[1])            
+            e2_interval = ( min(e2_x1, e2_x2), max(e2_x1, e2_x2))
+            
             b1 = np.array([e2_x1, e2_y1])
             b2 = np.array([e2_x2, e2_y2])
             
@@ -839,16 +827,31 @@ class MapFrame(wx.Frame):
             db = b2-b1
             dp = a1-b1
             dap = self.Perp(da)
-            denom = np.dot( dap, db)    # add div/zero check
+            denom = np.dot( dap, db )
             num = np.dot( dap, dp )
+            if denom == 0:
+                # The edges are parallel (no intersect)
+                continue
             
             result = (num / denom)*db + b1
-            if result[0]>interval[0] and result[0]<interval[1]:
-                intersections[e2.id] = result        
+            if (result[0]>e1_interval[0] and result[0]<e1_interval[1] and
+                result[0]>e2_interval[0] and result[0]<e2_interval[1]):
+                intersections[e2.id] = result     
+                break 
         return intersections
     
     
     def ConvertIntersections(self, e1):  
+        # Save current states
+        vb = self.verbose
+        ae = self.auto_edges
+        ai = self.auto_intersections
+        rd = self.redraw        
+#         self.verbose = False
+        self.auto_edges = False
+#         self.auto_intersections = False
+        self.redraw = False
+        
         nodes = []
         nodes.append( int(e1.node1) )
         nodes.append( int(e1.node2) )     
@@ -862,6 +865,9 @@ class MapFrame(wx.Frame):
             y = int(val[1])           
             
             if self.CreateNode((x,y)) is False:
+                # if the edge intersection is too close to a node, get rid of the edge.
+                self.SelectOneEdge(self.graphics_edges[e1.id], True)
+                self.DeleteSelection(None)
                 continue
             new_node = len(self.nodelist)-1   # the new node
             self.SelectOneEdge(self.graphics_edges[e1.id], True)
@@ -872,10 +878,13 @@ class MapFrame(wx.Frame):
                 self.SelectOneNode(self.graphics_nodes[new_node], True)
                 self.SelectOneNode(self.graphics_nodes[existing_node], False)
                 self.CreateEdges(None)
-                
-        self.DeselectAll(None)
-            
-            
+        
+        # Restore saved states        
+        self.DeselectAll(None) 
+        self.verbose = vb  
+        self.auto_edges = ae
+        self.auto_intersections = ai
+        self.redraw = rd                  
             
 
 #--------------------------------------------------------------------------------------------#    
@@ -912,7 +921,7 @@ class MapFrame(wx.Frame):
         r = lim[3]
                 
         nodes_created = 0
-        while nodes_created < n:
+        while len(self.nodelist) < n:
             x = int( l + ((r-l)*rand.random()) )
             y = int( b + ((t-b)*rand.random()) )
             
@@ -1011,11 +1020,12 @@ class MapFrame(wx.Frame):
         self.GenerateConnectionMatrix()        
         
         self.DeselectAll(event=None)
-        self.Canvas.Draw(True)
         self.mp.SetSaveStatus(False)
         
         self.redraw = rd
         self.verbose = vb
+        if self.redraw is True:
+            self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
 #     Deletes a node.                                                                        #
@@ -1189,7 +1199,7 @@ class MapFrame(wx.Frame):
     def DetectCollision(self, new_node): 
         for existing_node in self.nodelist:
             try:
-                if self.Distance(new_node.coords, existing_node.coords) <= NODE_DIAM:
+                if self.Distance(new_node.coords, existing_node.coords) <= self.gg_const[2]:
                     return existing_node.id
             except AttributeError:
                 pass

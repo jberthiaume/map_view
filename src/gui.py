@@ -24,8 +24,6 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TODO: change conditions in map scanning to recognize different shades of grey?
-
 #TODO: dedicated edge creation tool?
 
 #TODO: only re-scan map data if map hasn't been updated
@@ -38,7 +36,11 @@ SIZER_BORDER    = 10
 
 ''#TODO: bug in robot representation angles (inaccurate)
 
-#TODO: check for div/zero in 2DPE
+#TODO: bug: high-numbered nodes don't get connected in graph generation???
+
+#TODO: stop edge generation close to nodes (hard)
+
+#TODO: figure out better way than gg_const[d] to stop auto-intersects close to nodes
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
