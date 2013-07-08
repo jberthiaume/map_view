@@ -299,10 +299,10 @@ class GUIPoseEst(GUIBase):
     def OnLeftDown(self, event):
         self.StartPoint = N.array( event.GetPosition() )
         try:
-            self.Canvas.RemoveObject(self.Line)
-        except AttributeError:
-            pass
-        self.Line = None        
+            self.Canvas.RemoveObject(self.ArrowLine)
+        except (ValueError, AttributeError):
+                pass
+        self.ArrowLine = None        
         self.PrevPoint = None
         self.Canvas.CaptureMouse()
     
@@ -320,7 +320,7 @@ class GUIPoseEst(GUIBase):
                 EndPoint = self.Canvas.PixelToWorld(event.GetPosition())
                 self.Canvas.PoseEstStart = StartPoint
                 self.Canvas.PoseEstEnd   = EndPoint
-                self.Publish2DPoseEstimate(StartPoint, EndPoint)
+                self.Publish2DPoseEstimate(StartPoint, EndPoint, self.ArrowLine)
             else:
                 self.Canvas.PoseEstStart = (0,0)
                 self.Canvas.PoseEstEnd   = (0,0)
@@ -334,16 +334,18 @@ class GUIPoseEst(GUIBase):
             xy0 = self.Canvas.PixelToWorld(self.StartPoint)
             xy1 = self.Canvas.PixelToWorld(N.array( event.GetPosition() ))
             
-            if self.Line is not None:
-                self.Canvas.RemoveObject(self.Line)
-            self.Line = self.Canvas.AddArrowLine((xy0,xy1), 
+            try:
+                self.Canvas.RemoveObject(self.ArrowLine)
+            except (ValueError, AttributeError):
+                pass
+            self.ArrowLine = self.Canvas.AddArrowLine((xy0,xy1), 
                                                  LineWidth=LINE_WIDTH, LineColor=LINE_COLOR,
                                                  ArrowHeadSize=10, InForeground=True)
             self.PrevPoint = xy1
             self.Canvas.Draw(True)
 
-    def Publish2DPoseEstimate(self, start, end):        
-        self.Canvas.GetParent().GetParent().Publish2DPoseEstimate(start,end)
+    def Publish2DPoseEstimate(self, start, end, graphic_obj):        
+        self.Canvas.GetParent().GetParent().Publish2DPoseEstimate(start,end, graphic_obj)
 
     def OnLeftDouble(self, event):
         EventType = FloatCanvas.EVT_FC_LEFT_DCLICK

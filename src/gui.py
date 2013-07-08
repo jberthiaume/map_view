@@ -30,17 +30,15 @@ SIZER_BORDER    = 10
 
 #TODO: only re-scan map data if map hasn't been updated
 
-#TODO: clean up node/edge structs (redundant graphics indices)
-
 #TODO: pointer hand cursor bug when leaving hitbox
 
 #TODO: figure out something to do about the stupid GTK global menu glitch
 
-#TODO: edge intersections -> nodes
+''#TODO: edge intersections -> nodes (toggle button in gui)
 
-#TODO: bug in robot representation angles (inaccurate)
+''#TODO: bug in robot representation angles (inaccurate)
 
-#TODO: when to remove pose estimate graphic?
+#TODO: check for div/zero in 2DPE
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):

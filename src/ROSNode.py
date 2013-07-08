@@ -146,6 +146,7 @@ class ROSNode():
     
 #---------------------------------------------------------------------------------------------#    
 #    Translates an OccupancyGrid into pixel colors for the map                                #
+#    To work correctly, dark grey RGB should be >50 and light grey RGB should be >150         #
 #---------------------------------------------------------------------------------------------#
     def TranslateToRGB(self, input_array): 
         output_array=[]

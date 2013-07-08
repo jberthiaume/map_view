@@ -53,6 +53,7 @@ class MapFrame(wx.Frame):
         self.spaced_edges = True
         self.unknown_edges = True
         self.clear_graph = True
+        self.auto_intersections = True
         self.leftdown = False       
         
         self.resolution = None
@@ -69,8 +70,9 @@ class MapFrame(wx.Frame):
         self.graphics_text = []
         
         self.sel_nodes = []
-        self.sel_edges = []  
-        self.curr_dest = None      
+        self.sel_edges = [] 
+        self.pe_graphic = None
+        self.curr_dest = None       
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
@@ -257,11 +259,7 @@ class MapFrame(wx.Frame):
         self.DeselectAll(None)
         
         step = 5
-        diam = NODE_DIAM
         ew = EDGE_WIDTH
-        lw = NODE_BORDER_WIDTH
-        lc = NODE_BORDER    
-        fc = HIGHLIGHT_COLOR
         
         for item in selection:
             ID = item.Name
@@ -269,23 +267,19 @@ class MapFrame(wx.Frame):
             
             if event.GetKeyCode() == wx.WXK_UP:
                 xy = node.coords[0], node.coords[1]+step
-                dxy = 0,5
+                dxy = 0,step
             elif event.GetKeyCode() == wx.WXK_DOWN:
                 xy = node.coords[0], node.coords[1]-step
-                dxy = 0,-5
+                dxy = 0,-step
             elif event.GetKeyCode() == wx.WXK_LEFT:
                 xy = node.coords[0]-step, node.coords[1]
-                dxy = -5,0
+                dxy = -step,0
             elif event.GetKeyCode() == wx.WXK_RIGHT:
                 xy = node.coords[0]+step, node.coords[1]
-                dxy = 5,0
+                dxy = step,0
             else:
-                return
-                
-            if int(ID) < 100:  
-                fs = FONT_SIZE_1
-            else:
-                fs = FONT_SIZE_2            
+                return    
+                 
             node.coords = xy
             node.m_coords = self.PixelsToMeters(xy)
             
@@ -409,8 +403,7 @@ class MapFrame(wx.Frame):
         theta = a.Theta 
         
         if  self.TimeStep < self.NumTimeSteps:
-            xy1 = (x+self.dx, y+self.dy) 
-                
+            xy1 = (x+self.dx, y+self.dy)                 
             r.Move( (self.dx,self.dy) )            
             try:
                 self.Canvas.RemoveObject(self.arrow)
@@ -451,8 +444,35 @@ class MapFrame(wx.Frame):
         else:         
             self.robot.SetFillColor(ROBOT_FILL_2)
             self.arrow.Visible = True
+            try:
+                self.Canvas.RemoveObject(self.pe_graphic)
+                self.pe_graphic = None
+            except (ValueError, AttributeError):
+                pass
+            
             self.Timer.Stop()
             self.Canvas.Draw(True)
+            
+
+    def Publish2DPoseEstimate(self, start_pt, end_pt, graphic_obj):
+        x1 = start_pt[0]
+        y1 = start_pt[1]
+        x2 = end_pt[0]
+        y2 = end_pt[1]
+        self.pe_graphic = graphic_obj
+        
+        pose = self.PixelsToMeters(start_pt)
+        
+        theta = math.atan2(y2-y1, x2-x1)
+        z = math.sin(theta/2.0)
+        w = math.cos(theta/2.0)        
+        orient = (0,0,z,w)        
+        
+        if self.verbose is True:
+            x = self.Truncate(pose[0], 4)
+            y = self.Truncate(pose[1], 4)
+            print "Created 2D Pose estimate at point (%s, %s)" % (x, y)
+        self.ros.Publish2DPoseEstimate(pose, orient)
             
 #---------------------------------------------------------------------------------------------#    
 #    Event handler when the user clicks on the robot graphic.                                 #
@@ -508,9 +528,7 @@ class MapFrame(wx.Frame):
             t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
                                     Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = True)
             self.graphics_text.append(t)        
-            
-            # Assign the Circle to its node
-            node.graphic =  int(c.Name)        
+              
             self.nodelist.append(node) 
             try:
                 # Tell the connection matrix that this node now exists
@@ -583,12 +601,13 @@ class MapFrame(wx.Frame):
                         self.graphics_edges.append(e)
                         
                         e.Name = str(edge.id)
-                        
-                        edge.graphic = int(e.Name)
                         if self.verbose is True:
                             print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
                                                                                 str(edge.node2))
+                        if self.auto_intersections:
+                            self.ConvertIntersections(edge)
+                            
                     else:
                         if self.verbose is True:
                             print "Did not create edge between nodes %s and %s\n\t(already exists)" \
@@ -729,10 +748,10 @@ class MapFrame(wx.Frame):
                                  
                 if self.image_data_format is 'byte':                    
                     if self.unknown_edges is False:
-                        if ord(data1) != 230 or ord(data2) != 230:
+                        if ord(data1) < 150 or ord(data2) < 150:
                             return False
                     else:
-                        if ord(data1) < 100 or ord(data2) < 100:
+                        if ord(data1) < 50 or ord(data2) < 50:
                             return False
                 
                 if not last and pos>ln:
@@ -745,14 +764,24 @@ class MapFrame(wx.Frame):
         else:
             while not done:
                 x = int( x1+(pos*kx) )
-                y = int( y1+(pos*ky) )     
+                y = int( y1+(pos*ky) )                               
+                data = image_data[ (w*y)+x ]    
                 
                 if self.image_data_format is 'int':
-                    if image_data[ (w*y)+x ] != 0:
-                        return False                
+                    if self.unknown_edges is False:
+                        if data != 0:
+                            return False      
+                    else:
+                        if data > 0:
+                            return False 
+                                       
                 if self.image_data_format is 'byte':
-                    if image_data[ (w*y)+x ] != chr(230):
-                        return False
+                    if self.unknown_edges is False:
+                        if ord(data) < 150:
+                            return False
+                    else:
+                        if ord(data) < 50:
+                            return False
                 
                 if not last and pos>ln:
                     last = True
@@ -761,6 +790,93 @@ class MapFrame(wx.Frame):
                     done = True                    
                 pos += increment
         return True
+    
+#     def CheckEdgeIntersections(self, e1):
+#         intersections = []
+#         e1_x1 = self.nodelist[ e1.node1 ].coords[0]
+#         e1_y1 = self.nodelist[ e1.node1 ].coords[1]
+#         e1_x2 = self.nodelist[ e1.node2 ].coords[0]
+#         e1_y2 = self.nodelist[ e1.node2 ].coords[1]
+#         
+#         for e2 in self.edgelist:
+#             e2_x1 = self.nodelist[ e2.node1 ].coords[0]
+#             e2_y1 = self.nodelist[ e2.node1 ].coords[1]            
+#             e2_x2 = self.nodelist[ e2.node2 ].coords[0]
+#             e2_y2 = self.nodelist[ e2.node2 ].coords[1]
+#             
+#             if max(e1_x1,e1_x2) < min(e2_x1,e2_x2):
+#                 print "Edge %s: no intersection (no common interval)" % e2.id
+#                 continue
+
+    def Perp(self, a) :
+        b = np.empty_like(a)
+        b[0] = -a[1]
+        b[1] = a[0]
+        return b
+    
+    def FindIntersections(self, e1) :
+        e1_x1 = float(self.nodelist[ int(e1.node1) ].coords[0])
+        e1_y1 = float(self.nodelist[ int(e1.node1) ].coords[1])
+        e1_x2 = float(self.nodelist[ int(e1.node2) ].coords[0])
+        e1_y2 = float(self.nodelist[ int(e1.node2) ].coords[1]) 
+        a1 = np.array([e1_x1, e1_y1])
+        a2 = np.array([e1_x2, e1_y2])        
+        intersections = {}
+        interval = ( min(e1_x1, e1_x2), max(e1_x1, e1_x2))
+        
+        for e2 in self.edgelist:
+            if e2 == e1:
+                continue
+            
+            e2_x1 = float(self.nodelist[ int(e2.node1) ].coords[0])
+            e2_y1 = float(self.nodelist[ int(e2.node1) ].coords[1])            
+            e2_x2 = float(self.nodelist[ int(e2.node2) ].coords[0])
+            e2_y2 = float(self.nodelist[ int(e2.node2) ].coords[1])
+            b1 = np.array([e2_x1, e2_y1])
+            b2 = np.array([e2_x2, e2_y2])
+            
+            da = a2-a1
+            db = b2-b1
+            dp = a1-b1
+            dap = self.Perp(da)
+            denom = np.dot( dap, db)    # add div/zero check
+            num = np.dot( dap, dp )
+            
+            result = (num / denom)*db + b1
+            if result[0]>interval[0] and result[0]<interval[1]:
+                intersections[e2.id] = result        
+        return intersections
+    
+    
+    def ConvertIntersections(self, e1):  
+        nodes = []
+        nodes.append( int(e1.node1) )
+        nodes.append( int(e1.node2) )     
+        intersections = self.FindIntersections(e1)
+        
+        for key,val in intersections.iteritems():
+            e2 = self.edgelist[key]
+            nodes.append( int(e2.node1) )
+            nodes.append( int(e2.node2) )
+            x = int(val[0])
+            y = int(val[1])           
+            
+            if self.CreateNode((x,y)) is False:
+                continue
+            new_node = len(self.nodelist)-1   # the new node
+            self.SelectOneEdge(self.graphics_edges[e1.id], True)
+            self.SelectOneEdge(self.graphics_edges[e2.id], False)
+            self.DeleteSelection(None)
+            
+            for existing_node in nodes:
+                self.SelectOneNode(self.graphics_nodes[new_node], True)
+                self.SelectOneNode(self.graphics_nodes[existing_node], False)
+                self.CreateEdges(None)
+                
+        self.DeselectAll(None)
+            
+            
+            
 
 #--------------------------------------------------------------------------------------------#    
 #     Generates a random graph on the current map (probabilistic roadmap)                    #                         #
@@ -966,7 +1082,6 @@ class MapFrame(wx.Frame):
             if nodes[j].id != j:
                  
                 nodes[j].id = j
-                nodes[j].graphic = j
                 graphics[j].Name = str(j)
                 if j < 100:  
                     fs = FONT_SIZE_1
@@ -1007,8 +1122,7 @@ class MapFrame(wx.Frame):
                  
         for j in range(len(edges)):
             if edges[j].id != j:                
-                edges[j].id = j           
-                edges[j].graphic = j                     
+                edges[j].id = j                          
                 graphics[j].Name = str(j) 
                 
         self.edgelist = edges
@@ -1080,26 +1194,6 @@ class MapFrame(wx.Frame):
             except AttributeError:
                 pass
         return -1  
-    
-    #TODO: moveme
-    def Publish2DPoseEstimate(self, start_pt, end_pt):
-        x1 = start_pt[0]
-        y1 = start_pt[1]
-        x2 = end_pt[0]
-        y2 = end_pt[1]
-        
-        pose = self.PixelsToMeters(start_pt)
-        
-        theta = math.atan2(y2-y1, x2-x1)
-        z = math.sin(theta/2.0)
-        w = math.cos(theta/2.0)        
-        orient = (0,0,z,w)        
-        
-        if self.verbose is True:
-            x = self.Truncate(pose[0], 4)
-            y = self.Truncate(pose[1], 4)
-            print "Created 2D Pose estimate at point (%s, %s)" % (x, y)
-        self.ros.Publish2DPoseEstimate(pose, orient)
         
 #--------------------------------------------------------------------------------------------#    
 #     Basic distance formula. Returns the distance between two points.                       #
@@ -1220,8 +1314,8 @@ class MapFrame(wx.Frame):
         
         # Set highlighted colour
         for node in self.nodelist:
-            self.graphics_nodes[ node.graphic ].SetFillColor(HIGHLIGHT_COLOR)
-            self.sel_nodes.append(self.graphics_nodes[node.graphic])
+            self.graphics_nodes[ node.id ].SetFillColor(HIGHLIGHT_COLOR)
+            self.sel_nodes.append(self.graphics_nodes[node.id])
         if self.verbose is True:
                 print "Selected all nodes"
         if self.redraw is True:    
@@ -1235,8 +1329,8 @@ class MapFrame(wx.Frame):
         
         # Set highlighted colour
         for edge in self.edgelist:
-            self.graphics_edges[ edge.graphic ].SetLineColor(HIGHLIGHT_COLOR)
-            self.sel_edges.append(self.graphics_edges[edge.graphic])
+            self.graphics_edges[ edge.id ].SetLineColor(HIGHLIGHT_COLOR)
+            self.sel_edges.append(self.graphics_edges[edge.id])
         if self.verbose is True: 
             print "Selected all edges"
         if self.redraw is True:    
@@ -1277,12 +1371,12 @@ class MapFrame(wx.Frame):
            
         for node in self.nodelist:                
             if event is not None:   
-                self.graphics_nodes[ node.graphic ].SetFillColor(HIGHLIGHT_COLOR)
-            self.sel_nodes.append(self.graphics_nodes[node.graphic])
+                self.graphics_nodes[ node.id ].SetFillColor(HIGHLIGHT_COLOR)
+            self.sel_nodes.append(self.graphics_nodes[node.id])
         for edge in self.edgelist:
             if event is not None:   
-                self.graphics_edges[ edge.graphic ].SetLineColor(HIGHLIGHT_COLOR)
-            self.sel_edges.append(self.graphics_edges[edge.graphic])
+                self.graphics_edges[ edge.id ].SetLineColor(HIGHLIGHT_COLOR)
+            self.sel_edges.append(self.graphics_edges[edge.id])
         
         if self.verbose is True:            
             print "Selected all nodes and edges"
