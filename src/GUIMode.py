@@ -18,6 +18,8 @@ from wx.lib.floatcanvas.Utilities import BBox
 
 LINE_WIDTH = 3
 LINE_COLOR = (20,200,0)
+OBSTACLE_WIDTH = 3
+OBSTACLE_COLOR = (0,0,0)
 
 class Cursors(object):
     """
@@ -346,6 +348,90 @@ class GUIPoseEst(GUIBase):
 
     def Publish2DPoseEstimate(self, start, end, graphic_obj):        
         self.Canvas.GetParent().GetParent().Publish2DPoseEstimate(start,end, graphic_obj)
+
+    def OnLeftDouble(self, event):
+        EventType = FloatCanvas.EVT_FC_LEFT_DCLICK
+        if not self.Canvas.HitTest(event, EventType):
+                self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMiddleDown(self, event):
+        EventType = FloatCanvas.EVT_FC_MIDDLE_DOWN
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMiddleUp(self, event):
+        EventType = FloatCanvas.EVT_FC_MIDDLE_UP
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMiddleDouble(self, event):
+        EventType = FloatCanvas.EVT_FC_MIDDLE_DCLICK
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnRightDown(self, event):
+        EventType = FloatCanvas.EVT_FC_RIGHT_DOWN
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnRightUp(self, event):
+        EventType = FloatCanvas.EVT_FC_RIGHT_UP
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnRightDouble(self, event):
+        EventType = FloatCanvas.EVT_FC_RIGHT_DCLICK
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnWheel(self, event):
+        EventType = FloatCanvas.EVT_FC_MOUSEWHEEL
+        self.Canvas._RaiseMouseEvent(event, EventType)
+        
+
+class GUIDrawObs(GUIBase):
+    def __init__(self, canvas=None):
+        GUIBase.__init__(self, canvas)
+        self.Cursor = self.Cursors.ArrowCursor
+
+    # Starts drawing the selection box when the left mouse button is pressed
+    def OnLeftDown(self, event):             
+        self.Points = []
+        self.Graphics = []
+        self.StartPoint = self.Canvas.PixelToWorld( N.array(event.GetPosition()) )
+        self.PrevPoint = None
+        self.Points.append(self.StartPoint)
+        self.Canvas.CaptureMouse()
+    
+    # Records the coordinates of the box when the left button is no longer held down
+    def OnLeftUp(self, event):
+        if event.LeftUp() and not self.StartPoint is None:
+            EndPoint = self.Canvas.PixelToWorld( N.array(event.GetPosition()) )
+            self.Points.append(EndPoint)
+            self.DrawObstacle(self.Points, self.Graphics)
+
+            self.StartPoint = None
+            self.Canvas.Draw(True)
+    
+    # Keep track of the mouse position while the left button is held down
+    def OnMove(self, event):
+        self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
+        if event.Dragging() and event.LeftIsDown() and not (self.StartPoint is None):
+            xy = self.Canvas.PixelToWorld(N.array( event.GetPosition() ))
+            self.Points.append(xy)            
+            
+            if self.PrevPoint is not None:
+                line = self.Canvas.AddLine((xy,self.PrevPoint), LineWidth=OBSTACLE_WIDTH,
+                                           LineColor=OBSTACLE_COLOR)  
+                self.Graphics.append(line)
+            self.PrevPoint = xy              
+            self.Canvas.Draw(True)
+
+    def Publish2DPoseEstimate(self, start, end, graphic_obj):        
+        self.Canvas.GetParent().GetParent().Publish2DPoseEstimate(start,end, graphic_obj)
+        
+    def DrawObstacle(self, points, graphics):
+        self.Canvas.GetParent().GetParent().DrawObstacle(points, graphics)
 
     def OnLeftDouble(self, event):
         EventType = FloatCanvas.EVT_FC_LEFT_DCLICK

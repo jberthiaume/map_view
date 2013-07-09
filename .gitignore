@@ -1,9 +1,7 @@
 *~
 *.log
-*.png
 *.pyc
 *.orig
-*.graph
 img/
 TimerThread.py
 fc_demo_full.py

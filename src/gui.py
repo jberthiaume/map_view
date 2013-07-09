@@ -25,23 +25,18 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
+
+#TODO: BUG: robot representation angles inaccurate
+
+#TOOD: BUG: redraw state gets stuck on False randomly (hard to reproduce)
+
 #TODO: dedicated edge creation tool?
 
 #TODO: only re-scan map data if map hasn't been updated
 
-#TODO: pointer hand cursor bug when leaving hitbox
-
-#TODO: figure out something to do about the stupid GTK global menu glitch
-
-''#TODO: bug in robot representation angles (inaccurate)
-
-#TODO: bug: high-numbered nodes don't get connected in graph generation??? (hard to reproduce)
-
-#TOOD: bug: redraw state gets stuck False randomly
+#TODO: pointer hand cursor bug when leaving hitboxes
 
 #TODO: stop edge generation close to nodes (hard)
-
-#TODO: figure out better way than gg_const[d] to stop auto-intersects close to nodes
 
 #TODO: move gg/tour/find to mapframe
 

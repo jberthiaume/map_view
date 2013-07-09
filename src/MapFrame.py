@@ -460,6 +460,9 @@ class MapFrame(wx.Frame):
             y = self.Truncate(pose[1], 4)
             print "Created 2D Pose estimate at point (%s, %s)" % (x, y)
         self.ros.Publish2DPoseEstimate(pose, orient)
+        
+    def DrawObstacle(self, points, graphics):
+        pass  
             
 #---------------------------------------------------------------------------------------------#    
 #    Event handler when the user clicks on the robot graphic.                                 #
@@ -470,7 +473,7 @@ class MapFrame(wx.Frame):
             print "\t Pixels: (%s, %s)" % (int(obj.Coords[0]), int(obj.Coords[1]))
             m_Coords = self.PixelsToMeters(obj.Coords)
             print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
-            
+                        
             
     def HighlightDestination(self, dest):
         if self.curr_dest is not None: 
@@ -1723,7 +1726,7 @@ class MapFrame(wx.Frame):
         
 #         if self.image_width is None: #TODO: figure out something here
         self.image_width = image.GetHeight() # Case where metadata was not set
-        img = self.Canvas.AddScaledBitmap( image, 
+        self.Canvas.img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
                                       Position = 'bl')    
