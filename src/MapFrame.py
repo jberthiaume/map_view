@@ -1440,9 +1440,9 @@ class MapFrame(wx.Frame):
         self.Canvas.Draw(True)
     
     def OnMouseEnterNode(self, obj):
-        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.PointerHandCursor)         
-    def OnMouseLeaveNode(self, obj):
-        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.ArrowCursor)   
+        self.Canvas.GUIMode.SwitchCursor('enter')     
+    def OnMouseLeaveNode(self, obj):        
+        self.Canvas.GUIMode.SwitchCursor('leave') 
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
@@ -1462,9 +1462,9 @@ class MapFrame(wx.Frame):
         self.Canvas.Draw(True) 
         
     def OnMouseEnterEdge(self, obj):
-        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.PointerHandCursor)         
+        self.Canvas.GUIMode.SwitchCursor('enter')         
     def OnMouseLeaveEdge(self, obj):
-        self.Canvas.SetCursor(self.Canvas.GUIMode.Cursors.ArrowCursor)
+        self.Canvas.GUIMode.SwitchCursor('leave')
 
 #--------------------------------------------------------------------------------------------#    
 #     "Setter" functions for file paths and data structures                                  #

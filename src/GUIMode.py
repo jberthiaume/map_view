@@ -183,6 +183,16 @@ class GUIMouse(GUIBase):
         self.Canvas.MouseOverTest(event)
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
         
+    def SwitchCursor(self, status):
+        pc = self.Cursors.PointerHandCursor
+        ac = self.Cursors.ArrowCursor
+        if status == 'enter' or self.Cursor == ac:
+            self.Canvas.SetCursor(pc)
+            self.Cursor = pc
+        else:
+            self.Canvas.SetCursor(ac)
+            self.Cursor = ac
+        
 class GUISelect(GUIBase):
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
