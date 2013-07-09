@@ -60,7 +60,7 @@ class MapFrame(wx.Frame):
         self.origin = None
         self.robot = None
         self.image_width = None
-        self.gg_const = (100,6,30,5,80)
+        self.gg_const = (100,3,20,5,80)
         self.current_map = []
         
         self.nodelist = []
@@ -88,26 +88,7 @@ class MapFrame(wx.Frame):
                                      BackgroundColor = "DARK GREY", 
                                      )
         self.Canvas = self.NavCanvas.Canvas
-        
-        # Menu bar                 
-        self.file_menu = wx.Menu()
-        self.file_menu.Append(1001, '&Open Map\tCtrl+O')
-        self.file_menu.Append(1002, '&Save Map\tCtrl+S')        
-        self.file_menu.Append(1003, 'Save &As...\tCtrl+Shift+S')
-        self.file_menu.AppendSeparator()      
-        self.file_menu.Append(1008, 'Close Map\tCtrl+W')
-        self.file_menu.Append(1009, 'Q&uit\tCtrl+Q')
-                
-        menu_bar = wx.MenuBar()
-        menu_bar.Append(self.file_menu, '&File')
-        self.SetMenuBar(menu_bar)
-         
-        # Menu event binders
-        wx.EVT_MENU(self,1001,self.OnOpen)
-        wx.EVT_MENU(self,1002,self.OnSave)        
-        wx.EVT_MENU(self,1003,self.OnSaveAs)
-        wx.EVT_MENU(self,1008,self.OnCloseMap)
-        wx.EVT_MENU(self,1009,self.OnExit)
+
         
         # Bind canvas mouse events
         self.Bind(wx.EVT_CLOSE, self.OnClose)
@@ -125,6 +106,8 @@ class MapFrame(wx.Frame):
         id_create_edges = wx.NewId()
         id_connect = wx.NewId()
         id_del = wx.NewId()
+        id_close = wx.NewId()
+        id_quit = wx.NewId()
         
         wx.EVT_MENU(self, id_sel_all, self.SelectAll) 
         wx.EVT_MENU(self, id_desel_all, self.DeselectAll) 
@@ -133,6 +116,8 @@ class MapFrame(wx.Frame):
         wx.EVT_MENU(self, id_create_edges, self.CreateEdges)
         wx.EVT_MENU(self, id_connect, self.OnConnectNeighbors)
         wx.EVT_MENU(self, id_del, self.DeleteSelection)
+        wx.EVT_MENU(self, id_close, self.OnCloseMap)
+        wx.EVT_MENU(self, id_quit, self.OnExit)
         
         # Accelerator table for hotkeys
         self.accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('A'), id_sel_all),
@@ -141,7 +126,9 @@ class MapFrame(wx.Frame):
                                               (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('E'), id_sel_edges),
                                               (wx.ACCEL_CTRL, ord('E'), id_create_edges),
                                               (wx.ACCEL_CTRL, ord('K'), id_connect),
-                                              (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_del)
+                                              (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_del),
+                                              (wx.ACCEL_CTRL, ord('W'), id_close),
+                                              (wx.ACCEL_CTRL, ord('Q'), id_quit)
                                              ])
         self.SetAcceleratorTable(self.accel_tbl)  
         self.Layout()
@@ -555,13 +542,13 @@ class MapFrame(wx.Frame):
             if self.redraw is True:
                 self.Canvas.Draw(True)
             self.mp.SetSaveStatus(False) 
-            return True 
+            return 1 
                   
         else:
             if self.verbose is True:
                 print "Could not create node at (%s, %s). (Too close to node %s)" \
                         % (node_coords[0], node_coords[1], str(collision))
-            return False
+            return -collision
         
 
 #--------------------------------------------------------------------------------------------#    
@@ -796,6 +783,7 @@ class MapFrame(wx.Frame):
         b[0] = -a[1]
         b[1] = a[0]
         return b
+
     
     def FindIntersections(self, e1) :
         e1_x1 = float(self.nodelist[ int(e1.node1) ].coords[0])
@@ -857,27 +845,44 @@ class MapFrame(wx.Frame):
         nodes.append( int(e1.node2) )     
         intersections = self.FindIntersections(e1)
         
-        for key,val in intersections.iteritems():
-            e2 = self.edgelist[key]
-            nodes.append( int(e2.node1) )
-            nodes.append( int(e2.node2) )
-            x = int(val[0])
-            y = int(val[1])           
-            
-            if self.CreateNode((x,y)) is False:
-                # if the edge intersection is too close to a node, get rid of the edge.
-                self.SelectOneEdge(self.graphics_edges[e1.id], True)
-                self.DeleteSelection(None)
-                continue
-            new_node = len(self.nodelist)-1   # the new node
-            self.SelectOneEdge(self.graphics_edges[e1.id], True)
-            self.SelectOneEdge(self.graphics_edges[e2.id], False)
-            self.DeleteSelection(None)
-            
-            for existing_node in nodes:
-                self.SelectOneNode(self.graphics_nodes[new_node], True)
-                self.SelectOneNode(self.graphics_nodes[existing_node], False)
-                self.CreateEdges(None)
+        ok_to_proceed = False
+        while not ok_to_proceed:
+            if len(intersections) > 0:
+                for key,val in intersections.iteritems():
+                    e2 = self.edgelist[key]
+                    nodes.append( int(e2.node1) )
+                    nodes.append( int(e2.node2) )
+                    x = int(val[0])
+                    y = int(val[1])           
+                    
+                    result = self.CreateNode((x,y))
+                    if result <= 0:
+                        # if the edge intersection is too close to a node, get rid of the edge.
+                        if int(e1.node1) == -result or int(e1.node2) == -result:
+                            self.SelectOneEdge(self.graphics_edges[e2.id], True)
+                            self.DeleteSelection(None)
+                            if self.verbose is True:
+                                print "Auto-deleted edge %s (was between nodes %s and %s)" \
+                                    % (e2.id, e2.node1, e2.node2)
+                            intersections = self.FindIntersections(e1)
+                        else:
+                            self.SelectOneEdge(self.graphics_edges[e1.id], True)
+                            self.DeleteSelection(None)
+                            ok_to_proceed = True
+                        break
+                    
+                    new_node = len(self.nodelist)-1   # the new node
+                    self.SelectOneEdge(self.graphics_edges[e1.id], True)
+                    self.SelectOneEdge(self.graphics_edges[e2.id], False)
+                    self.DeleteSelection(None)
+                    
+                    for existing_node in nodes:
+                        self.SelectOneNode(self.graphics_nodes[new_node], True)
+                        self.SelectOneNode(self.graphics_nodes[existing_node], False)
+                        self.CreateEdges(None)
+                    ok_to_proceed = True
+            else:
+                ok_to_proceed = True
         
         # Restore saved states        
         self.DeselectAll(None) 
@@ -905,7 +910,7 @@ class MapFrame(wx.Frame):
         ae = self.auto_edges
         rd = self.redraw
         
-        self.verbose = False
+#         self.verbose = False
         self.auto_edges = False
         self.redraw = False
         
@@ -920,17 +925,17 @@ class MapFrame(wx.Frame):
         l = lim[2]
         r = lim[3]
                 
-        nodes_created = 0
+#         nodes_created = 0
         while len(self.nodelist) < n:
             x = int( l + ((r-l)*rand.random()) )
             y = int( b + ((t-b)*rand.random()) )
             
             if self.CheckNodeLocation(data, (x,y), w, d) is True:
-                if self.CreateNode( (x,y) ) is True:
-                    self.ConnectNeighbors(nodes_created, k, e, False)
-                    nodes_created += 1
-        
-#         self.RefreshNodes(0, self.image_width, 0, self.image_width)                   
+                if int(self.CreateNode( (x,y) )) == 1:
+                    # Node successfully created
+                    self.ConnectNeighbors(len(self.nodelist)-1, k, e, False)
+#                     nodes_created += 1
+                         
         self.Canvas.Draw(True) 
         
         # Restore saved states
@@ -1194,16 +1199,22 @@ class MapFrame(wx.Frame):
 
 #--------------------------------------------------------------------------------------------#    
 #     Returns -1 if there is no collision with another node. If there is a collision,        #
-#     returns the ID of the first node there was a collision with.                           #
+#     returns the ID of the closest node there was a collision with.                         #
 #--------------------------------------------------------------------------------------------#    
-    def DetectCollision(self, new_node): 
+    def DetectCollision(self, new_node):
+        collisions = {} 
         for existing_node in self.nodelist:
             try:
-                if self.Distance(new_node.coords, existing_node.coords) <= self.gg_const[2]:
-                    return existing_node.id
+                dist = self.Distance(new_node.coords, existing_node.coords)
+                if dist <= self.gg_const[2]:
+                    collisions[existing_node.id] = dist
             except AttributeError:
                 pass
-        return -1  
+        if len(collisions) == 0:
+            return -1  
+        else:
+            closest = min(collisions, key=collisions.get)
+            return closest
         
 #--------------------------------------------------------------------------------------------#    
 #     Basic distance formula. Returns the distance between two points.                       #

@@ -11,10 +11,11 @@ import ROSNode
 from datetime import datetime
 from MapFrame import MapFrame
 
-APP_SIZE        = (240,312)
-APP_SIZE_EXP    = (240,565)
+APP_SIZE        = (240,392)
+APP_SIZE_EXP    = (240,620)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
+BUTTON_SIZE_SM  = (85,30)
 # TXT_FG_COLOR    = (255,131,79)
 TXT_FG_COLOR    = (221,72,20)
 TXT_BG_COLOR    = (185,185,180)
@@ -32,15 +33,17 @@ SIZER_BORDER    = 10
 
 #TODO: figure out something to do about the stupid GTK global menu glitch
 
-''#TODO: edge intersections -> nodes (toggle button in gui)
-
 ''#TODO: bug in robot representation angles (inaccurate)
 
-#TODO: bug: high-numbered nodes don't get connected in graph generation???
+#TODO: bug: high-numbered nodes don't get connected in graph generation??? (hard to reproduce)
+
+#TOOD: bug: redraw state gets stuck False randomly
 
 #TODO: stop edge generation close to nodes (hard)
 
 #TODO: figure out better way than gg_const[d] to stop auto-intersects close to nodes
+
+#TODO: move gg/tour/find to mapframe
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -66,36 +69,7 @@ class MainFrame(wx.Frame):
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.sizer.Add(self.mp,1,wx.EXPAND)
         self.sizer.Add(self.sp,1,wx.EXPAND)
-        self.SetSizer(self.sizer)
-        
-        # Menu bar                 
-        self.file_menu = wx.Menu()
-        self.file_menu.Append(101, '&Open Map\tCtrl+O')
-        self.file_menu.Append(102, '&Save Map\tCtrl+S')        
-        self.file_menu.Append(103, 'Save &As...\tCtrl+Shift+S')
-        self.file_menu.AppendSeparator()      
-        self.file_menu.Append(108, 'Close Map\tCtrl+W')
-        self.file_menu.Append(109, 'Q&uit\tCtrl+Q')             
-        
-#         options_menu = wx.Menu()  
-#         options_menu.Append(209, 'Settings\tCtrl+T')
-                
-        menu_bar = wx.MenuBar()
-        menu_bar.Append(self.file_menu, '&File')
-#         menu_bar.Append(options_menu, '&Options')
-        self.SetMenuBar(menu_bar)      
-         
-        self.disabled_items = (102,103,108)
-        for key in self.disabled_items:
-            self.file_menu.Enable(key, False)
-         
-        # Menu event binders
-        wx.EVT_MENU(self,101,self.OnOpen)
-        wx.EVT_MENU(self,102,self.OnSave)        
-        wx.EVT_MENU(self,103,self.OnSaveAs)
-        wx.EVT_MENU(self,108,self.OnCloseMap)
-        wx.EVT_MENU(self,109,self.OnExit)
-#         wx.EVT_MENU(self,209,self.OnSettings)
+        self.SetSizer(self.sizer)     
           
         self.Bind(wx.EVT_MOTION, self.OnMouse)
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
@@ -176,7 +150,7 @@ class MainPanel(wx.Panel):
         self.btn_disabled = []
         self.contents = []
         
-        self.gg_const = (100,6,30,5,80)
+        self.gg_const = (100,3,20,5,80)
         
         # Set parent frame value
         self.parent_frame = parent 
@@ -184,7 +158,6 @@ class MainPanel(wx.Panel):
             self.parent_frame = self.parent_frame.GetParent()
         
         self.ros = self.parent_frame.ros
-#         self.pb = self.parent_frame.pb
         self.verbose = self.parent_frame.verbose
         
         # Create the sizers 
@@ -222,6 +195,25 @@ class MainPanel(wx.Panel):
         hbox10.Add(self.btn_open)           
         self.sizer_menu.Add(hbox10,0,
                             wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER) 
+        
+        # Save button
+        hbox13 = wx.BoxSizer(wx.HORIZONTAL)            
+        hbox13.AddSpacer(H_SPACER_WIDTH)
+        self.btn_sv = wx.Button(self, label="Save", size=BUTTON_SIZE_SM) 
+        self.btn_sv.Bind(wx.EVT_BUTTON, self.OnSave)        
+        self.btn_disabled.append(self.btn_sv)     
+        self.buttons.append(self.btn_sv)   
+        hbox13.Add(self.btn_sv,0,wx.RIGHT, SIZER_BORDER)      
+                
+        # Save As button
+        self.btn_svas = wx.Button(self, label="Save As", size=BUTTON_SIZE_SM) 
+        self.btn_svas.Bind(wx.EVT_BUTTON, self.OnSaveAs)        
+        self.btn_disabled.append(self.btn_svas)     
+        self.buttons.append(self.btn_svas)   
+        hbox13.Add(self.btn_svas)           
+        self.sizer_menu.Add(hbox13,0,
+                            wx.TOP|wx.LEFT|wx.RIGHT
+                            ,SIZER_BORDER) 
 
         # Show/Hide map viewer button
 #         hbox03 = wx.BoxSizer(wx.HORIZONTAL)            
@@ -258,38 +250,7 @@ class MainPanel(wx.Panel):
         
         self.sizer_menu.AddSpacer(V_SPACER_LARGE) 
 
-#         # Open button
-#         hbox10 = wx.BoxSizer(wx.HORIZONTAL)            
-#         hbox10.AddSpacer(H_SPACER_WIDTH)
-#         self.btn_open = wx.Button(self, label="Open", size=BUTTON_SIZE)   
-#         self.buttons.append(self.btn_open)        
-#         self.btn_open.Bind(wx.EVT_BUTTON, self.OnOpen)  
-#         hbox10.Add(self.btn_open)           
-#         self.sizer_menu.Add(hbox10,0,
-#                             wx.LEFT|wx.RIGHT
-#                             ,SIZER_BORDER)  
-#         # Save button
-#         hbox13 = wx.BoxSizer(wx.HORIZONTAL)            
-#         hbox13.AddSpacer(H_SPACER_WIDTH)
-#         self.btn_sv = wx.Button(self, label="Save", size=BUTTON_SIZE) 
-#         self.btn_sv.Bind(wx.EVT_BUTTON, self.OnSave)        
-#         self.btn_disabled.append(self.btn_sv)     
-#         self.buttons.append(self.btn_sv)   
-#         hbox13.Add(self.btn_sv)           
-#         self.sizer_menu.Add(hbox13,0,
-#                             wx.TOP|wx.LEFT|wx.RIGHT
-#                             ,SIZER_BORDER)        
-#         # Save As button
-#         hbox16 = wx.BoxSizer(wx.HORIZONTAL)            
-#         hbox16.AddSpacer(H_SPACER_WIDTH)
-#         self.btn_svas = wx.Button(self, label="Save As", size=BUTTON_SIZE) 
-#         self.btn_svas.Bind(wx.EVT_BUTTON, self.OnSaveAs)        
-#         self.btn_disabled.append(self.btn_svas)     
-#         self.buttons.append(self.btn_svas)   
-#         hbox16.Add(self.btn_svas)           
-#         self.sizer_menu.Add(hbox16,0,
-#                             wx.TOP|wx.LEFT|wx.RIGHT
-#                             ,SIZER_BORDER)  
+ 
 #         
 #         self.sizer_menu.AddSpacer(V_SPACER_LARGE)        
                  
@@ -302,14 +263,14 @@ class MainPanel(wx.Panel):
         hbox19.Add(self.btn_set)        
         self.sizer_menu.Add(hbox19,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)
                
-#         # Exit button
-#         hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
-#         hbox20.AddSpacer(H_SPACER_WIDTH)
-#         btn_exit = wx.Button(self, label="Exit", size=BUTTON_SIZE)  
-#         self.buttons.append(btn_exit)      
-#         hbox20.Add(btn_exit)           
-#         btn_exit.Bind(wx.EVT_BUTTON, self.OnExit)
-#         self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)   
+        # Exit button
+        hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
+        hbox20.AddSpacer(H_SPACER_WIDTH)
+        btn_exit = wx.Button(self, label="Exit", size=BUTTON_SIZE)  
+        self.buttons.append(btn_exit)      
+        hbox20.Add(btn_exit)           
+        btn_exit.Bind(wx.EVT_BUTTON, self.OnExit)
+        self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)   
                       
         self.PaintButtons( (255,255,255),BUTTON_COLOR )
         self.EnableButtons(self.btn_disabled, False)  
@@ -414,7 +375,6 @@ class MainPanel(wx.Panel):
             
             # Update some statuses
             self.EnableButtons(self.btn_disabled, True)
-            self.EnableMenuOptions(self.parent_frame.disabled_items, True)
             self.SetSaveStatus(False)     
             
             while self.ros.image is None:
@@ -519,8 +479,7 @@ class MainPanel(wx.Panel):
                 self.zp.SetImage(filename)  
                 wx.EndBusyCursor()  
                 self.zp.KillBusyDialog()  
-                self.EnableButtons(self.btn_disabled, True)  
-                self.EnableMenuOptions(self.parent_frame.disabled_items, True)             
+                self.EnableButtons(self.btn_disabled, True)              
                 self.SetSaveStatus(True) 
                 self.btn_map.SetLabel("Hide Map")
                 
@@ -624,7 +583,6 @@ class MainPanel(wx.Panel):
         self.zp.Hide()
         self.btn_map.SetLabel("Show Map")
         self.EnableButtons(self.btn_disabled, False)
-        self.EnableMenuOptions(self.parent_frame.disabled_items, False)
         self.SetSaveStatus(True)
 
 #---------------------------------------------------------------------------------------------#    
@@ -684,7 +642,6 @@ class SettingsPanel(wx.Panel):
         self.lbl_text = []
         self.txtbxs = []
         self.ros = self.parent_frame.ros
-#         self.pb = self.parent_frame.pb
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         
         title_font = self.parent_frame.font
@@ -818,20 +775,25 @@ class SettingsPanel(wx.Panel):
         
         
         # Title Label 2 
-        self.lbl_gg = wx.StaticText(self, label="Other Settings", 
+        self.lbl_st = wx.StaticText(self, label="Other Settings", 
                                     size=(240,30), pos=(10,425), style=wx.CENTER)
         
-        self.lbl_gg.SetFont(title_font)
-        self.lbl_titles.append(self.lbl_gg) 
+        self.lbl_st.SetFont(title_font)
+        self.lbl_titles.append(self.lbl_st) 
         
         # Edge Creation Checkbox
         self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes",
-                                  pos=(10,450))
+                                  pos=(10,453))
         self.chk_ec.SetValue(True)
+        
+        # Intersection Checkbox
+        self.chk_int = wx.CheckBox(self, label="Automatically create nodes\nat edge intersections",
+                                  pos=(10,485))
+        self.chk_int.SetValue(True)
         
         # Console Output Checkbox
         self.chk_co = wx.CheckBox(self, label="Enable console output",
-                                  pos=(10,475))
+                                  pos=(10,530))
         self.chk_co.SetValue(True)
                 
         # Ok button
@@ -926,7 +888,8 @@ class SettingsPanel(wx.Panel):
     def OnOk(self, event):
         self.parent_frame.mp.zp.spaced_edges = not self.chk_edge.GetValue()
         self.parent_frame.mp.zp.clear_graph = self.chk_clr.GetValue()            
-        self.parent_frame.mp.zp.auto_edges = self.chk_ec.GetValue()     
+        self.parent_frame.mp.zp.auto_edges = self.chk_ec.GetValue()   
+        self.parent_frame.mp.zp.auto_intersections = self.chk_int.GetValue()  
         self.parent_frame.mp.zp.unknown_edges = self.chk_uk.GetValue()    
         self.parent_frame.SuppressOutput(not self.chk_co.GetValue())
         
@@ -1050,24 +1013,24 @@ class ExplorePanel(wx.Panel):
         
         # Textbox
         vbox06 = wx.BoxSizer(wx.VERTICAL)     
-        vbox06.AddSpacer(5)
-        self.txt = wx.TextCtrl(self, size=(50,30), style=wx.NO_BORDER|wx.TE_CENTER)
+        vbox06.AddSpacer(7)
+        self.txt = wx.TextCtrl(self, size=(45,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt.SetMaxLength(3)    #Maximum of 3 characters
         self.txt.SetFont(self.parent_frame.font)
         self.txt.SetForegroundColour((255,131,79))
         self.txt.SetBackgroundColour((85,85,80))
         vbox06.Add(self.txt)
-        self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,10)
+        self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,8)
          
         # Go button
         vbox09 = wx.BoxSizer(wx.VERTICAL)     
-        vbox09.AddSpacer(5)
-        self.btn_go = wx.Button(self, label="Go", size=(50,30))        
+        vbox09.AddSpacer(9)
+        self.btn_go = wx.Button(self, label="Find", size=(53,32))        
         self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)
         self.GetParent().btn_disabled.append(self.btn_go)
         self.GetParent().buttons.append(self.btn_go) 
         vbox09.Add(self.btn_go)        
-        self.hbox01.Add(vbox09,1,wx.TOP|wx.LEFT,10)        
+        self.hbox01.Add(vbox09,1,wx.TOP|wx.LEFT,5)        
         
         self.sizer.Add(self.hbox01)
                
