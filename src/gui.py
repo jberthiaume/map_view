@@ -34,8 +34,6 @@ SIZER_BORDER    = 10
 
 #TODO: only re-scan map data if map hasn't been updated
 
-#TODO: stop edge generation close to nodes (hard)
-
 #TODO: move gg/tour/find to mapframe
 
 class MainFrame(wx.Frame):

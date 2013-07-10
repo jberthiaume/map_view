@@ -524,8 +524,21 @@ class MapFrame(wx.Frame):
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
                 if self.verbose is True:
-                    print "Created node %s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
-                    print "\tMetric: (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                    print "Created node %s at (%s, %s) / metric: (%s, %s)" % \
+                    (ID, node_coords[0], node_coords[1],
+                     node.m_coords[0], node.m_coords[1])
+                
+                self.DeselectAll(None)
+                md = self.MinDistanceToEdge(node)   
+                for entry in md:
+                    edge = self.edgelist[ entry[0] ]
+                    if self.verbose is True:
+                        st = ("Auto-deleted edge %s between nodes "
+                              "%s and %s (too close to node %s)")
+                        print st % (edge.id, edge.node1, edge.node2, node.id)
+                    self.SelectOneEdge(self.graphics_edges[entry[0]], False)
+                self.DeleteSelection(None)    
+                
                 if self.auto_edges is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
                 
@@ -537,8 +550,9 @@ class MapFrame(wx.Frame):
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0 
                 if self.verbose is True:
-                    print "Created node %s at (%s, %s)" % (ID, node_coords[0], node_coords[1])
-                    print "\tMetric = (%s, %s)" % (node.m_coords[0], node.m_coords[1])
+                    print "Created node %s at (%s, %s) / Metric = (%s, %s)" % (ID, 
+                                                           node_coords[0], node_coords[1],
+                                                           node.m_coords[0], node.m_coords[1])
                 if self.auto_edges is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
             
@@ -588,20 +602,30 @@ class MapFrame(wx.Frame):
                         e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
                         e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
                         e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
-                        self.graphics_edges.append(e)
-                        
+                        self.graphics_edges.append(e)                        
                         e.Name = str(edge.id)
-                        if self.verbose is True:
-                            print "Created edge %s between nodes %s and %s" % (str(edge.id), 
+                        
+                        md = self.MinDistanceToNode(edge)   
+                        if md is not None:
+                            if self.verbose is True:
+                                st = ("Did not create edge between nodes "
+                                      "%s and %s (too close to node %s)")
+                                print st % (node1.Name, node2.Name, md[0])
+                            self.SelectOneEdge(self.graphics_edges[edge.id], True)
+                            self.DeleteSelection(None)
+                        else:                            
+                            if self.verbose is True:
+                                print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
-                                                                                str(edge.node2))
-                        if self.auto_intersections:
-                            self.ConvertIntersections(edge)
+                                                                                str(edge.node2))                            
+                            if self.auto_intersections:
+                                self.ConvertIntersections(edge)
                             
                     else:
                         if self.verbose is True:
-                            print "Did not create edge between nodes %s and %s\n\t(already exists)" \
+                            print "Did not create edge between nodes %s and %s (already exists)" \
                             % (node1.Name,node2.Name)
+                            
                 except IndexError:
                     pass
 #             if self.redraw is True:
@@ -865,8 +889,9 @@ class MapFrame(wx.Frame):
                             self.SelectOneEdge(self.graphics_edges[e2.id], True)
                             self.DeleteSelection(None)
                             if self.verbose is True:
-                                print "Auto-deleted edge %s (was between nodes %s and %s)" \
-                                    % (e2.id, e2.node1, e2.node2)
+                                st = ("Auto-deleted edge %s between nodes %s and %s "
+                                      "(too close to node %s)")
+                                print  st % (e2.id, e2.node1, e2.node2, -result)
                             intersections = self.FindIntersections(e1)
                         else:
                             self.SelectOneEdge(self.graphics_edges[e1.id], True)
@@ -892,7 +917,86 @@ class MapFrame(wx.Frame):
         self.verbose = vb  
         self.auto_edges = ae
         self.auto_intersections = ai
-        self.redraw = rd                  
+        self.redraw = rd
+        
+    
+    def MinDistanceToNode(self, edge):
+        min_distance = -1, self.gg_const[2]/2
+        ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
+        ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
+        ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
+        ey2 = float(self.nodelist[ int(edge.node2) ].coords[1])        
+        ln = self.Distance2((ex1, ey1), (ex2,ey2))   
+        
+        for node in self.nodelist:
+            if node.id == int(edge.node1) or node.id == int(edge.node2):
+                continue
+            
+            nx = float(node.coords[0])
+            ny = float(node.coords[1])
+            t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
+            if t<0:
+                dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
+#                 print "edge %s distance to node %s: %s (t0 = %s)" % (edge.id, node.id, dist, t)
+                if dist < min_distance[1]:
+                    min_distance = node.id, dist
+                    break
+            elif t>1:
+                dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
+#                 print "edge %s distance to node %s: %s (t1 = %s)" % (edge.id, node.id, dist, t)
+                if dist < min_distance[1]:
+                    min_distance = node.id, dist
+                    break
+            else:
+                dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
+#                 print "edge %s distance to node %s: %s (t2 = %s)" % (edge.id, node.id, dist, t)
+                if dist < min_distance[1]:
+                    min_distance = node.id, dist
+                    break
+#         print "edge %s min distance is %s to node %s" % (edge.id, min_distance[1], min_distance[0])
+        if min_distance[0] != -1:
+            return min_distance
+        else:
+            return None
+        
+    
+    def MinDistanceToEdge(self, node):
+        thresh = self.gg_const[2]
+        min_distance = []
+        nx = float(node.coords[0])
+        ny = float(node.coords[1])           
+        
+        for edge in self.edgelist:
+            if node.id == int(edge.node1) or node.id == int(edge.node2):
+                continue
+            
+            ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
+            ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
+            ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
+            ey2 = float(self.nodelist[ int(edge.node2) ].coords[1])
+            ln = self.Distance2((ex1, ey1), (ex2,ey2))
+            
+            t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
+            if t<0:
+                dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
+#                 print "node %s distance to edge %s: %s (t0 = %s)" % (node.id, edge.id, dist, t)
+                if dist < thresh:
+                    min_distance.append( (edge.id, dist) )
+                continue
+            elif t>1:
+                dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
+#                 print "node %s distance to edge %s: %s (t1 = %s)" % (node.id, edge.id, dist, t)
+                if dist < thresh:
+                    min_distance.append( (edge.id, dist) )
+                continue
+            else:
+                dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
+#                 print "node %s distance to edge %s: %s (t2 = %s)" % (node.id, edge.id, dist, t)
+                if dist < thresh:
+                    min_distance.append( (edge.id, dist) )
+                continue
+#         print "node %s min distance is %s to edge %s" % (node.id, min_distance[1], min_distance[0])
+        return min_distance
             
 
 #--------------------------------------------------------------------------------------------#    
@@ -1228,7 +1332,18 @@ class MapFrame(wx.Frame):
         y1 = float(p1[1])
         y2 = float(p2[1])
         dist = math.sqrt( (x2 - x1)**2 + (y2 - y1)**2 )  
-        return dist  
+        return dist 
+    
+#--------------------------------------------------------------------------------------------#    
+#     Basic distance formula. Returns the distance between two points.                       #
+#--------------------------------------------------------------------------------------------# 
+    def Distance2(self, p1, p2): 
+        x1 = float(p1[0])
+        x2 = float(p2[0])
+        y1 = float(p1[1])
+        y2 = float(p2[1])
+        dist = ( (x2 - x1)**2 + (y2 - y1)**2 )  
+        return dist   
 
 #--------------------------------------------------------------------------------------------#    
 #     Basic midpoint formula. Returns the center of two points.                              #
@@ -1310,8 +1425,8 @@ class MapFrame(wx.Frame):
     def SelectOneNode(self, obj, desel):
         if desel is True:      
             self.DeselectAll(event=None)
-            if self.verbose is True:
-                print "Selected Node #" + obj.Name      
+#             if self.verbose is True:
+#                 print "Selected Node #" + obj.Name      
         self.sel_nodes.append(obj)   
         obj.SetFillColor(HIGHLIGHT_COLOR)
         if self.redraw is True:
@@ -1323,8 +1438,8 @@ class MapFrame(wx.Frame):
     def SelectOneEdge(self, obj, desel):
         if desel is True:     
             self.DeselectAll(event=None)
-            if self.verbose is True:
-                print "Selected Edge #" + obj.Name     
+#             if self.verbose is True:
+#                 print "Selected Edge #" + obj.Name     
         self.sel_edges.append(obj)
         obj.SetLineColor(HIGHLIGHT_COLOR)
         if self.redraw is True:
