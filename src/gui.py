@@ -25,14 +25,9 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-
-#TODO: BUG: robot representation angles inaccurate
-
 #TOOD: BUG: redraw state gets stuck on False randomly (hard to reproduce)
 
 #TODO: dedicated edge creation tool?
-
-#TODO: only re-scan map data if map hasn't been updated
 
 #TODO: move gg/tour/find to mapframe
 
@@ -141,7 +136,7 @@ class MainPanel(wx.Panel):
         self.btn_disabled = []
         self.contents = []
         
-        self.gg_const = (100,3,20,5,80)
+        self.gg_const = (100,5,20,5,80)
         
         # Set parent frame value
         self.parent_frame = parent 
@@ -348,8 +343,7 @@ class MainPanel(wx.Panel):
             "Map", wx.YES_NO)
                         
             if dlg.ShowModal() == wx.ID_NO:
-                self.zp.SetNodeList([])
-                self.zp.SetEdgeList([])
+                self.zp.ClearGraph()
             dlg.Destroy()
         
         self.zp.Hide()       
@@ -448,9 +442,8 @@ class MainPanel(wx.Panel):
                 wx.Yield()
 #                 self.zp.NavCanvas.Hide()
                 self.zp.Hide()  
-                wx.Yield()               
-                self.zp.SetNodeList([])
-                self.zp.SetEdgeList([])
+                wx.Yield() 
+                self.zp.ClearGraph()
                 
                 # Set the viewer image to the selected file
                 filename = dlg.GetPath()  
@@ -464,8 +457,8 @@ class MainPanel(wx.Panel):
                     self.zp.ImportGraph(graph_file)
                     graph_file.close()
                 except IOError:
-                    self.zp.SetNodeList([])
-                    self.zp.SetEdgeList([])
+                    self.zp.ClearGraph()
+                    self.zp.ImportGraph(None)
                                   
                 self.zp.SetImage(filename)  
                 wx.EndBusyCursor()  
@@ -567,10 +560,9 @@ class MainPanel(wx.Panel):
                 dlg.Destroy()
                 return
             dlg.Destroy()
-              
+        
+        self.zp.ClearGraph()      
         self.zp.Clear()
-        self.zp.SetNodeList([])
-        self.zp.SetEdgeList([])
         self.zp.Hide()
         self.btn_map.SetLabel("Show Map")
         self.EnableButtons(self.btn_disabled, False)
@@ -1132,7 +1124,7 @@ class ExplorePanel(wx.Panel):
         self.zp.GenerateGraph(n,k,d,w,e)        
                    
 #---------------------------------------------------------------------------------------------#    
-#    Publish some stuff                                                                 #
+#    Publish some stuff                                                                       #
 #---------------------------------------------------------------------------------------------#             
     def OnTour(self, event):                       
 #         self.parent_Frame.tt.paused = True

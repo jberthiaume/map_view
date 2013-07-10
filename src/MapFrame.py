@@ -47,6 +47,7 @@ class MapFrame(wx.Frame):
         
         # Initialize data structures   
         self.export = False
+        self.xerase = True
         self.verbose = True
         self.redraw = True
         self.auto_edges = True 
@@ -60,7 +61,7 @@ class MapFrame(wx.Frame):
         self.origin = None
         self.robot = None
         self.image_width = None
-        self.gg_const = (100,3,20,5,80)
+        self.gg_const = (100,5,20,5,80)
         self.current_map = []
         
         self.nodelist = []
@@ -364,18 +365,19 @@ class MapFrame(wx.Frame):
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
         self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps  
         
-#         print "dt: %s" % self.dt      
+#         print "Current t: %s  |  Destination t: %s  |  dt: %s" % (a.Theta, self.dest_theta, self.dt)
+#         print "Total diff t: %s" % (self.dest_theta - a.Theta)
+#         print "dt = %s" % (self.dt)
         
         self.arrow_drawn = False
-        if self.dt > 6 or self.dt <-6:
+        if (self.dest_theta-a.Theta > 180 or self.dest_theta-a.Theta <-180):
             self.workaround = True
         else:
             self.workaround = False
         
         self.arrow_drawn = False
         self.TimeStep = 1
-        self.Timer.Start(self.FrameDelay) 
-        
+        self.Timer.Start(self.FrameDelay)         
              
 #---------------------------------------------------------------------------------------------#    
 #    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
@@ -386,25 +388,25 @@ class MapFrame(wx.Frame):
         dest = self.destination
         dest_theta = self.dest_theta       
         
-        x,y = r.XY
-        theta = a.Theta 
         
-        if  self.TimeStep < self.NumTimeSteps:
-            xy1 = (x+self.dx, y+self.dy)                 
-            r.Move( (self.dx,self.dy) )            
+        if  self.TimeStep < self.NumTimeSteps: 
+            print self.TimeStep
+            r.Move( (self.dx,self.dy) ) 
+            x,y = r.XY
+            theta = a.Theta           
             try:
                 self.Canvas.RemoveObject(self.arrow)
             except ValueError:
                 pass
             
-            if self.workaround is True and self.arrow_drawn is False:
-                new_theta = dest_theta
+            if self.workaround is True:
+                new_theta = theta
                 new_theta_rad = self.ToRadians(new_theta)
-                xy2 = ( x + (ROBOT_DIAM * math.sin(new_theta_rad)), 
-                        y + ROBOT_DIAM * math.cos(new_theta_rad) )                
-#                 print "Drew arrow from %s to %s. Angle: %s" % (str(dest), str(xy2), self.theta)
+                xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
+                        y + (ROBOT_DIAM * math.sin(new_theta_rad)) )                
+#                 print "Drew arrow from %s to %s. Angle: %s" % (r.XY, str(xy2), new_theta)
                   
-                a = self.Canvas.AddArrowLine((dest,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                                      LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
                 a.Coords = r.XY
                 a.Theta  = new_theta
@@ -417,20 +419,39 @@ class MapFrame(wx.Frame):
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
                                   
-                a = self.Canvas.AddArrowLine((xy1,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                                         LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
-                a.Coords = xy1
+                a.Coords = r.XY
                 a.Theta  = new_theta
                 a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 self.arrow = a
                 
-                self.TimeStep += 1
-                self.Canvas.Draw(True)
-                wx.GetApp().Yield(True)
+            self.Canvas.Draw(True)
+            wx.GetApp().Yield(True)
+            self.TimeStep += 1
         
-        else:         
+        else: 
+            # Last TimeStep: adjust position for rounding errors along the way
+            error_xy = dest - r.XY               
+            r.Move( (error_xy[0], error_xy[1]) )
+            
+            try:
+                self.Canvas.RemoveObject(self.arrow)
+            except ValueError:
+                pass
+            x,y = r.XY
+            new_theta = dest_theta
+            new_theta_rad = self.ToRadians(new_theta)
+            xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
+                    y + (ROBOT_DIAM * math.sin(new_theta_rad)) )               
+            a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                                 LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
+            a.Coords = r.XY
+            a.Theta  = new_theta
+            self.arrow = a
+            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+                    
             self.robot.SetFillColor(ROBOT_FILL_2)
-            self.arrow.Visible = True
             try:
                 self.Canvas.RemoveObject(self.pe_graphic)
                 self.pe_graphic = None
@@ -440,7 +461,9 @@ class MapFrame(wx.Frame):
             self.Timer.Stop()
             self.Canvas.Draw(True)
             
-
+#---------------------------------------------------------------------------------------------#    
+#    Sends 2D Pose Estimate data to the ROS node to be published                              #
+#---------------------------------------------------------------------------------------------# 
     def Publish2DPoseEstimate(self, start_pt, end_pt, graphic_obj):
         x1 = start_pt[0]
         y1 = start_pt[1]
@@ -474,7 +497,9 @@ class MapFrame(wx.Frame):
             m_Coords = self.PixelsToMeters(obj.Coords)
             print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
                         
-            
+#---------------------------------------------------------------------------------------------#    
+#    Marks the robot's current goal node                                                      #
+#---------------------------------------------------------------------------------------------#             
     def HighlightDestination(self, dest):
         if self.curr_dest is not None: 
             self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
@@ -519,28 +544,30 @@ class MapFrame(wx.Frame):
                                     Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = True)
             self.graphics_text.append(t)        
               
-            self.nodelist.append(node) 
+            self.nodelist.append(node)
             try:
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
                 if self.verbose is True:
                     print "Created node %s at (%s, %s) / metric: (%s, %s)" % \
                     (ID, node_coords[0], node_coords[1],
-                     node.m_coords[0], node.m_coords[1])
+                     node.m_coords[0], node.m_coords[1])                      
                 
-                self.DeselectAll(None)
-                md = self.MinDistanceToEdge(node)   
-                for entry in md:
-                    edge = self.edgelist[ entry[0] ]
-                    if self.verbose is True:
-                        st = ("Auto-deleted edge %s between nodes "
-                              "%s and %s (too close to node %s)")
-                        print st % (edge.id, edge.node1, edge.node2, node.id)
-                    self.SelectOneEdge(self.graphics_edges[entry[0]], False)
-                self.DeleteSelection(None)    
+                if self.xerase is True:    
+                    self.DeselectAll(None)
+                    md = self.MinDistanceToEdge(node)   
+                    for entry in md:
+                        edge = self.edgelist[ entry[0] ]
+                        if self.verbose is True:
+                            st = ("Auto-deleted edge %s between nodes "
+                                  "%s and %s (too close to node %s)")
+                            print st % (edge.id, edge.node1, edge.node2, node.id)
+                        self.SelectOneEdge(self.graphics_edges[entry[0]], False)
+                    self.DeleteSelection(None)                 
                 
-                if self.auto_edges is True:
+                if self.auto_edges is True:                    
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
+                     
                 
             except IndexError:
                 # Out of space in the connection matrix - expand it by 50 nodes
@@ -706,9 +733,6 @@ class MapFrame(wx.Frame):
             
         for node2 in self.nodelist:
             if self.Distance(coords, node2.coords) < d:
-#                 self.Canvas.AddArc((coords[0],coords[1]+d), (coords[0],coords[1]+18),
-#                                    coords, LineColor=ROBOT_FILL_2, LineWidth=2)
-#                 print "Collision with node %s" % node2.id
                 return False        
         return True
         
@@ -811,7 +835,9 @@ class MapFrame(wx.Frame):
         b[1] = a[0]
         return b
 
-    
+#--------------------------------------------------------------------------------------------#    
+#      Returns the location of intersections along a given edge 'e1'                         #
+#--------------------------------------------------------------------------------------------#     
     def FindIntersections(self, e1) :
         e1_x1 = float(self.nodelist[ int(e1.node1) ].coords[0])
         e1_y1 = float(self.nodelist[ int(e1.node1) ].coords[1])
@@ -855,7 +881,9 @@ class MapFrame(wx.Frame):
                 break 
         return intersections
     
-    
+#--------------------------------------------------------------------------------------------#    
+#      Converts edge intersections into new nodes, if possible                               #
+#--------------------------------------------------------------------------------------------#     
     def ConvertIntersections(self, e1):  
         # Save current states
         vb = self.verbose
@@ -882,7 +910,9 @@ class MapFrame(wx.Frame):
                     x = int(val[0])
                     y = int(val[1])           
                     
+                    self.xerase = False
                     result = self.CreateNode((x,y))
+                    self.xerase = True
                     if result <= 0:
                         # if the edge intersection is too close to a node, get rid of the edge.
                         if int(e1.node1) == -result or int(e1.node2) == -result:
@@ -908,6 +938,8 @@ class MapFrame(wx.Frame):
                         self.SelectOneNode(self.graphics_nodes[new_node], True)
                         self.SelectOneNode(self.graphics_nodes[existing_node], False)
                         self.CreateEdges(None)
+                        
+                    self.ConnectNeighbors(new_node, self.gg_const[1], self.gg_const[4], True)
                     ok_to_proceed = True
             else:
                 ok_to_proceed = True
@@ -919,9 +951,12 @@ class MapFrame(wx.Frame):
         self.auto_intersections = ai
         self.redraw = rd
         
-    
+#--------------------------------------------------------------------------------------------#    
+#      Given an edge, returns None if it is not too close to any nodes. If it is too close   #
+#      to a node, the Node ID and distance to the node are returned.                         #
+#--------------------------------------------------------------------------------------------#     
     def MinDistanceToNode(self, edge):
-        min_distance = -1, self.gg_const[2]/2
+        min_distance = -1, self.gg_const[2]/3.0
         ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
         ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
         ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
@@ -959,7 +994,9 @@ class MapFrame(wx.Frame):
         else:
             return None
         
-    
+#--------------------------------------------------------------------------------------------#    
+#      Given a node, returns any edges which are too close                                   #
+#--------------------------------------------------------------------------------------------#    
     def MinDistanceToEdge(self, node):
         thresh = self.gg_const[2]
         min_distance = []
@@ -1016,7 +1053,6 @@ class MapFrame(wx.Frame):
         vb = self.verbose
         ae = self.auto_edges
         rd = self.redraw
-        
 #         self.verbose = False
         self.auto_edges = False
         self.redraw = False
@@ -1032,16 +1068,13 @@ class MapFrame(wx.Frame):
         l = lim[2]
         r = lim[3]
                 
-#         nodes_created = 0
         while len(self.nodelist) < n:
             x = int( l + ((r-l)*rand.random()) )
             y = int( b + ((t-b)*rand.random()) )
             
             if self.CheckNodeLocation(data, (x,y), w, d) is True:
-                if int(self.CreateNode( (x,y) )) == 1:
-                    # Node successfully created
+                if int(self.CreateNode( (x,y) )) == 1: # Node successfully created                  
                     self.ConnectNeighbors(len(self.nodelist)-1, k, e, False)
-#                     nodes_created += 1
                          
         self.Canvas.Draw(True) 
         
@@ -1085,6 +1118,8 @@ class MapFrame(wx.Frame):
 #     e: Maximum edge length (furthest distance to search for neighbors)                     #
 #--------------------------------------------------------------------------------------------#    
     def ConnectNeighbors(self, input_node, k, e, refresh):  
+        
+        print "Connecting neighbors for node %s" % input_node
         rd = self.redraw
         self.redraw = False
         
@@ -1107,10 +1142,7 @@ class MapFrame(wx.Frame):
                 self.SelectOneNode(self.graphics_nodes[node1.id], False)
                 self.SelectOneNode(self.graphics_nodes[node2.id], False)
                 self.CreateEdges(None)
-        
-#         if refresh is True:
-#             self.RefreshNodes( node1.coords[0]-e, node1.coords[0]+e,
-#                                node1.coords[1]-e, node1.coords[1]+e )
+
         self.redraw = rd
 
 #--------------------------------------------------------------------------------------------#    
@@ -1335,7 +1367,7 @@ class MapFrame(wx.Frame):
         return dist 
     
 #--------------------------------------------------------------------------------------------#    
-#     Basic distance formula. Returns the distance between two points.                       #
+#     Same as self.Distance(), but without the sqrt                                          #
 #--------------------------------------------------------------------------------------------# 
     def Distance2(self, p1, p2): 
         x1 = float(p1[0])
@@ -1405,17 +1437,22 @@ class MapFrame(wx.Frame):
 #---------------------------------------------------------------------------------------------#   
     def ToDegrees(self, angle):
         return ( 90 - (angle*(180/math.pi)) ) % 360     
-    
+
+#--------------------------------------------------------------------------------------------#    
+#     Functions to convert between pixel coordinates and real-world metric coordinates       #
+#--------------------------------------------------------------------------------------------#    
     def PixelsToMeters(self, xy_p):
         x = (xy_p[0] * self.resolution) + self.origin.x
         y = (xy_p[1] * self.resolution) + self.origin.y
-        return (x,y)  
-    
+        return (x,y)      
     def MetersToPixels(self, xy_m):
         x = (xy_m[0] - self.origin.x) / self.resolution
         y = (xy_m[1] - self.origin.y) / self.resolution
         return (x,y)
-    
+
+#--------------------------------------------------------------------------------------------#    
+#     Truncates a floating point number 'f' to 'n' decimal places                            #
+#--------------------------------------------------------------------------------------------#    
     def Truncate(self, f, n):
         return ('%.*f' % (n + 1, f))[:-1] 
     
@@ -1553,11 +1590,18 @@ class MapFrame(wx.Frame):
             self.sel_nodes.append(obj)       
             obj.SetFillColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True)
-    
+
+#--------------------------------------------------------------------------------------------#    
+#     Event handlers to change the mouse cursor when hovering over objects                   #
+#--------------------------------------------------------------------------------------------#    
     def OnMouseEnterNode(self, obj):
         self.Canvas.GUIMode.SwitchCursor('enter')     
     def OnMouseLeaveNode(self, obj):        
-        self.Canvas.GUIMode.SwitchCursor('leave') 
+        self.Canvas.GUIMode.SwitchCursor('leave')         
+    def OnMouseEnterEdge(self, obj):
+        self.Canvas.GUIMode.SwitchCursor('enter')         
+    def OnMouseLeaveEdge(self, obj):
+        self.Canvas.GUIMode.SwitchCursor('leave')
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
@@ -1575,22 +1619,15 @@ class MapFrame(wx.Frame):
             self.sel_edges.append(obj)        
             obj.SetLineColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True) 
-        
-    def OnMouseEnterEdge(self, obj):
-        self.Canvas.GUIMode.SwitchCursor('enter')         
-    def OnMouseLeaveEdge(self, obj):
-        self.Canvas.GUIMode.SwitchCursor('leave')
 
 #--------------------------------------------------------------------------------------------#    
 #     "Setter" functions for file paths and data structures                                  #
 #--------------------------------------------------------------------------------------------#            
     def SetCurrentMapPath(self, map_file):
-        self.current_map = map_file
-    
+        self.current_map = map_file    
     def SetNodeList(self, new_list):
         self.nodelist = []
-        self.nodelist = new_list
-    
+        self.nodelist = new_list    
     def SetEdgeList(self, new_list):
         self.edgelist=[]
         self.edgelist = new_list
@@ -1608,14 +1645,14 @@ class MapFrame(wx.Frame):
 #     NodeList is in slot 0, EdgeList is in slot 1, Metadata is in slot 2.                   #
 #--------------------------------------------------------------------------------------------#       
     def ImportGraph(self, f):
-        g = pickle.load(f)
-        try:
+        if f is not None:
+            g = pickle.load(f)
             self.SetNodeList( g[0] )   
             self.SetEdgeList( g[1] ) 
             self.SetMapMetadata( *g[2] )
-        except IndexError:
+        else:
             ori = gs.Origin((0,0))
-            self.SetMapMetaData(None, 0.05, ori)
+            self.SetMapMetadata(None, 0.05, ori)
 
 #--------------------------------------------------------------------------------------------#    
 #     Iterates through an imported node list and creates the nodes.                          #
@@ -1759,21 +1796,25 @@ class MapFrame(wx.Frame):
         self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
         
 #--------------------------------------------------------------------------------------------#    
-#     Zooms to fit the currently displayed map                                               #
+#     Zooms to the edges of the currently displayed map                                      #
 #--------------------------------------------------------------------------------------------#        
     def ZoomToFit(self):
-        data_ready = False
-        while data_ready is False: 
-            try:
-                lim = self.FindImageLimit(self.image_data, 10) 
-                data_ready = True
-            except AttributeError:
-                # Sleep until the image data can be obtained
-                time.sleep(0.5)
-        
-        tl = (lim[2],lim[1])
-        br = (lim[3],lim[0])              
+        if self.update_imglimits is True:
+            data_ready = False
+            while data_ready is False: 
+                try:
+                    self.img_limits = self.FindImageLimit(self.image_data, 10) 
+                    self.update_imglimits = False
+                    data_ready = True
+                except AttributeError:
+                    # Sleep until the image data can be obtained
+                    time.sleep(0.5)
+            
+        tl = (self.img_limits[2],self.img_limits[1])
+        br = (self.img_limits[3],self.img_limits[0])              
         self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
+            
+            
 
 #--------------------------------------------------------------------------------------------#
 #     Displays a dialog box for showing 'loading' messages                                   #
@@ -1790,16 +1831,16 @@ class MapFrame(wx.Frame):
         wx_img = wx.EmptyImage( pil_img.size[0], pil_img.size[1] )
         wx_img.SetData( pil_img.convert( 'RGB' ).tostring() )
         return wx_img      
-            
-    def ClearGraph(self):
-        self.SelectAll(None)
-        self.DeleteSelection(None)
     
 #--------------------------------------------------------------------------------------------#    
 #     Clears the entire canvas                                                               #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
-        self.Canvas.InitAll()        
+        self.Canvas.InitAll()   
+                   
+    def ClearGraph(self):
+        self.SelectAll(None)
+        self.DeleteSelection(None)      
     
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #
@@ -1841,7 +1882,8 @@ class MapFrame(wx.Frame):
         
 #         if self.image_width is None: #TODO: figure out something here
         self.image_width = image.GetHeight() # Case where metadata was not set
-        self.Canvas.img = self.Canvas.AddScaledBitmap( image, 
+        self.update_imglimits = True
+        self.img = self.Canvas.AddScaledBitmap( image, 
                                       (0,0), 
                                       Height=image.GetHeight(), 
                                       Position = 'bl')    
