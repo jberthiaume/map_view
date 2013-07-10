@@ -18,8 +18,8 @@ from wx.lib.floatcanvas.Utilities import BBox
 
 LINE_WIDTH = 3
 LINE_COLOR = (20,200,0)
-OBSTACLE_WIDTH = 3
-OBSTACLE_COLOR = (0,0,0)
+EDGE_WIDTH = 4
+EDGE_COLOR = (255,106,54)
 
 class Cursors(object):
     """
@@ -399,49 +399,62 @@ class GUIPoseEst(GUIBase):
         self.Canvas._RaiseMouseEvent(event, EventType)
         
 
-class GUIDrawObs(GUIBase):
+class GUIEdges(GUIBase):
     def __init__(self, canvas=None):
         GUIBase.__init__(self, canvas)
         self.Cursor = self.Cursors.ArrowCursor
+        self.start_node = None
+        self.locked = False           
 
     # Starts drawing the selection box when the left mouse button is pressed
-    def OnLeftDown(self, event):             
-        self.Points = []
-        self.Graphics = []
-        self.StartPoint = self.Canvas.PixelToWorld( N.array(event.GetPosition()) )
-        self.PrevPoint = None
-        self.Points.append(self.StartPoint)
-        self.Canvas.CaptureMouse()
+    def OnLeftDown(self, event):  
+        EventType = FloatCanvas.EVT_FC_LEFT_DOWN
+        if not self.Canvas.HitTest(event, EventType):
+                self.Canvas._RaiseMouseEvent(event, EventType)            
     
     # Records the coordinates of the box when the left button is no longer held down
     def OnLeftUp(self, event):
-        if event.LeftUp() and not self.StartPoint is None:
-            EndPoint = self.Canvas.PixelToWorld( N.array(event.GetPosition()) )
-            self.Points.append(EndPoint)
-            self.DrawObstacle(self.Points, self.Graphics)
+        EventType = FloatCanvas.EVT_FC_LEFT_UP
+        if not self.Canvas.HitTest(event, EventType):
+                self.Canvas._RaiseMouseEvent(event, EventType)     
 
-            self.StartPoint = None
-            self.Canvas.Draw(True)
+    def SetStartNode(self, n_id, n_coords):
+        self.start_node = n_id
+        self.start_coords = n_coords
+        self.Canvas.CaptureMouse()
     
     # Keep track of the mouse position while the left button is held down
     def OnMove(self, event):
+        self.Canvas.MouseOverTest(event)
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
-        if event.Dragging() and event.LeftIsDown() and not (self.StartPoint is None):
+        if event.Dragging() and event.LeftIsDown() and not (self.start_node is None):
             xy = self.Canvas.PixelToWorld(N.array( event.GetPosition() ))
-            self.Points.append(xy)            
             
-            if self.PrevPoint is not None:
-                line = self.Canvas.AddLine((xy,self.PrevPoint), LineWidth=OBSTACLE_WIDTH,
-                                           LineColor=OBSTACLE_COLOR)  
-                self.Graphics.append(line)
-            self.PrevPoint = xy              
-            self.Canvas.Draw(True)
-
-    def Publish2DPoseEstimate(self, start, end, graphic_obj):        
-        self.Canvas.GetParent().GetParent().Publish2DPoseEstimate(start,end, graphic_obj)
-        
-    def DrawObstacle(self, points, graphics):
-        self.Canvas.GetParent().GetParent().DrawObstacle(points, graphics)
+            if self.locked is False:
+                try:
+                    self.Canvas.RemoveObject(self.edge)
+                except AttributeError:
+                    pass
+                self.edge = self.Canvas.AddLine((self.start_coords, xy), LineWidth=EDGE_WIDTH,
+                                                LineColor=EDGE_COLOR)  
+                self.Canvas.Draw(True)
+            
+    def LockToNode(self, n_id, n_coords):
+        self.locked = True
+        if not (self.start_node is None):
+            self.lock_node = n_id
+            self.lock_coords = n_coords
+            if self.lock_node != self.start_node:
+                try:
+                    self.Canvas.RemoveObject(self.edge)
+                except AttributeError:
+                    pass
+                self.edge = self.Canvas.AddLine((self.start_coords, self.lock_coords), LineWidth=EDGE_WIDTH,
+                                                LineColor=EDGE_COLOR)  
+                self.Canvas.Draw(True)  
+                
+    def Unlock(self):
+        self.locked = False      
 
     def OnLeftDouble(self, event):
         EventType = FloatCanvas.EVT_FC_LEFT_DCLICK

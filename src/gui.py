@@ -31,6 +31,8 @@ SIZER_BORDER    = 10
 
 #TODO: move gg/tour/find to mapframe
 
+#TODO: finish OnMouseEnter event stuff
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE,

@@ -1590,18 +1590,41 @@ class MapFrame(wx.Frame):
             self.sel_nodes.append(obj)       
             obj.SetFillColor(HIGHLIGHT_COLOR) 
         self.Canvas.Draw(True)
+        
+        current_mode = self.Canvas.GetMode()  
+        if current_mode == 'GUIEdges':
+            self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
 
 #--------------------------------------------------------------------------------------------#    
 #     Event handlers to change the mouse cursor when hovering over objects                   #
 #--------------------------------------------------------------------------------------------#    
     def OnMouseEnterNode(self, obj):
-        self.Canvas.GUIMode.SwitchCursor('enter')     
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.Canvas.GUIMode.LockToNode(obj.Name, self.nodelist[int(obj.Name)].coords)            
+        else:
+            self.Canvas.GUIMode.SwitchCursor('enter')  
+            
     def OnMouseLeaveNode(self, obj):        
-        self.Canvas.GUIMode.SwitchCursor('leave')         
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.Canvas.GUIMode.Unlock()            
+        else:
+            self.Canvas.GUIMode.SwitchCursor('leave')  
+               
     def OnMouseEnterEdge(self, obj):
-        self.Canvas.GUIMode.SwitchCursor('enter')         
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.Canvas.GUIMode.Unlock()
+        else:
+            self.Canvas.GUIMode.SwitchCursor('enter')  
+                  
     def OnMouseLeaveEdge(self, obj):
-        self.Canvas.GUIMode.SwitchCursor('leave')
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.Canvas.GUIMode.Unlock() 
+        else:
+            self.Canvas.GUIMode.SwitchCursor('leave') 
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
