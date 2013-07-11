@@ -1,7 +1,7 @@
 map_view
 ========
 
-Features:
+### Features:
 
 - View, open, and save ROS maps (OccupancyGrid)
 
