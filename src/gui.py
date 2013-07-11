@@ -16,7 +16,6 @@ APP_SIZE_EXP    = (240,620)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BUTTON_SIZE_SM  = (85,30)
-# TXT_FG_COLOR    = (255,131,79)
 TXT_FG_COLOR    = (221,72,20)
 TXT_BG_COLOR    = (185,185,180)
 BG_COLOR        = (205,205,205)
@@ -25,11 +24,9 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TOOD: BUG: redraw state gets stuck on False randomly (hard to reproduce)
+#TOOD: BUG 9/7/13: redraw state gets stuck on False randomly (hard to reproduce)
 
 #TODO: make edge tool icon
-
-#TODO: gg_const[] -> dict{}
 
 #TODO: move gg/tour/find to mapframe
 
@@ -134,9 +131,8 @@ class MainPanel(wx.Panel):
         self.saved = True
         self.buttons = []
         self.btn_disabled = []
-        self.contents = []
-        
-        self.gg_const = (100,5,20,5,80)
+        self.contents = []        
+        self.gg_const = {'n':100, 'k':5, 'd':20, 'w':5, 'e':80}
         
         # Set parent frame value
         self.pf = parent 
@@ -351,7 +347,7 @@ class MainPanel(wx.Panel):
         msg = "Retrieving map..."
         self.zp.SetBusyDialog(msg)  
         wx.Yield() 
-        if self.verbose is True:        
+        if self.verbose is True:
             print "Retrieving data from /map topic..."  
                 
         try:
@@ -623,7 +619,7 @@ class SettingsPanel(wx.Panel):
         
         self.lbl_titles = []
         self.lbl_text = []
-        self.txtbxs = []
+        self.txtbxs = {}
         self.ros = self.pf.ros
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         
@@ -647,7 +643,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_n.SetFont(self.pf.font)  
-        self.txt_n.SetValue( str(self.GetParent().mp.gg_const[0]) )
+        self.txt_n.SetValue( str(self.GetParent().mp.gg_const['n']) )
         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
         
 
@@ -665,7 +661,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_d.SetFont(self.pf.font)  
-        self.txt_d.SetValue( str(self.GetParent().mp.gg_const[2]) )
+        self.txt_d.SetValue( str(self.GetParent().mp.gg_const['d']) )
         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_d2 = wx.StaticText(self, label="px",
@@ -686,7 +682,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_w.SetFont(self.pf.font)  
-        self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )   
+        self.txt_w.SetValue( str(self.GetParent().mp.gg_const['w']) )   
         self.txt_w.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_w2 = wx.StaticText(self, label="px",
@@ -707,7 +703,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_k.SetMaxLength(2)    #Maximum of 2 characters
         self.txt_k.SetFont(self.pf.font)  
-        self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
+        self.txt_k.SetValue( str(self.GetParent().mp.gg_const['k']) )
         self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_k2 = wx.StaticText(self, label="neighbors per node",
@@ -724,7 +720,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_e.SetFont(self.pf.font)  
-        self.txt_e.SetValue( str(self.GetParent().mp.gg_const[4]) )
+        self.txt_e.SetValue( str(self.GetParent().mp.gg_const['e']) )
         self.txt_e.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_e2 = wx.StaticText(self, label="px",
@@ -735,11 +731,11 @@ class SettingsPanel(wx.Panel):
                                    size=(220,20), pos=(20,245))
         self.lbl_text.append(self.lbl_e3)
         
-        self.txtbxs.append(self.txt_n)        
-        self.txtbxs.append(self.txt_k)
-        self.txtbxs.append(self.txt_d)        
-        self.txtbxs.append(self.txt_w)
-        self.txtbxs.append(self.txt_e)
+        self.txtbxs['n'] = self.txt_n        
+        self.txtbxs['k'] = self.txt_k
+        self.txtbxs['d'] = self.txt_d       
+        self.txtbxs['w'] = self.txt_w
+        self.txtbxs['e'] = self.txt_e
         
         # Edges Checkbox
         self.chk_edge = wx.CheckBox(self, label="Allow edge generation\nwithin 5 px of obstacles",
@@ -844,7 +840,7 @@ class SettingsPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#        
     def PaintTextboxes(self, foreground, background):
         try:
-            for txt in self.txtbxs:
+            for key,txt in self.txtbxs.iteritems():
                 txt.SetForegroundColour(foreground)
                 txt.SetBackgroundColour(background)
                 txt.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
@@ -862,8 +858,12 @@ class SettingsPanel(wx.Panel):
             txt.SetValue(self.GetDefaultValue(txt)) 
             
     def GetDefaultValue(self, txt):
-        for i in [i for i,x in enumerate(self.txtbxs) if x == txt]:  
-            return str(self.GetParent().mp.gg_const[i])   
+        for key,item in self.txtbxs.iteritems():
+            if item == txt:
+                return str(self.GetParent().mp.gg_const[key])
+                
+#         for i in [i for i,x in enumerate(self.txtbxs) if x == txt]:  
+#             return str(self.GetParent().mp.gg_const[i])   
 
 #---------------------------------------------------------------------------------------------#    
 #    Saves the settings                                                                       #
@@ -897,21 +897,21 @@ class SettingsPanel(wx.Panel):
             "Positive integers only", "Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()
-            return       
+            return
          
-        self.pf.mp.gg_const = (n,k,d,w,e)
-        self.pf.mp.zp.gg_const = (n,k,d,w,e)      
-        self.Hide()   
+        self.pf.mp.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}
+        self.pf.mp.zp.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}      
+        self.Hide()
         self.pf.SetMinSize(APP_SIZE)
         self.pf.SetSize(APP_SIZE)   
         self.pf.mp.Show()
         self.pf.mp.Layout()
-        self.pf.Layout() 
+        self.pf.Layout()
         
     
     def OnCancel(self, event):
         self.Hide()
-        for txt in self.txtbxs:
+        for key,txt in self.txtbxs.iteritems():
             txt.SetValue(self.GetDefaultValue(txt))               
         self.pf.SetMinSize(APP_SIZE)
         self.pf.SetSize(APP_SIZE)
@@ -1118,11 +1118,11 @@ class ExplorePanel(wx.Panel):
 #                                                                                             #
 #---------------------------------------------------------------------------------------------#             
     def OnGenerateGraph(self, event): 
-        n=self.GetParent().gg_const[0]
-        k=self.GetParent().gg_const[1]
-        d=self.GetParent().gg_const[2]
-        w=self.GetParent().gg_const[3]
-        e=self.GetParent().gg_const[4]
+        n=self.GetParent().gg_const['n']
+        k=self.GetParent().gg_const['k']
+        d=self.GetParent().gg_const['d']
+        w=self.GetParent().gg_const['w']
+        e=self.GetParent().gg_const['e']
         
         self.zp.GenerateGraph(n,k,d,w,e)        
                    

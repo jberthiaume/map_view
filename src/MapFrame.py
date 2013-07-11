@@ -55,7 +55,7 @@ class MapFrame(wx.Frame):
         self.origin = None
         self.robot = None
         self.image_width = None
-        self.gg_const = (100,5,20,5,80)
+        self.gg_const = self.GetParent().gg_const
         self.current_map = []
         
         self.nodelist = []
@@ -563,7 +563,7 @@ class MapFrame(wx.Frame):
                     self.DeleteSelection(None)                 
                 
                 if self.modes['auto_edges'] is True:                    
-                    self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
+                    self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
                      
                 
             except IndexError:
@@ -578,7 +578,7 @@ class MapFrame(wx.Frame):
                                                            node_coords[0], node_coords[1],
                                                            node.m_coords[0], node.m_coords[1])
                 if self.modes['auto_edges'] is True:
-                    self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
+                    self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
             
             if self.modes['redraw'] is True:
                 self.Canvas.Draw(True)
@@ -936,7 +936,7 @@ class MapFrame(wx.Frame):
                         self.SelectOneNode(self.graphics_nodes[existing_node], False)
                         self.CreateEdges(None)
                         
-                    self.ConnectNeighbors(new_node, self.gg_const[1], self.gg_const[4], True)
+                    self.ConnectNeighbors(new_node, self.gg_const['k'], self.gg_const['e'], True)
                     ok_to_proceed = True
             else:
                 ok_to_proceed = True
@@ -950,7 +950,7 @@ class MapFrame(wx.Frame):
 #      to a node, the Node ID and distance to the node are returned.                         #
 #--------------------------------------------------------------------------------------------#     
     def MinDistanceToNode(self, edge):
-        min_distance = -1, max(self.gg_const[2]/2.0, 5)
+        min_distance = -1, max(self.gg_const['d']/2.0, 5)
         ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
         ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
         ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
@@ -992,7 +992,7 @@ class MapFrame(wx.Frame):
 #      Given a node, returns any edges which are too close                                   #
 #--------------------------------------------------------------------------------------------#    
     def MinDistanceToEdge(self, node):
-        thresh = max(self.gg_const[2]/2.0, 5)
+        thresh = max(self.gg_const['d']/2.0, 5)
         min_distance = []
         nx = float(node.coords[0])
         ny = float(node.coords[1])           
@@ -1097,7 +1097,7 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
     def OnConnectNeighbors(self, event):
         for node in self.sel_nodes:
-            self.ConnectNeighbors( int(node.Name), self.gg_const[1], self.gg_const[4], True)
+            self.ConnectNeighbors( int(node.Name), self.gg_const['k'], self.gg_const['e'], True)
         self.DeselectAll(event)
     
 #--------------------------------------------------------------------------------------------#
@@ -1331,9 +1331,9 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
     def DetectCollision(self, new_node):
         if self.modes['manual_edges'] is True:
-            min_dist = max(self.gg_const[2]/2.0, 5)
+            min_dist = max(self.gg_const['d']/2.0, 5)
         else:
-            min_dist = max(self.gg_const[2], 5)
+            min_dist = max(self.gg_const['d'], 5)
         
         collisions = {} 
         for existing_node in self.nodelist:
