@@ -1802,7 +1802,7 @@ class MapFrame(wx.Frame):
             print "Bottom edge of map at row %s" % (str(bot)) 
             print "Left edge of map at column %s" % (str(left))   
             print "Right edge of map at column %s" % (str(right))              
-            print "Total time to scan map data: %s" % str(et-st)     
+            print "Scanned map data. Time taken: %s" % str(et-st)     
                        
         return bot,top,left,right
     
@@ -1875,6 +1875,38 @@ class MapFrame(wx.Frame):
         self.SelectAll(None)
         self.DeleteSelection(None)      
     
+    def SaveCanvasImage(self, filename):
+        # For some reason FloatCanvas doesn't save foreground objects
+        # So, we need to draw some temporary nodes on the background
+        st = datetime.now()
+        temp_obj = []
+        
+        for node in self.nodelist:
+            xy = node.coords[0], node.coords[1]
+            diam = NODE_DIAM
+            lw = NODE_BORDER_WIDTH
+            lc = NODE_BORDER    
+            fc = NODE_FILL
+            if node.id < 100:  
+                fs = FONT_SIZE_1
+            else:
+                fs = FONT_SIZE_2     
+                    
+            c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
+                                      InForeground = False)        
+            t = self.Canvas.AddScaledText(str(node.id), xy, Size=fs, Position="cc", 
+                                    Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = False)
+            temp_obj.append(c)    
+            temp_obj.append(t)
+
+        self.Canvas.Draw(True)
+        self.Canvas.SaveAsImage(filename)
+        self.Canvas.RemoveObjects(temp_obj) # Get rid of the temporary nodes
+        self.Canvas.Draw(True)
+        
+        et = datetime.now()
+        print "Saved canvas image. Time taken: %s" % (et-st)
+    
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #
 #     the corresponding nodes and edges are loaded and drawn onto the canvas.                #
@@ -1931,4 +1963,4 @@ class MapFrame(wx.Frame):
         self.RestoreModes('SetImage')
 
         if self.modes['verbose'] is True:
-            print "Time taken to set image: %s" % str(et-st)
+            print "Set map image. Time taken: %s" % str(et-st)

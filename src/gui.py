@@ -148,13 +148,13 @@ class MainPanel(wx.Panel):
         self.sizer_display = wx.BoxSizer(wx.VERTICAL)
         
         # The map viewer panel
-        zp_size = self.pf.screensize[1]-60     
-        self.zp=MapFrame(self, title="Map View",
-                                  size=((zp_size,zp_size)), 
+        mframe_size = self.pf.screensize[1]-60     
+        self.mframe=MapFrame(self, title="Map View",
+                                  size=((mframe_size,mframe_size)), 
 #                                   style=wx.FRAME_SHAPED
                                   )  
-        self.zp.Hide()
-        self.zp.SetPosition((320,0))  
+        self.mframe.Hide()
+        self.mframe.SetPosition((320,0))  
         
         self.sizer_menu.AddSpacer(V_SPACER_SMALL)  
                         
@@ -309,7 +309,7 @@ class MainPanel(wx.Panel):
     def EnableMenuOptions(self, key_list, boolean):
         for key in key_list:
             self.pf.file_menu.Enable(key, boolean)
-            self.zp.file_menu.Enable(key, boolean)
+            self.mframe.file_menu.Enable(key, boolean)
                 
 #---------------------------------------------------------------------------------------------#    
 #    Starts a listener process which listens on the "/map" topic. Once the listener has       #
@@ -333,19 +333,19 @@ class MainPanel(wx.Panel):
                 dlg.Destroy()
                 self.SetSaveStatus(True)
         
-        if len(self.zp.nodelist) > 0:
+        if len(self.mframe.nodelist) > 0:
             dlg = wx.MessageDialog(self,
             "Do you want to keep the current\nnodes and edges on the updated map?", 
             "Map", wx.YES_NO)
                         
             if dlg.ShowModal() == wx.ID_NO:
-                self.zp.ClearGraph()
+                self.mframe.ClearGraph()
             dlg.Destroy()
         
-        self.zp.Hide()       
+        self.mframe.Hide()       
         wx.Yield() 
         msg = "Retrieving map..."
-        self.zp.SetBusyDialog(msg)  
+        self.mframe.SetBusyDialog(msg)  
         wx.Yield() 
         if self.verbose is True:
             print "Retrieving data from /map topic..."  
@@ -360,14 +360,14 @@ class MainPanel(wx.Panel):
             
             while self.ros.image is None:
                 time.sleep(0.5)                  
-            self.zp.SetImage(self.ros.image)
+            self.mframe.SetImage(self.ros.image)
             
         except IndexError:
             # Image not found
             pass        
         
-        self.zp.Show()   
-        self.zp.KillBusyDialog()
+        self.mframe.Show()   
+        self.mframe.KillBusyDialog()
         wx.EndBusyCursor()
         self.btn_map.SetLabel("Hide Map")         
         self.Layout()           
@@ -377,10 +377,10 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#        
     def OnShowHideMap(self, event):
         if self.btn_map.GetLabel()[0]=='S':
-            self.zp.Show()
+            self.mframe.Show()
             self.btn_map.SetLabel("Hide Map")
         else:
-            self.zp.Hide()
+            self.mframe.Hide()
             self.btn_map.SetLabel("Show Map")
 
 #---------------------------------------------------------------------------------------------#    
@@ -433,13 +433,13 @@ class MainPanel(wx.Panel):
             if dlg.ShowModal() == wx.ID_OK: 
                 st = datetime.now()
                 msg = "Loading map..."
-                self.zp.SetBusyDialog(msg)
+                self.mframe.SetBusyDialog(msg)
                 wx.BeginBusyCursor()
                 wx.Yield()
-#                 self.zp.NavCanvas.Hide()
-                self.zp.Hide()  
+#                 self.mframe.NavCanvas.Hide()
+                self.mframe.Hide()  
                 wx.Yield() 
-                self.zp.ClearGraph()
+                self.mframe.ClearGraph()
                 
                 # Set the viewer image to the selected file
                 filename = dlg.GetPath()  
@@ -450,24 +450,24 @@ class MainPanel(wx.Panel):
                 try:
                     graph_filename = "%sgraph" % filename.rstrip("png")
                     graph_file = open(graph_filename, "r")
-                    self.zp.ImportGraph(graph_file)
+                    self.mframe.ImportGraph(graph_file)
                     graph_file.close()
                 except IOError:
-                    self.zp.ClearGraph()
-                    self.zp.ImportGraph(None)
+                    self.mframe.ClearGraph()
+                    self.mframe.ImportGraph(None)
                                   
-                self.zp.SetImage(filename)  
+                self.mframe.SetImage(filename)  
                 wx.EndBusyCursor()  
-                self.zp.KillBusyDialog()  
+                self.mframe.KillBusyDialog()  
                 self.EnableButtons(self.btn_disabled, True)              
                 self.SetSaveStatus(True) 
                 self.btn_map.SetLabel("Hide Map")
                 
                 et = datetime.now()
-                self.zp.Show()
-#                 self.zp.NavCanvas.Show()
-                if self.verbose is True:
-                    print "Loaded map in %s seconds" % (et-st)
+                self.mframe.Show()
+#                 self.mframe.NavCanvas.Show()
+#                 if self.verbose is True:
+                print "Loaded map %s. Time taken: %s" % (filename, (et-st))
                             
             dlg.Destroy()
      
@@ -475,8 +475,9 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#    
 #    Saves the current map, overwriting the old version.                                      #
 #---------------------------------------------------------------------------------------------#   
-    def OnSave(self, event):    
-        current_map = self.zp.current_map 
+    def OnSave(self, event):   
+        st = datetime.now() 
+        current_map = self.mframe.current_map 
         if current_map is [] or os.path.basename(current_map)==self.ros.GetDefaultFilename():
             self.OnSaveAs(event)  
         else:
@@ -485,11 +486,12 @@ class MainPanel(wx.Panel):
             # The graph filename must be the same as the map filename (except the extension)
             graph_filename = "%sgraph" % current_map.rstrip("png")
             graph_file = open(graph_filename, "w")
-            self.zp.ExportGraph(graph_file)
+            self.mframe.ExportGraph(graph_file)
             graph_file.close()
             
-            if self.verbose is True:
-                print "Saved: %s" % current_map
+#             if self.verbose is True:
+            et = datetime.now()
+            print "Saved map %s. Time taken: %s" % (current_map, (et-st))
             self.SetSaveStatus(True) 
     
     
@@ -504,8 +506,9 @@ class MainPanel(wx.Panel):
                             wx.FD_OVERWRITE_PROMPT)
         
         if dlg.ShowModal() == wx.ID_OK:   
+            st = datetime.now()   
             # Save the file to the path given by the user         
-            current_map = self.zp.current_map
+            current_map = self.mframe.current_map
             filename = dlg.GetPath()
             
             try:
@@ -516,12 +519,13 @@ class MainPanel(wx.Panel):
             # The graph filename must be the same as the map filename (except the extension)
             graph_filename = "%sgraph" % filename.rstrip("png")
             graph_file = open(graph_filename, "w")
-            self.zp.ExportGraph(graph_file)
+            self.mframe.ExportGraph(graph_file)
             graph_file.close()            
-            self.zp.current_map = filename
+            self.mframe.current_map = filename
             
-            if self.verbose is True:
-                print "Saved: %s" % filename            
+#             if self.verbose is True:  
+            et = datetime.now()
+            print "Saved map %s. Time taken: %s" % (filename, (et-st))         
             self.SetSaveStatus(True) 
             self.pf.SetTitle("%s" % dlg.GetFilename())
                         
@@ -557,9 +561,9 @@ class MainPanel(wx.Panel):
                 return
             dlg.Destroy()
         
-        self.zp.ClearGraph()      
-        self.zp.Clear()
-        self.zp.Hide()
+        self.mframe.ClearGraph()      
+        self.mframe.Clear()
+        self.mframe.Hide()
         self.btn_map.SetLabel("Show Map")
         self.EnableButtons(self.btn_disabled, False)
         self.SetSaveStatus(True)
@@ -578,7 +582,7 @@ class MainPanel(wx.Panel):
                 self.OnSaveAs(event)
             dlg.Destroy()        
             
-        self.zp.Close()
+        self.mframe.Close()
         self.pf.Close()
                 
 
@@ -869,7 +873,7 @@ class SettingsPanel(wx.Panel):
 #    Saves the settings                                                                       #
 #---------------------------------------------------------------------------------------------#
     def OnOk(self, event):
-        self.pf.mp.zp.SetModes('Settings', {
+        self.pf.mp.mframe.SetModes('Settings', {
                                  'spaced_edges': (not self.chk_edge.GetValue()),  
                                  'clear_graph': self.chk_clr.GetValue(),
                                  'auto_edges': self.chk_ec.GetValue(),
@@ -900,7 +904,7 @@ class SettingsPanel(wx.Panel):
             return
          
         self.pf.mp.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}
-        self.pf.mp.zp.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}      
+        self.pf.mp.mframe.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}      
         self.Hide()
         self.pf.SetMinSize(APP_SIZE)
         self.pf.SetSize(APP_SIZE)   
@@ -949,7 +953,7 @@ class SettingsPanel(wx.Panel):
 class ExplorePanel(wx.Panel):
     def __init__(self, parent):        
         wx.Panel.__init__(self, parent=parent)
-        self.zp = self.GetParent().zp     
+        self.mframe = self.GetParent().mframe     
         
         # Set the background colour
         bmp = wx.EmptyBitmap(500, 500)
@@ -980,7 +984,7 @@ class ExplorePanel(wx.Panel):
         
         # Tour button
         vbox10 = wx.BoxSizer(wx.VERTICAL)   
-        self.btn_tour = wx.Button(self, label="Do Tour", size=BUTTON_SIZE)        
+        self.btn_tour = wx.Button(self, label="Save Canvas", size=BUTTON_SIZE)        
         self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
         self.GetParent().btn_disabled.append(self.btn_tour)
         self.GetParent().buttons.append(self.btn_tour) 
@@ -1067,10 +1071,10 @@ class ExplorePanel(wx.Panel):
         try:
             ID = int(txt)            
             try:
-                magnification = self.zp.image_width / 250
-                node = self.zp.nodelist[ID]                
-                self.zp.SelectOneNode(self.zp.graphics_nodes[ID], True)                
-                self.zp.Zoom(node.coords, magnification)
+                magnification = self.mframe.image_width / 250
+                node = self.mframe.nodelist[ID]                
+                self.mframe.SelectOneNode(self.mframe.graphics_nodes[ID], True)                
+                self.mframe.Zoom(node.coords, magnification)
             except IndexError:
                 dlg = wx.MessageDialog(self,
                 "Node %s does not exist." % str(ID), "Error", wx.ICON_ERROR)
@@ -1093,15 +1097,15 @@ class ExplorePanel(wx.Panel):
         try:
             ID = int(txt)            
             try:
-                magnification = self.zp.image_width / 250                
-                edge = self.zp.edgelist[ID] 
-                self.zp.SelectOneEdge(self.zp.graphics_edges[ID], True)
-                end1 = self.zp.nodelist[int(edge.node1)].coords
-                end2 = self.zp.nodelist[int(edge.node2)].coords
+                magnification = self.mframe.image_width / 250                
+                edge = self.mframe.edgelist[ID] 
+                self.mframe.SelectOneEdge(self.mframe.graphics_edges[ID], True)
+                end1 = self.mframe.nodelist[int(edge.node1)].coords
+                end2 = self.mframe.nodelist[int(edge.node2)].coords
                 
                 x = int( (math.fabs( end1[0]+end2[0])) /2 )   
                 y = int( (math.fabs( end1[1]+end2[1])) /2 )                  
-                self.zp.Zoom((x,y), magnification)
+                self.mframe.Zoom((x,y), magnification)
             except IndexError:
                 dlg = wx.MessageDialog(self,
                 "Edge %s does not exist." % str(ID), "Error", wx.ICON_ERROR)
@@ -1124,14 +1128,14 @@ class ExplorePanel(wx.Panel):
         w=self.GetParent().gg_const['w']
         e=self.GetParent().gg_const['e']
         
-        self.zp.GenerateGraph(n,k,d,w,e)        
+        self.mframe.GenerateGraph(n,k,d,w,e)        
                    
 #---------------------------------------------------------------------------------------------#    
 #    Publish some stuff                                                                       #
 #---------------------------------------------------------------------------------------------#             
-    def OnTour(self, event):                       
-#         self.pf.tt.paused = True
-        self.pf.ros.PublishTour()
+    def OnTour(self, event):       
+#         self.pf.ros.PublishTour()
+        self.pf.mp.mframe.SaveCanvasImage("canvas.png")
     
 if __name__ == '__main__':
     app = wx.App(False)

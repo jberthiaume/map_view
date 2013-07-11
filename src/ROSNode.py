@@ -77,7 +77,7 @@ class ROSNode():
     def DestCB(self, data):
 #         print "map viewer received data: %s" % str(data.data)
         dest = int(data.data) 
-        self.zp.HighlightDestination(dest)             
+        self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
@@ -89,7 +89,7 @@ class ROSNode():
         destination = (self.pose_pos.x, self.pose_pos.y)
         orient = self.pose_orient
                
-        self.zp.MoveRobotTo(destination, orient, True)
+        self.mframe.MoveRobotTo(destination, orient, True)
         
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/cmd_vel" topic                                             #
@@ -127,14 +127,14 @@ class ROSNode():
             except OSError:
                 pass        
             img_mirror.save(self.filename)
-            if self.zp.verbose is True:         
+            if self.mframe.verbose is True:         
                 print "Map file created. (%s)" % self.filename
             self.refresh = True
 
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)
         self.image_data = data.data
-        self.zp.SetMapMetadata(self.image_width,self.resolution,self.origin_pos) 
+        self.mframe.SetMapMetadata(self.image_width,self.resolution,self.origin_pos) 
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #
@@ -173,7 +173,7 @@ class ROSNode():
         return self.filename     
     
     def SetAttributes(self):        
-        self.zp = self.parent.mp.zp  
+        self.mframe = self.parent.mp.mframe  
     
     
 if __name__ == '__main__':
