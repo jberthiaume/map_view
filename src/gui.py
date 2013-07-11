@@ -27,11 +27,9 @@ SIZER_BORDER    = 10
 
 #TOOD: BUG: redraw state gets stuck on False randomly (hard to reproduce)
 
-#TODO: dedicated edge creation tool?
+#TODO: make edge tool icon
 
 #TODO: move gg/tour/find to mapframe
-
-#TODO: finish OnMouseEnter event stuff
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):

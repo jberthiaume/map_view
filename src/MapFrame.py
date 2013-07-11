@@ -54,8 +54,12 @@ class MapFrame(wx.Frame):
         self.spaced_edges = True
         self.unknown_edges = True
         self.clear_graph = True
-        self.auto_intersections = True
-        self.leftdown = False       
+        self.auto_intersections = True 
+               
+        self.states = {'export':False, 'xerase':True, 'verbose':True, 'redraw':True, 
+                       'auto_edges':True, 'spaced_edges':True,  'unknown_edges':True, 
+                       'clear_graph':True, 'auto_intersections':True}
+        self.saved_states = []
         
         self.resolution = None
         self.origin = None
@@ -187,7 +191,9 @@ class MapFrame(wx.Frame):
             end     = self.Canvas.SelBoxEnd 
             x_range = (start[0], end[0])
             y_range = (start[1], end[1])
-            self.SelectBox(x_range, y_range)
+            self.SelectBox(x_range, y_range)        
+        elif current_mode == 'GUIEdges':
+            self.Canvas.GUIMode.SetEndNode()
         else:
             pass   
     
@@ -542,9 +548,9 @@ class MapFrame(wx.Frame):
             
             t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
                                     Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = True)
-            self.graphics_text.append(t)        
-              
+            self.graphics_text.append(t)               
             self.nodelist.append(node)
+            
             try:
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
@@ -632,7 +638,11 @@ class MapFrame(wx.Frame):
                         self.graphics_edges.append(e)                        
                         e.Name = str(edge.id)
                         
-                        md = self.MinDistanceToNode(edge)   
+                        if self.xerase is True:
+                            md = self.MinDistanceToNode(edge) 
+                        else:
+                            md = None
+                              
                         if md is not None:
                             if self.verbose is True:
                                 st = ("Did not create edge between nodes "
@@ -640,14 +650,13 @@ class MapFrame(wx.Frame):
                                 print st % (node1.Name, node2.Name, md[0])
                             self.SelectOneEdge(self.graphics_edges[edge.id], True)
                             self.DeleteSelection(None)
-                        else:                            
+                        else:                              
+                            if self.auto_intersections:
+                                self.ConvertIntersections(edge)                                                        
                             if self.verbose is True:
                                 print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
-                                                                                str(edge.node2))                            
-                            if self.auto_intersections:
-                                self.ConvertIntersections(edge)
-                            
+                                                                                str(edge.node2))                             
                     else:
                         if self.verbose is True:
                             print "Did not create edge between nodes %s and %s (already exists)" \
@@ -1149,6 +1158,7 @@ class MapFrame(wx.Frame):
 #      Deletes all selected nodes and edges                                                  #
 #--------------------------------------------------------------------------------------------#           
     def DeleteSelection(self, event):
+        self.SetStates({'redraw':False, 'verbose':False})
         rd = self.redraw
         vb = self.verbose
         self.redraw = False
@@ -1165,6 +1175,7 @@ class MapFrame(wx.Frame):
         
         self.DeselectAll(event=None)
         self.mp.SetSaveStatus(False)
+        self.RestoreStates()
         
         self.redraw = rd
         self.verbose = vb
@@ -1601,28 +1612,28 @@ class MapFrame(wx.Frame):
     def OnMouseEnterNode(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.LockToNode(obj.Name, self.nodelist[int(obj.Name)].coords)            
+            self.Canvas.GUIMode.LockEdge('enter', obj.Name, self.nodelist[int(obj.Name)].coords)            
         else:
             self.Canvas.GUIMode.SwitchCursor('enter')  
             
     def OnMouseLeaveNode(self, obj):        
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.Unlock()            
+            self.Canvas.GUIMode.LockEdge('leave', obj.Name, self.nodelist[int(obj.Name)].coords)            
         else:
             self.Canvas.GUIMode.SwitchCursor('leave')  
                
     def OnMouseEnterEdge(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.Unlock()
+            self.Canvas.GUIMode.LockEdge('enter', -1, -1)
         else:
             self.Canvas.GUIMode.SwitchCursor('enter')  
                   
     def OnMouseLeaveEdge(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.Unlock() 
+            self.Canvas.GUIMode.LockEdge('leave', -1, -1) 
         else:
             self.Canvas.GUIMode.SwitchCursor('leave') 
         
@@ -1682,6 +1693,11 @@ class MapFrame(wx.Frame):
 #     This function should not be called on its own, but rather as a part of SetImage()      #
 #--------------------------------------------------------------------------------------------#                   
     def LoadNodes(self):
+        self.SetStates({'xerase':False, 'auto_intersections':False, 'auto_edges':False}) 
+        self.xerase = False
+        self.auto_edges = False
+        self.auto_intersections = False
+        
         tmp_nodelist = self.nodelist
         self.nodelist = []           
         self.graphics_nodes = []
@@ -1702,7 +1718,9 @@ class MapFrame(wx.Frame):
         for edge in tmp_edgelist:
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node1) ] )
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
-            self.CreateEdges(event=None)   
+            self.CreateEdges(event=None)              
+        
+        self.RestoreStates()
               
 #--------------------------------------------------------------------------------------------#    
 #     Sets global variables for metadata obtained from the ROS listener                      #
@@ -1789,21 +1807,17 @@ class MapFrame(wx.Frame):
                         break
                 if (foundB is True and foundT is True and
                     foundL is True and foundR is True):
-                    break                   
-      
-        et = datetime.now()
-        
+                    break       
+        et = datetime.now()        
         if self.verbose is True:
             print "Top edge of map at row %s" % (str(top))
             print "Bottom edge of map at row %s" % (str(bot)) 
             print "Left edge of map at column %s" % (str(left))   
             print "Right edge of map at column %s" % (str(right))              
-            print "Total time to scan map data: %s" % str(et-st)
-                
+            print "Total time to scan map data: %s" % str(et-st)     
+                       
         return bot,top,left,right
     
-
-
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to a given location with a given floating-point magnification.                   #
 #--------------------------------------------------------------------------------------------#        
@@ -1835,8 +1849,7 @@ class MapFrame(wx.Frame):
             
         tl = (self.img_limits[2],self.img_limits[1])
         br = (self.img_limits[3],self.img_limits[0])              
-        self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
-            
+        self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))        
             
 
 #--------------------------------------------------------------------------------------------#
@@ -1853,7 +1866,16 @@ class MapFrame(wx.Frame):
     def PilImageToWxImage(self, pil_img):
         wx_img = wx.EmptyImage( pil_img.size[0], pil_img.size[1] )
         wx_img.SetData( pil_img.convert( 'RGB' ).tostring() )
-        return wx_img      
+        return wx_img   
+          
+    
+    def SetStates(self, state_dict):
+        self.saved_states.append(self.states.copy())  
+        for key,val in state_dict.iteritems():
+            self.states[key] = val
+            
+    def RestoreStates(self):
+        self.states = self.saved_states[-1].copy()
     
 #--------------------------------------------------------------------------------------------#    
 #     Clears the entire canvas                                                               #
@@ -1870,14 +1892,7 @@ class MapFrame(wx.Frame):
 #     the corresponding nodes and edges are loaded and drawn onto the canvas.                #
 #--------------------------------------------------------------------------------------------#
     def SetImage(self, image_obj):
-        # Save current states
-        vb = self.verbose
-        ae = self.auto_edges
-        rd = self.redraw
-        
-        self.verbose = False
-        self.auto_edges = False
-        self.redraw = False     
+        self.SetStates({'verbose':False, 'redraw':False, 'auto_edges':False}) 
         self.Clear()
         st = datetime.now()    
                  
@@ -1921,8 +1936,7 @@ class MapFrame(wx.Frame):
         self.ZoomToFit()
         
         et = datetime.now()
-        self.verbose = vb
-        self.auto_edges = ae
-        self.redraw = rd
+        self.RestoreStates()
+
         if self.verbose is True:
             print "Time taken to set image: %s" % str(et-st)

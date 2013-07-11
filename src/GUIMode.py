@@ -16,10 +16,11 @@ import numpy as N
 import Resources
 from wx.lib.floatcanvas.Utilities import BBox
 
-LINE_WIDTH = 3
-LINE_COLOR = (20,200,0)
-EDGE_WIDTH = 4
-EDGE_COLOR = (255,106,54)
+LINE_WIDTH        = 3
+LINE_COLOR        = (20,200,0)
+EDGE_WIDTH        = 4
+EDGE_COLOR_NORMAL = (110,110,105)
+EDGE_COLOR_LOCKED = (255,106,54)
 
 class Cursors(object):
     """
@@ -421,6 +422,7 @@ class GUIEdges(GUIBase):
     def SetStartNode(self, n_id, n_coords):
         self.start_node = n_id
         self.start_coords = n_coords
+        self.curr_node = None
         self.Canvas.CaptureMouse()
     
     # Keep track of the mouse position while the left button is held down
@@ -431,30 +433,53 @@ class GUIEdges(GUIBase):
             xy = self.Canvas.PixelToWorld(N.array( event.GetPosition() ))
             
             if self.locked is False:
-                try:
-                    self.Canvas.RemoveObject(self.edge)
-                except AttributeError:
-                    pass
+                self.EraseCurrentEdge()
                 self.edge = self.Canvas.AddLine((self.start_coords, xy), LineWidth=EDGE_WIDTH,
-                                                LineColor=EDGE_COLOR)  
+                                                LineColor=EDGE_COLOR_NORMAL)  
                 self.Canvas.Draw(True)
             
-    def LockToNode(self, n_id, n_coords):
-        self.locked = True
-        if not (self.start_node is None):
-            self.lock_node = n_id
-            self.lock_coords = n_coords
-            if self.lock_node != self.start_node:
-                try:
-                    self.Canvas.RemoveObject(self.edge)
-                except AttributeError:
-                    pass
-                self.edge = self.Canvas.AddLine((self.start_coords, self.lock_coords), LineWidth=EDGE_WIDTH,
-                                                LineColor=EDGE_COLOR)  
-                self.Canvas.Draw(True)  
-                
-    def Unlock(self):
-        self.locked = False      
+    def LockEdge(self, status, n_id, n_coords):
+        if status == 'enter' and not self.locked:        
+            self.locked = True
+            if not (self.start_node is None) and n_id != -1:
+                self.lock_node = n_id
+                self.lock_coords = n_coords
+                if self.lock_node != self.start_node:
+                    self.EraseCurrentEdge()
+                    self.edge = self.Canvas.AddLine((self.start_coords, self.lock_coords), LineWidth=EDGE_WIDTH,
+                                                    LineColor=EDGE_COLOR_LOCKED)  
+                    self.curr_node = n_id
+                    self.Canvas.Draw(True)  
+        else:
+            self.locked = False
+            self.curr_node = None
+            
+    def SetEndNode(self):
+        if self.curr_node is not None:
+            mf = self.Canvas.GetParent().GetParent()
+            mf.SelectOneNode(mf.graphics_nodes[int(self.start_node)], True)
+            mf.SelectOneNode(mf.graphics_nodes[int(self.curr_node) ], False)
+            mf.CreateEdges(None)  
+        self.start_node = None
+        self.start_coords = None      
+        self.EraseCurrentEdge()
+        self.Canvas.Draw(True)
+        
+    def EraseCurrentEdge(self):
+        try:
+            self.Canvas.RemoveObject(self.edge)
+        except (ValueError,AttributeError):
+            pass
+        
+    def SwitchCursor(self, status):
+        pc = self.Cursors.PointerHandCursor
+        ac = self.Cursors.ArrowCursor
+        if status == 'enter' or self.Cursor == ac:
+            self.Canvas.SetCursor(pc)
+            self.Cursor = pc
+        else:
+            self.Canvas.SetCursor(ac)
+            self.Cursor = ac      
 
     def OnLeftDouble(self, event):
         EventType = FloatCanvas.EVT_FC_LEFT_DCLICK
