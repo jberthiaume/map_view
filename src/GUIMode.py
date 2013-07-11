@@ -16,11 +16,13 @@ import numpy as N
 import Resources
 from wx.lib.floatcanvas.Utilities import BBox
 
-LINE_WIDTH        = 3
+LINE_WIDTH        =  3
 LINE_COLOR        = (20,200,0)
-EDGE_WIDTH        = 4
+EDGE_WIDTH        =  4
 EDGE_COLOR_NORMAL = (110,110,105)
 EDGE_COLOR_LOCKED = (255,106,54)
+NODE_COLOR_NORMAL = (240,240,240)
+NODE_COLOR_LOCKED = (255,106,54)
 
 class Cursors(object):
     """
@@ -405,7 +407,8 @@ class GUIEdges(GUIBase):
         GUIBase.__init__(self, canvas)
         self.Cursor = self.Cursors.ArrowCursor
         self.start_node = None
-        self.locked = False           
+        self.locked = False     
+        self.count = 0      
 
     # Starts drawing the selection box when the left mouse button is pressed
     def OnLeftDown(self, event):  
@@ -439,9 +442,12 @@ class GUIEdges(GUIBase):
                 self.Canvas.Draw(True)
             
     def LockEdge(self, status, n_id, n_coords):
-        if status == 'enter' and not self.locked:        
+        mf = self.Canvas.GetParent().GetParent()
+        if (((status == 'l_node' and self.count==1) or status == 'e_node') and not self.locked): 
             self.locked = True
+            self.count = 0
             if not (self.start_node is None) and n_id != -1:
+                mf.graphics_nodes[ int(n_id) ].SetFillColor(NODE_COLOR_LOCKED)
                 self.lock_node = n_id
                 self.lock_coords = n_coords
                 if self.lock_node != self.start_node:
@@ -449,20 +455,30 @@ class GUIEdges(GUIBase):
                     self.edge = self.Canvas.AddLine((self.start_coords, self.lock_coords), LineWidth=EDGE_WIDTH,
                                                     LineColor=EDGE_COLOR_LOCKED)  
                     self.curr_node = n_id
-                    self.Canvas.Draw(True)  
+                    self.Canvas.Draw(True)
+                    
+        elif status == 'l_node' and self.count == 0 and not self.locked:
+            self.count = 1  
+            
         else:
+            if self.curr_node is not None:
+                mf.graphics_nodes[ int(self.curr_node) ].SetFillColor(NODE_COLOR_NORMAL)
             self.locked = False
             self.curr_node = None
             
     def SetEndNode(self):
+        mf = self.Canvas.GetParent().GetParent()
         if self.curr_node is not None:
-            mf = self.Canvas.GetParent().GetParent()
             mf.SelectOneNode(mf.graphics_nodes[int(self.start_node)], True)
             mf.SelectOneNode(mf.graphics_nodes[int(self.curr_node) ], False)
+            mf.SetModes('SetEndNode', {'auto_erase':False, 'manual_edges':True})
             mf.CreateEdges(None)  
+            mf.RestoreModes('SetEndNode')
         self.start_node = None
         self.start_coords = None      
         self.EraseCurrentEdge()
+#         mf.graphics_nodes[ int(self.curr_node) ].SetFillColor(NODE_COLOR_NORMAL)
+        mf.DeselectAll(None)
         self.Canvas.Draw(True)
         
     def EraseCurrentEdge(self):

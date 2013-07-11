@@ -45,21 +45,11 @@ class MapFrame(wx.Frame):
         wx.Frame.__init__(self, *args, **kwargs) 
         self.CreateStatusBar()
         
-        # Initialize data structures   
-        self.export = False
-        self.xerase = True
-        self.verbose = True
-        self.redraw = True
-        self.auto_edges = True 
-        self.spaced_edges = True
-        self.unknown_edges = True
-        self.clear_graph = True
-        self.auto_intersections = True 
-               
-        self.states = {'export':False, 'xerase':True, 'verbose':True, 'redraw':True, 
+        # Initialize data structures                
+        self.modes = {'export':False, 'auto_erase':True, 'verbose':True, 'redraw':True, 
                        'auto_edges':True, 'spaced_edges':True,  'unknown_edges':True, 
-                       'clear_graph':True, 'auto_intersections':True}
-        self.saved_states = []
+                       'clear_graph':True, 'auto_intersections':True, 'manual_edges':False}
+        self.saved_modes = {}
         
         self.resolution = None
         self.origin = None
@@ -246,8 +236,9 @@ class MapFrame(wx.Frame):
 #    Event handler for moving nodes around with the arrow keys                                #
 #---------------------------------------------------------------------------------------------#      
     def OnKeyPress(self, event):
-        rd = self.redraw
-        self.redraw = False
+        self.SetModes('KeyPress', {
+                        'redraw':False, 
+                      })
         selection = list(set(self.sel_nodes))
         edges_to_redraw = []
         self.DeselectAll(None)
@@ -287,7 +278,7 @@ class MapFrame(wx.Frame):
             self.graphics_nodes[int(ID)].Move(dxy)
             self.graphics_text[ int(ID)].Move(dxy)
             
-            if self.verbose is True:
+            if self.modes['verbose'] is True:
                 print "Moved node %s to location %s" % ( str(node.id), str(xy) )
             self.SelectOneNode(self.graphics_nodes[int(ID)],False)
         
@@ -304,7 +295,7 @@ class MapFrame(wx.Frame):
             self.graphics_edges[edge_id] = e           
             e.Name = str(edge_id)
         
-        self.redraw = rd    
+        self.RestoreModes('KeyPress')   
         self.Canvas.Draw(True)            
         
               
@@ -484,7 +475,7 @@ class MapFrame(wx.Frame):
         w = math.cos(theta/2.0)        
         orient = (0,0,z,w)        
         
-        if self.verbose is True:
+        if self.modes['verbose'] is True:
             x = self.Truncate(pose[0], 4)
             y = self.Truncate(pose[1], 4)
             print "Created 2D Pose estimate at point (%s, %s)" % (x, y)
@@ -497,7 +488,7 @@ class MapFrame(wx.Frame):
 #    Event handler when the user clicks on the robot graphic.                                 #
 #---------------------------------------------------------------------------------------------#    
     def OnClickRobot(self, obj):
-        if self.verbose is True:
+        if self.modes['verbose'] is True:
             print "Robot location:" 
             print "\t Pixels: (%s, %s)" % (int(obj.Coords[0]), int(obj.Coords[1]))
             m_Coords = self.PixelsToMeters(obj.Coords)
@@ -554,24 +545,24 @@ class MapFrame(wx.Frame):
             try:
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0  
-                if self.verbose is True:
+                if self.modes['verbose'] is True:
                     print "Created node %s at (%s, %s) / metric: (%s, %s)" % \
                     (ID, node_coords[0], node_coords[1],
                      node.m_coords[0], node.m_coords[1])                      
                 
-                if self.xerase is True:    
+                if self.modes['auto_erase'] is True:    
                     self.DeselectAll(None)
                     md = self.MinDistanceToEdge(node)   
                     for entry in md:
                         edge = self.edgelist[ entry[0] ]
-                        if self.verbose is True:
+                        if self.modes['verbose'] is True:
                             st = ("Auto-deleted edge %s between nodes "
                                   "%s and %s (too close to node %s)")
                             print st % (edge.id, edge.node1, edge.node2, node.id)
                         self.SelectOneEdge(self.graphics_edges[entry[0]], False)
                     self.DeleteSelection(None)                 
                 
-                if self.auto_edges is True:                    
+                if self.modes['auto_edges'] is True:                    
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
                      
                 
@@ -582,20 +573,20 @@ class MapFrame(wx.Frame):
                 
                 # Tell the connection matrix that this node now exists
                 self.conn_matrix[int(ID)][int(ID)] = 0 
-                if self.verbose is True:
+                if self.modes['verbose'] is True:
                     print "Created node %s at (%s, %s) / Metric = (%s, %s)" % (ID, 
                                                            node_coords[0], node_coords[1],
                                                            node.m_coords[0], node.m_coords[1])
-                if self.auto_edges is True:
+                if self.modes['auto_edges'] is True:
                     self.ConnectNeighbors(node.id, self.gg_const[1], self.gg_const[4], True)
             
-            if self.redraw is True:
+            if self.modes['redraw'] is True:
                 self.Canvas.Draw(True)
             self.mp.SetSaveStatus(False) 
             return 1 
                   
         else:
-            if self.verbose is True:
+            if self.modes['verbose'] is True:
                 print "Could not create node at (%s, %s). (Too close to node %s)" \
                         % (node_coords[0], node_coords[1], str(collision))
             return -collision
@@ -638,37 +629,35 @@ class MapFrame(wx.Frame):
                         self.graphics_edges.append(e)                        
                         e.Name = str(edge.id)
                         
-                        if self.xerase is True:
+                        if self.modes['auto_erase'] is True:
                             md = self.MinDistanceToNode(edge) 
                         else:
                             md = None
                               
                         if md is not None:
-                            if self.verbose is True:
+                            if self.modes['verbose'] is True:
                                 st = ("Did not create edge between nodes "
                                       "%s and %s (too close to node %s)")
                                 print st % (node1.Name, node2.Name, md[0])
                             self.SelectOneEdge(self.graphics_edges[edge.id], True)
                             self.DeleteSelection(None)
                         else:                              
-                            if self.auto_intersections:
+                            if self.modes['auto_intersections']:
                                 self.ConvertIntersections(edge)                                                        
-                            if self.verbose is True:
+                            if self.modes['verbose'] is True:
                                 print "Created edge %s between nodes %s and %s" % (str(edge.id), 
                                                                                 str(edge.node1),
                                                                                 str(edge.node2))                             
                     else:
-                        if self.verbose is True:
+                        if self.modes['verbose'] is True:
                             print "Did not create edge between nodes %s and %s (already exists)" \
                             % (node1.Name,node2.Name)
                             
                 except IndexError:
                     pass
-#             if self.redraw is True:
-#                 self.RefreshNodes(min_x, max_x, min_y, max_y)
             
             self.GenerateConnectionMatrix()   
-            if self.redraw is True:
+            if self.modes['redraw'] is True:
                 self.Canvas.Draw(True)
             self.DeselectAll(event)
             self.mp.SetSaveStatus(False)
@@ -776,7 +765,7 @@ class MapFrame(wx.Frame):
         done = False
         last = False
         
-        if self.spaced_edges is True:
+        if self.modes['spaced_edges'] is True:
             while not done:
                 x1 = int( x1_1+(pos*kx) )
                 y1 = int( y1_1+(pos*ky) )
@@ -786,7 +775,7 @@ class MapFrame(wx.Frame):
                 data2 = image_data[ (w*y2)+x2 ]               
                 
                 if self.image_data_format is 'int':
-                    if self.unknown_edges is False:
+                    if self.modes['unknown_edges'] is False:
                         if data1 != 0 or data2 != 0:
                             return False      
                     else:
@@ -794,7 +783,7 @@ class MapFrame(wx.Frame):
                             return False 
                                  
                 if self.image_data_format is 'byte':                    
-                    if self.unknown_edges is False:
+                    if self.modes['unknown_edges'] is False:
                         if ord(data1) < 150 or ord(data2) < 150:
                             return False
                     else:
@@ -815,7 +804,7 @@ class MapFrame(wx.Frame):
                 data = image_data[ (w*y)+x ]    
                 
                 if self.image_data_format is 'int':
-                    if self.unknown_edges is False:
+                    if self.modes['unknown_edges'] is False:
                         if data != 0:
                             return False      
                     else:
@@ -823,7 +812,7 @@ class MapFrame(wx.Frame):
                             return False 
                                        
                 if self.image_data_format is 'byte':
-                    if self.unknown_edges is False:
+                    if self.modes['unknown_edges'] is False:
                         if ord(data) < 150:
                             return False
                     else:
@@ -893,16 +882,13 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
 #      Converts edge intersections into new nodes, if possible                               #
 #--------------------------------------------------------------------------------------------#     
-    def ConvertIntersections(self, e1):  
-        # Save current states
-        vb = self.verbose
-        ae = self.auto_edges
-        ai = self.auto_intersections
-        rd = self.redraw        
-#         self.verbose = False
-        self.auto_edges = False
-#         self.auto_intersections = False
-        self.redraw = False
+    def ConvertIntersections(self, e1):
+        self.SetModes('ConvertIntersections', {
+                        'redraw':False, 
+#                         'verbose':False, 
+                        'auto_edges':False
+#                         'auto_intersections':False
+                        })
         
         nodes = []
         nodes.append( int(e1.node1) )
@@ -919,15 +905,17 @@ class MapFrame(wx.Frame):
                     x = int(val[0])
                     y = int(val[1])           
                     
-                    self.xerase = False
+                    self.SetModes('ConvertIntersections2', {
+                                    'auto_erase':False, 
+                                    })
                     result = self.CreateNode((x,y))
-                    self.xerase = True
+                    self.RestoreModes('ConvertIntersections2')
                     if result <= 0:
                         # if the edge intersection is too close to a node, get rid of the edge.
                         if int(e1.node1) == -result or int(e1.node2) == -result:
                             self.SelectOneEdge(self.graphics_edges[e2.id], True)
                             self.DeleteSelection(None)
-                            if self.verbose is True:
+                            if self.modes['verbose'] is True:
                                 st = ("Auto-deleted edge %s between nodes %s and %s "
                                       "(too close to node %s)")
                                 print  st % (e2.id, e2.node1, e2.node2, -result)
@@ -955,17 +943,14 @@ class MapFrame(wx.Frame):
         
         # Restore saved states        
         self.DeselectAll(None) 
-        self.verbose = vb  
-        self.auto_edges = ae
-        self.auto_intersections = ai
-        self.redraw = rd
+        self.RestoreModes('ConvertIntersections')
         
 #--------------------------------------------------------------------------------------------#    
 #      Given an edge, returns None if it is not too close to any nodes. If it is too close   #
 #      to a node, the Node ID and distance to the node are returned.                         #
 #--------------------------------------------------------------------------------------------#     
     def MinDistanceToNode(self, edge):
-        min_distance = -1, self.gg_const[2]/3.0
+        min_distance = -1, max(self.gg_const[2]/2.0, 5)
         ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
         ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
         ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
@@ -1007,7 +992,7 @@ class MapFrame(wx.Frame):
 #      Given a node, returns any edges which are too close                                   #
 #--------------------------------------------------------------------------------------------#    
     def MinDistanceToEdge(self, node):
-        thresh = self.gg_const[2]
+        thresh = max(self.gg_const[2]/2.0, 5)
         min_distance = []
         nx = float(node.coords[0])
         ny = float(node.coords[1])           
@@ -1056,17 +1041,14 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
         wx.BeginBusyCursor()
-        st = datetime.now()
+        st = datetime.now()        
+        self.SetModes('GenerateGraph', {
+                        'auto_edges':False, 
+                        'redraw':False, 
+#                         'verbose':False
+                        })
         
-        # Save current states
-        vb = self.verbose
-        ae = self.auto_edges
-        rd = self.redraw
-#         self.verbose = False
-        self.auto_edges = False
-        self.redraw = False
-        
-        if self.clear_graph is True:
+        if self.modes['clear_graph'] is True:
             self.SelectAll(None)
             self.DeleteSelection(None)        
         
@@ -1088,12 +1070,10 @@ class MapFrame(wx.Frame):
         self.Canvas.Draw(True) 
         
         # Restore saved states
-        self.verbose = vb  
-        self.auto_edges = ae
-        self.redraw = rd
         wx.EndBusyCursor()
         et = datetime.now()
-        if self.verbose is True:
+        self.RestoreModes('GenerateGraph')
+        if self.modes['verbose'] is True:
             print "Total time to generate graph: %s" % str(et-st)
 
 #--------------------------------------------------------------------------------------------#
@@ -1128,9 +1108,10 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
     def ConnectNeighbors(self, input_node, k, e, refresh):  
         
-        print "Connecting neighbors for node %s" % input_node
-        rd = self.redraw
-        self.redraw = False
+#         print "Connecting neighbors for node %s" % input_node
+        self.SetModes('ConnectNeighbors', {
+                        'redraw':False
+                        })
         
         data = self.image_data
         node1 = self.nodelist[ input_node ]
@@ -1151,18 +1132,17 @@ class MapFrame(wx.Frame):
                 self.SelectOneNode(self.graphics_nodes[node1.id], False)
                 self.SelectOneNode(self.graphics_nodes[node2.id], False)
                 self.CreateEdges(None)
-
-        self.redraw = rd
+                
+        self.RestoreModes('ConnectNeighbors')
 
 #--------------------------------------------------------------------------------------------#    
 #      Deletes all selected nodes and edges                                                  #
 #--------------------------------------------------------------------------------------------#           
     def DeleteSelection(self, event):
-        self.SetStates({'redraw':False, 'verbose':False})
-        rd = self.redraw
-        vb = self.verbose
-        self.redraw = False
-        self.verbose = False  
+        self.SetModes('DeleteSelection', {
+                        'redraw':False, 
+                        'verbose':False
+                        })
               
         for node in self.sel_nodes:
             self.RemoveNode(node)
@@ -1175,11 +1155,9 @@ class MapFrame(wx.Frame):
         
         self.DeselectAll(event=None)
         self.mp.SetSaveStatus(False)
-        self.RestoreStates()
+        self.RestoreModes('DeleteSelection')
         
-        self.redraw = rd
-        self.verbose = vb
-        if self.redraw is True:
+        if self.modes['redraw'] is True:
             self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
@@ -1202,9 +1180,9 @@ class MapFrame(wx.Frame):
         self.graphics_nodes[ID] = None
         self.graphics_text[ID] = None
         
-        if self.verbose is True:
+        if self.modes['verbose'] is True:
             print "Removed node #" + str(ID)
-        if self.redraw is True:
+        if self.modes['redraw'] is True:
             self.Canvas.Draw(True)
                 
 #--------------------------------------------------------------------------------------------#    
@@ -1218,9 +1196,9 @@ class MapFrame(wx.Frame):
             self.edgelist[ID] = None
             self.graphics_edges[ID] = None            
             
-            if self.verbose is True:
+            if self.modes['verbose'] is True:
                 print "Removed edge #" + str(ID)
-            if self.redraw is True:
+            if self.modes['redraw'] is True:
                 self.Canvas.Draw(True)
             
         except AttributeError:
@@ -1333,9 +1311,9 @@ class MapFrame(wx.Frame):
     def ExportConnectionMatrix(self, filename, edgeitems, linewidth):         
         np.set_printoptions(edgeitems=edgeitems, linewidth=linewidth)  
               
-        if self.export is False:
+        if self.modes['export'] is False:
             conn_file = open(filename, "w")
-            self.export = True
+            self.SetModes('Export', {'export':True})
         else:
             conn_file = open(filename, "a")        
         
@@ -1352,11 +1330,16 @@ class MapFrame(wx.Frame):
 #     returns the ID of the closest node there was a collision with.                         #
 #--------------------------------------------------------------------------------------------#    
     def DetectCollision(self, new_node):
+        if self.modes['manual_edges'] is True:
+            min_dist = max(self.gg_const[2]/2.0, 5)
+        else:
+            min_dist = max(self.gg_const[2], 5)
+        
         collisions = {} 
         for existing_node in self.nodelist:
             try:
                 dist = self.Distance(new_node.coords, existing_node.coords)
-                if dist <= self.gg_const[2]:
+                if dist <= min_dist:
                     collisions[existing_node.id] = dist
             except AttributeError:
                 pass
@@ -1473,11 +1456,11 @@ class MapFrame(wx.Frame):
     def SelectOneNode(self, obj, desel):
         if desel is True:      
             self.DeselectAll(event=None)
-#             if self.verbose is True:
+#             if self.modes['verbose'] is True:
 #                 print "Selected Node #" + obj.Name      
         self.sel_nodes.append(obj)   
         obj.SetFillColor(HIGHLIGHT_COLOR)
-        if self.redraw is True:
+        if self.modes['redraw'] is True:
             self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
@@ -1486,11 +1469,11 @@ class MapFrame(wx.Frame):
     def SelectOneEdge(self, obj, desel):
         if desel is True:     
             self.DeselectAll(event=None)
-#             if self.verbose is True:
+#             if self.modes['verbose'] is True:
 #                 print "Selected Edge #" + obj.Name     
         self.sel_edges.append(obj)
         obj.SetLineColor(HIGHLIGHT_COLOR)
-        if self.redraw is True:
+        if self.modes['redraw'] is True:
             self.Canvas.Draw(True) 
             
 #--------------------------------------------------------------------------------------------#    
@@ -1503,9 +1486,9 @@ class MapFrame(wx.Frame):
         for node in self.nodelist:
             self.graphics_nodes[ node.id ].SetFillColor(HIGHLIGHT_COLOR)
             self.sel_nodes.append(self.graphics_nodes[node.id])
-        if self.verbose is True:
+        if self.modes['verbose'] is True:
                 print "Selected all nodes"
-        if self.redraw is True:    
+        if self.modes['redraw'] is True:    
             self.Canvas.Draw(True) 
         
 #--------------------------------------------------------------------------------------------#    
@@ -1518,9 +1501,9 @@ class MapFrame(wx.Frame):
         for edge in self.edgelist:
             self.graphics_edges[ edge.id ].SetLineColor(HIGHLIGHT_COLOR)
             self.sel_edges.append(self.graphics_edges[edge.id])
-        if self.verbose is True: 
+        if self.modes['verbose'] is True: 
             print "Selected all edges"
-        if self.redraw is True:    
+        if self.modes['redraw'] is True:    
             self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#
@@ -1528,8 +1511,9 @@ class MapFrame(wx.Frame):
 #     'box selection' tool on the NavCanvas.                                                   #
 #--------------------------------------------------------------------------------------------#           
     def SelectBox(self, x_range, y_range):
-        rd = self.redraw
-        self.redraw = False
+        self.SetModes('SelectBox', {
+                        'redraw':False
+                        })
         self.DeselectAll(None)
         
         for node in self.nodelist:
@@ -1547,7 +1531,7 @@ class MapFrame(wx.Frame):
                 (y_range[0] <= mp[1] <= y_range[1] or
                  y_range[1] <= mp[1] <= y_range[0]) ):
                 self.SelectOneEdge(self.graphics_edges[edge.id], False)
-        self.redraw = rd
+        self.RestoreModes('SelectBox')
         self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
@@ -1565,9 +1549,9 @@ class MapFrame(wx.Frame):
                 self.graphics_edges[ edge.id ].SetLineColor(HIGHLIGHT_COLOR)
             self.sel_edges.append(self.graphics_edges[edge.id])
         
-        if self.verbose is True:            
+        if self.modes['verbose'] is True:            
             print "Selected all nodes and edges"
-        if self.redraw is True:    
+        if self.modes['redraw'] is True:    
             self.Canvas.Draw(True) 
             
     def DeselectAll(self, event):
@@ -1575,7 +1559,7 @@ class MapFrame(wx.Frame):
             obj.SetFillColor(NODE_FILL)
         for obj in self.sel_edges:
             obj.SetLineColor(EDGE_COLOR) 
-        if self.redraw is True:            
+        if self.modes['redraw'] is True:            
             self.Canvas.Draw(True)                
         self.sel_nodes = []
         self.sel_edges = []  
@@ -1587,14 +1571,14 @@ class MapFrame(wx.Frame):
     def OnClickNode(self, obj):
         if obj in self.sel_nodes:
             coords = self.nodelist[int(obj.Name)].coords  
-            if self.verbose is True:        
+            if self.modes['verbose'] is True:        
                 print "Deselected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])
             self.sel_nodes.remove(obj)
             obj.SetFillColor(NODE_FILL)
         else:  
             coords = self.nodelist[int(obj.Name)].coords   
             m_coords = self.nodelist[int(obj.Name)].m_coords 
-            if self.verbose is True:        
+            if self.modes['verbose'] is True:        
                 print "Selected Node %s" % (obj.Name)   
                 print "\tPixel Location:   (%s, %s)" % (coords[0]  , coords[1]  )
                 print "\tMetric Location:  (%s, %s)" % (m_coords[0], m_coords[1])
@@ -1612,28 +1596,32 @@ class MapFrame(wx.Frame):
     def OnMouseEnterNode(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.LockEdge('enter', obj.Name, self.nodelist[int(obj.Name)].coords)            
+            self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
+#             print "enter node"          
         else:
             self.Canvas.GUIMode.SwitchCursor('enter')  
             
     def OnMouseLeaveNode(self, obj):        
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.LockEdge('leave', obj.Name, self.nodelist[int(obj.Name)].coords)            
+            self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
+#             print "leave node"           
         else:
             self.Canvas.GUIMode.SwitchCursor('leave')  
                
     def OnMouseEnterEdge(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.LockEdge('enter', -1, -1)
+            self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
+#             print "enter edge"
         else:
             self.Canvas.GUIMode.SwitchCursor('enter')  
                   
     def OnMouseLeaveEdge(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.LockEdge('leave', -1, -1) 
+            self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
+#             print "leave edge"
         else:
             self.Canvas.GUIMode.SwitchCursor('leave') 
         
@@ -1643,12 +1631,12 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#            
     def OnClickEdge(self, obj): 
         if obj in self.sel_edges:  
-            if self.verbose is True:        
+            if self.modes['verbose'] is True:        
                 print "Deselected Edge " + obj.Name
             self.sel_edges.remove(obj)
             obj.SetLineColor(EDGE_COLOR)
         else: 
-            if self.verbose is True:       
+            if self.modes['verbose'] is True:       
                 print "Selected Edge " + obj.Name     
             self.sel_edges.append(obj)        
             obj.SetLineColor(HIGHLIGHT_COLOR) 
@@ -1693,11 +1681,11 @@ class MapFrame(wx.Frame):
 #     This function should not be called on its own, but rather as a part of SetImage()      #
 #--------------------------------------------------------------------------------------------#                   
     def LoadNodes(self):
-        self.SetStates({'xerase':False, 'auto_intersections':False, 'auto_edges':False}) 
-        self.xerase = False
-        self.auto_edges = False
-        self.auto_intersections = False
-        
+        self.SetModes('LoadNodes', {
+                        'auto_erase':False, 
+                        'auto_intersections':False, 
+                        'auto_edges':False
+                        })
         tmp_nodelist = self.nodelist
         self.nodelist = []           
         self.graphics_nodes = []
@@ -1720,7 +1708,7 @@ class MapFrame(wx.Frame):
             self.sel_nodes.append( self.graphics_nodes[ int(edge.node2) ] )
             self.CreateEdges(event=None)              
         
-        self.RestoreStates()
+        self.RestoreModes('LoadNodes')
               
 #--------------------------------------------------------------------------------------------#    
 #     Sets global variables for metadata obtained from the ROS listener                      #
@@ -1809,7 +1797,7 @@ class MapFrame(wx.Frame):
                     foundL is True and foundR is True):
                     break       
         et = datetime.now()        
-        if self.verbose is True:
+        if self.modes['verbose'] is True:
             print "Top edge of map at row %s" % (str(top))
             print "Bottom edge of map at row %s" % (str(bot)) 
             print "Left edge of map at column %s" % (str(left))   
@@ -1869,13 +1857,13 @@ class MapFrame(wx.Frame):
         return wx_img   
           
     
-    def SetStates(self, state_dict):
-        self.saved_states.append(self.states.copy())  
+    def SetModes(self, key, state_dict):
+        self.saved_modes[key] = (self.modes.copy())  
         for key,val in state_dict.iteritems():
-            self.states[key] = val
+            self.modes[key] = val
             
-    def RestoreStates(self):
-        self.states = self.saved_states[-1].copy()
+    def RestoreModes(self, key):
+        self.modes = self.saved_modes[key].copy()
     
 #--------------------------------------------------------------------------------------------#    
 #     Clears the entire canvas                                                               #
@@ -1892,7 +1880,11 @@ class MapFrame(wx.Frame):
 #     the corresponding nodes and edges are loaded and drawn onto the canvas.                #
 #--------------------------------------------------------------------------------------------#
     def SetImage(self, image_obj):
-        self.SetStates({'verbose':False, 'redraw':False, 'auto_edges':False}) 
+        self.SetModes('SetImage', {                        
+                        'verbose':False, 
+                        'redraw':False, 
+                        'auto_edges':False
+                        }) 
         self.Clear()
         st = datetime.now()    
                  
@@ -1936,7 +1928,7 @@ class MapFrame(wx.Frame):
         self.ZoomToFit()
         
         et = datetime.now()
-        self.RestoreStates()
+        self.RestoreModes('SetImage')
 
-        if self.verbose is True:
+        if self.modes['verbose'] is True:
             print "Time taken to set image: %s" % str(et-st)

@@ -29,6 +29,8 @@ SIZER_BORDER    = 10
 
 #TODO: make edge tool icon
 
+#TODO: gg_const[] -> dict{}
+
 #TODO: move gg/tour/find to mapframe
 
 class MainFrame(wx.Frame):
@@ -70,10 +72,8 @@ class MainFrame(wx.Frame):
     def SuppressOutput(self, boolean):
         if boolean is True:
             self.verbose = False
-            self.mp.zp.verbose = False
         else:
             self.verbose = True
-            self.mp.zp.verbose = True
 
 #---------------------------------------------------------------------------------------------#    
 #    Mouse capturing functions to allow dragging of the control panel around the screen.      #
@@ -82,13 +82,13 @@ class MainFrame(wx.Frame):
         if event.Dragging() and self.leftDown:
             pos = self.ClientToScreen(event.GetPosition()) 
             fp = (pos.x - self.delta.x, pos.y - self.delta.y) 
-            self.parent_frame.Move(fp)  
+            self.pf.Move(fp)  
             
     def OnLeftDown(self, event): 
         self.CaptureMouse() 
         self.leftDown = True 
         pos = self.ClientToScreen(event.GetPosition()) 
-        origin = self.parent_frame.GetPosition() 
+        origin = self.pf.GetPosition() 
         dx = pos.x - origin.x 
         dy = pos.y - origin.y 
         self.delta = wx.Point(dx, dy)  
@@ -139,12 +139,12 @@ class MainPanel(wx.Panel):
         self.gg_const = (100,5,20,5,80)
         
         # Set parent frame value
-        self.parent_frame = parent 
-        while self.parent_frame.GetParent() is not None: 
-            self.parent_frame = self.parent_frame.GetParent()
+        self.pf = parent 
+        while self.pf.GetParent() is not None: 
+            self.pf = self.pf.GetParent()
         
-        self.ros = self.parent_frame.ros
-        self.verbose = self.parent_frame.verbose
+        self.ros = self.pf.ros
+        self.verbose = self.pf.verbose
         
         # Create the sizers 
         self.sizer_main = wx.BoxSizer(wx.HORIZONTAL)         
@@ -152,7 +152,7 @@ class MainPanel(wx.Panel):
         self.sizer_display = wx.BoxSizer(wx.VERTICAL)
         
         # The map viewer panel
-        zp_size = self.parent_frame.screensize[1]-60     
+        zp_size = self.pf.screensize[1]-60     
         self.zp=MapFrame(self, title="Map View",
                                   size=((zp_size,zp_size)), 
 #                                   style=wx.FRAME_SHAPED
@@ -312,7 +312,7 @@ class MainPanel(wx.Panel):
             
     def EnableMenuOptions(self, key_list, boolean):
         for key in key_list:
-            self.parent_frame.file_menu.Enable(key, boolean)
+            self.pf.file_menu.Enable(key, boolean)
             self.zp.file_menu.Enable(key, boolean)
                 
 #---------------------------------------------------------------------------------------------#    
@@ -356,7 +356,7 @@ class MainPanel(wx.Panel):
                 
         try:
             map_file = self.ros.GetDefaultFilename()
-            self.parent_frame.SetTitle("%s" % map_file)
+            self.pf.SetTitle("%s" % map_file)
             
             # Update some statuses
             self.EnableButtons(self.btn_disabled, True)
@@ -394,13 +394,13 @@ class MainPanel(wx.Panel):
         pass
 #         if self.ep.IsShown():
 #             self.ep.Hide()
-#             self.parent_frame.SetSize(APP_SIZE)            
+#             self.pf.SetSize(APP_SIZE)            
 #             self.bg = self.DrawBG(APP_SIZE)
 #             self.Show()
 #             self.Layout()
 #         else:
 #             self.ep.txt.Clear()            
-#             self.parent_frame.SetSize(APP_SIZE)
+#             self.pf.SetSize(APP_SIZE)
 #             self.bg = self.DrawBG(APP_SIZE)
 #             for b in self.buttons:
 #                 b.Show()
@@ -447,7 +447,7 @@ class MainPanel(wx.Panel):
                 
                 # Set the viewer image to the selected file
                 filename = dlg.GetPath()  
-                self.parent_frame.SetTitle("%s" % dlg.GetFilename()) 
+                self.pf.SetTitle("%s" % dlg.GetFilename()) 
                 
                 # Import the node data. For this to work, the node file must have the same
                 # name as the map file, but with the extension ".graph"
@@ -527,7 +527,7 @@ class MainPanel(wx.Panel):
             if self.verbose is True:
                 print "Saved: %s" % filename            
             self.SetSaveStatus(True) 
-            self.parent_frame.SetTitle("%s" % dlg.GetFilename())
+            self.pf.SetTitle("%s" % dlg.GetFilename())
                         
         dlg.Destroy()
         
@@ -540,11 +540,11 @@ class MainPanel(wx.Panel):
     
     def OnSettings(self, event):
         self.Hide()    
-        self.parent_frame.SetMinSize(APP_SIZE_EXP)
-        self.parent_frame.SetSize(APP_SIZE_EXP)    
-        self.parent_frame.sp.Show()
-        self.parent_frame.sp.Layout()
-        self.parent_frame.Layout()
+        self.pf.SetMinSize(APP_SIZE_EXP)
+        self.pf.SetSize(APP_SIZE_EXP)    
+        self.pf.sp.Show()
+        self.pf.sp.Layout()
+        self.pf.Layout()
         self.Layout()        
     
     def OnCloseMap(self, event):  
@@ -583,7 +583,7 @@ class MainPanel(wx.Panel):
             dlg.Destroy()        
             
         self.zp.Close()
-        self.parent_frame.Close()
+        self.pf.Close()
                 
 
 #---------------------------------------------------------------------------------------------#    
@@ -593,13 +593,13 @@ class MainPanel(wx.Panel):
         if event.Dragging() and self.leftDown:
             pos = self.ClientToScreen(event.GetPosition()) 
             fp = (pos.x - self.delta.x, pos.y - self.delta.y) 
-            self.parent_frame.Move(fp)  
+            self.pf.Move(fp)  
             
     def OnLeftDown(self, event): 
         self.CaptureMouse() 
         self.leftDown = True 
         pos = self.ClientToScreen(event.GetPosition()) 
-        origin = self.parent_frame.GetPosition() 
+        origin = self.pf.GetPosition() 
         dx = pos.x - origin.x 
         dy = pos.y - origin.y 
         self.delta = wx.Point(dx, dy)  
@@ -617,17 +617,17 @@ class SettingsPanel(wx.Panel):
         self.bg = self.DrawBG(APP_SIZE_EXP)
         
         self.leftDown = False     
-        self.parent_frame = parent 
-        while self.parent_frame.GetParent() is not None: 
-            self.parent_frame = self.parent_frame.GetParent()
+        self.pf = parent 
+        while self.pf.GetParent() is not None: 
+            self.pf = self.pf.GetParent()
         
         self.lbl_titles = []
         self.lbl_text = []
         self.txtbxs = []
-        self.ros = self.parent_frame.ros
+        self.ros = self.pf.ros
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         
-        title_font = self.parent_frame.font
+        title_font = self.pf.font
         title_font.SetPointSize(12)
         title_font.SetWeight(wx.BOLD)
         
@@ -646,7 +646,7 @@ class SettingsPanel(wx.Panel):
         self.txt_n = wx.TextCtrl(self, size=(32,25), pos=(89,42),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt_n.SetFont(self.parent_frame.font)  
+        self.txt_n.SetFont(self.pf.font)  
         self.txt_n.SetValue( str(self.GetParent().mp.gg_const[0]) )
         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
         
@@ -664,7 +664,7 @@ class SettingsPanel(wx.Panel):
         self.txt_d = wx.TextCtrl(self, size=(32,25), pos=(171,77), 
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt_d.SetFont(self.parent_frame.font)  
+        self.txt_d.SetFont(self.pf.font)  
         self.txt_d.SetValue( str(self.GetParent().mp.gg_const[2]) )
         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
@@ -685,7 +685,7 @@ class SettingsPanel(wx.Panel):
         self.txt_w = wx.TextCtrl(self, size=(32,25), pos=(171,132),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt_w.SetFont(self.parent_frame.font)  
+        self.txt_w.SetFont(self.pf.font)  
         self.txt_w.SetValue( str(self.GetParent().mp.gg_const[3]) )   
         self.txt_w.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
@@ -706,7 +706,7 @@ class SettingsPanel(wx.Panel):
         self.txt_k = wx.TextCtrl(self, size=(32,25), pos=(55,187),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_k.SetMaxLength(2)    #Maximum of 2 characters
-        self.txt_k.SetFont(self.parent_frame.font)  
+        self.txt_k.SetFont(self.pf.font)  
         self.txt_k.SetValue( str(self.GetParent().mp.gg_const[1]) )
         self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
@@ -723,7 +723,7 @@ class SettingsPanel(wx.Panel):
         self.txt_e = wx.TextCtrl(self, size=(32,25), pos=(171,222),
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt_e.SetFont(self.parent_frame.font)  
+        self.txt_e.SetFont(self.pf.font)  
         self.txt_e.SetValue( str(self.GetParent().mp.gg_const[4]) )
         self.txt_e.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
@@ -782,13 +782,13 @@ class SettingsPanel(wx.Panel):
         # Ok button
         btn_ok = wx.Button(self, label="Accept", size=(95,30), 
                            pos=(20, APP_SIZE_EXP[1]-45))  
-        self.parent_frame.mp.buttons.append(btn_ok) 
+        self.pf.mp.buttons.append(btn_ok) 
         btn_ok.Bind(wx.EVT_BUTTON, self.OnOk) 
         
         # Cancel button
         btn_cnc = wx.Button(self, label="Cancel", size=(95,30), 
                            pos=(125, APP_SIZE_EXP[1]-45))  
-        self.parent_frame.mp.buttons.append(btn_cnc) 
+        self.pf.mp.buttons.append(btn_cnc) 
         btn_cnc.Bind(wx.EVT_BUTTON, self.OnCancel) 
                 
         # Mouse capturing events
@@ -799,7 +799,7 @@ class SettingsPanel(wx.Panel):
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp)   
         
-        self.parent_frame.mp.PaintButtons ( (255,255,255),BUTTON_COLOR ) 
+        self.pf.mp.PaintButtons ( (255,255,255),BUTTON_COLOR ) 
         self.PaintLabels(BUTTON_COLOR, BG_COLOR)  
         self.PaintTextboxes(TXT_FG_COLOR, TXT_BG_COLOR)  
         self.Layout()
@@ -869,12 +869,15 @@ class SettingsPanel(wx.Panel):
 #    Saves the settings                                                                       #
 #---------------------------------------------------------------------------------------------#
     def OnOk(self, event):
-        self.parent_frame.mp.zp.spaced_edges = not self.chk_edge.GetValue()
-        self.parent_frame.mp.zp.clear_graph = self.chk_clr.GetValue()            
-        self.parent_frame.mp.zp.auto_edges = self.chk_ec.GetValue()   
-        self.parent_frame.mp.zp.auto_intersections = self.chk_int.GetValue()  
-        self.parent_frame.mp.zp.unknown_edges = self.chk_uk.GetValue()    
-        self.parent_frame.SuppressOutput(not self.chk_co.GetValue())
+        self.pf.mp.zp.SetModes('Settings', {
+                                 'spaced_edges': (not self.chk_edge.GetValue()),  
+                                 'clear_graph': self.chk_clr.GetValue(),
+                                 'auto_edges': self.chk_ec.GetValue(),
+                                 'auto_intersections': self.chk_int.GetValue(),
+                                 'unknown_edges': self.chk_uk.GetValue(),  
+                                 'verbose': (self.chk_co.GetValue()),                               
+                               })  
+        self.pf.SuppressOutput(not self.chk_co.GetValue())
         
         try:
             n = int( self.txt_n.GetValue() )
@@ -896,25 +899,25 @@ class SettingsPanel(wx.Panel):
             dlg.Destroy()
             return       
          
-        self.parent_frame.mp.gg_const = (n,k,d,w,e)
-        self.parent_frame.mp.zp.gg_const = (n,k,d,w,e)      
+        self.pf.mp.gg_const = (n,k,d,w,e)
+        self.pf.mp.zp.gg_const = (n,k,d,w,e)      
         self.Hide()   
-        self.parent_frame.SetMinSize(APP_SIZE)
-        self.parent_frame.SetSize(APP_SIZE)   
-        self.parent_frame.mp.Show()
-        self.parent_frame.mp.Layout()
-        self.parent_frame.Layout() 
+        self.pf.SetMinSize(APP_SIZE)
+        self.pf.SetSize(APP_SIZE)   
+        self.pf.mp.Show()
+        self.pf.mp.Layout()
+        self.pf.Layout() 
         
     
     def OnCancel(self, event):
         self.Hide()
         for txt in self.txtbxs:
             txt.SetValue(self.GetDefaultValue(txt))               
-        self.parent_frame.SetMinSize(APP_SIZE)
-        self.parent_frame.SetSize(APP_SIZE)
-        self.parent_frame.mp.Show()        
-        self.parent_frame.mp.Layout()
-        self.parent_frame.Layout()
+        self.pf.SetMinSize(APP_SIZE)
+        self.pf.SetSize(APP_SIZE)
+        self.pf.mp.Show()        
+        self.pf.mp.Layout()
+        self.pf.Layout()
         
         
 #---------------------------------------------------------------------------------------------#    
@@ -924,13 +927,13 @@ class SettingsPanel(wx.Panel):
         if event.Dragging() and self.leftDown:
             pos = self.ClientToScreen(event.GetPosition()) 
             fp = (pos.x - self.delta.x, pos.y - self.delta.y) 
-            self.parent_frame.Move(fp)  
+            self.pf.Move(fp)  
             
     def OnLeftDown(self, event): 
         self.CaptureMouse() 
         self.leftDown = True 
         pos = self.ClientToScreen(event.GetPosition()) 
-        origin = self.parent_frame.GetPosition() 
+        origin = self.pf.GetPosition() 
         dx = pos.x - origin.x 
         dy = pos.y - origin.y 
         self.delta = wx.Point(dx, dy)  
@@ -958,9 +961,9 @@ class ExplorePanel(wx.Panel):
         self.bg = wx.StaticBitmap(self, -1, bmp, (-2, -2))
         
         # Set parent frame value
-        self.parent_frame = parent 
-        while self.parent_frame.GetParent() is not None: 
-            self.parent_frame = self.parent_frame.GetParent()
+        self.pf = parent 
+        while self.pf.GetParent() is not None: 
+            self.pf = self.pf.GetParent()
         
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.hbox00 = wx.BoxSizer(wx.HORIZONTAL)
@@ -999,7 +1002,7 @@ class ExplorePanel(wx.Panel):
         vbox06.AddSpacer(7)
         self.txt = wx.TextCtrl(self, size=(45,30), style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt.SetMaxLength(3)    #Maximum of 3 characters
-        self.txt.SetFont(self.parent_frame.font)
+        self.txt.SetFont(self.pf.font)
         self.txt.SetForegroundColour((255,131,79))
         self.txt.SetBackgroundColour((85,85,80))
         vbox06.Add(self.txt)
@@ -1127,8 +1130,8 @@ class ExplorePanel(wx.Panel):
 #    Publish some stuff                                                                       #
 #---------------------------------------------------------------------------------------------#             
     def OnTour(self, event):                       
-#         self.parent_Frame.tt.paused = True
-        self.parent_frame.ros.PublishTour()
+#         self.pf.tt.paused = True
+        self.pf.ros.PublishTour()
     
 if __name__ == '__main__':
     app = wx.App(False)
