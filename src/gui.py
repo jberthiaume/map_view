@@ -28,6 +28,8 @@ SIZER_BORDER    = 10
 
 #TODO: make edge tool icon
 
+#TODO: edge tool cursor?
+
 #TODO: move gg/tour/find to mapframe
 
 class MainFrame(wx.Frame):

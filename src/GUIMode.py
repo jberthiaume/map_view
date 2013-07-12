@@ -432,7 +432,7 @@ class GUIEdges(GUIBase):
     def OnMove(self, event):
         self.Canvas.MouseOverTest(event)
         self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
-        if event.Dragging() and event.LeftIsDown() and not (self.start_node is None):
+        if not (self.start_node is None):
             xy = self.Canvas.PixelToWorld(N.array( event.GetPosition() ))
             
             if self.locked is False:
@@ -461,23 +461,24 @@ class GUIEdges(GUIBase):
             self.count = 1  
             
         else:
-            if self.curr_node is not None:
+            try:
                 mf.graphics_nodes[ int(self.curr_node) ].SetFillColor(NODE_COLOR_NORMAL)
+            except (AttributeError, ValueError, TypeError):
+                pass
             self.locked = False
             self.curr_node = None
             
-    def SetEndNode(self):
+    def SetEndNode(self, n_id):
         mf = self.Canvas.GetParent().GetParent()
-        if self.curr_node is not None:
-            mf.SelectOneNode(mf.graphics_nodes[int(self.start_node)], True)
-            mf.SelectOneNode(mf.graphics_nodes[int(self.curr_node) ], False)
-            mf.SetModes('SetEndNode', {'auto_erase':False, 'manual_edges':True})
-            mf.CreateEdges(None)  
-            mf.RestoreModes('SetEndNode')
+#         if self.curr_node is not None:
+        mf.SelectOneNode(mf.graphics_nodes[int(self.start_node)], True)
+        mf.SelectOneNode(mf.graphics_nodes[int(n_id) ], False)
+        mf.SetModes('SetEndNode', {'auto_erase':False, 'manual_edges':True})
+        mf.CreateEdges(None)  
+        mf.RestoreModes('SetEndNode')
         self.start_node = None
         self.start_coords = None      
         self.EraseCurrentEdge()
-#         mf.graphics_nodes[ int(self.curr_node) ].SetFillColor(NODE_COLOR_NORMAL)
         mf.DeselectAll(None)
         self.Canvas.Draw(True)
         

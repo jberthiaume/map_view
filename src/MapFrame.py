@@ -67,7 +67,8 @@ class MapFrame(wx.Frame):
         self.sel_nodes = []
         self.sel_edges = [] 
         self.pe_graphic = None
-        self.curr_dest = None       
+        self.curr_dest = None   
+        self.started_edge = False    
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
@@ -167,7 +168,9 @@ class MapFrame(wx.Frame):
     def OnLeftDown(self, event):
         current_mode = self.Canvas.GetMode()        
         if current_mode=='GUIMouse':
-            self.CreateNode(event.Coords)            
+            self.CreateNode(event.Coords)        
+        elif current_mode == 'GUIEdges':
+            pass           
         elif current_mode=='GUISelect':
             pass               
     
@@ -181,9 +184,7 @@ class MapFrame(wx.Frame):
             end     = self.Canvas.SelBoxEnd 
             x_range = (start[0], end[0])
             y_range = (start[1], end[1])
-            self.SelectBox(x_range, y_range)        
-        elif current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.SetEndNode()
+            self.SelectBox(x_range, y_range) 
         else:
             pass   
     
@@ -1588,7 +1589,12 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode()  
         if current_mode == 'GUIEdges':
-            self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
+            if self.started_edge is False:
+                self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
+                self.started_edge = True
+            else:
+                self.Canvas.GUIMode.SetEndNode(obj.Name)
+                self.started_edge = False
 
 #--------------------------------------------------------------------------------------------#    
 #     Event handlers to change the mouse cursor when hovering over objects                   #
@@ -1598,32 +1604,32 @@ class MapFrame(wx.Frame):
         if current_mode == 'GUIEdges':
             self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
 #             print "enter node"          
-        else:
-            self.Canvas.GUIMode.SwitchCursor('enter')  
+#         else:
+        self.Canvas.GUIMode.SwitchCursor('enter')  
             
     def OnMouseLeaveNode(self, obj):        
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
             self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
 #             print "leave node"           
-        else:
-            self.Canvas.GUIMode.SwitchCursor('leave')  
+#         else:
+        self.Canvas.GUIMode.SwitchCursor('leave')  
                
     def OnMouseEnterEdge(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
             self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
 #             print "enter edge"
-        else:
-            self.Canvas.GUIMode.SwitchCursor('enter')  
+#         else:
+        self.Canvas.GUIMode.SwitchCursor('enter')  
                   
     def OnMouseLeaveEdge(self, obj):
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
             self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
 #             print "leave edge"
-        else:
-            self.Canvas.GUIMode.SwitchCursor('leave') 
+#         else:
+        self.Canvas.GUIMode.SwitchCursor('leave') 
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
