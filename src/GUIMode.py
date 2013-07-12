@@ -412,9 +412,18 @@ class GUIEdges(GUIBase):
 
     # Starts drawing the selection box when the left mouse button is pressed
     def OnLeftDown(self, event):  
+        mf = self.Canvas.GetParent().GetParent()
         EventType = FloatCanvas.EVT_FC_LEFT_DOWN
         if not self.Canvas.HitTest(event, EventType):
-                self.Canvas._RaiseMouseEvent(event, EventType)            
+            try:
+                mf.graphics_nodes[ int(self.start_node) ].SetFillColor(NODE_COLOR_NORMAL)
+            except (AttributeError, ValueError, TypeError):
+                pass
+            self.start_node = None
+            self.start_coords = None
+            self.EraseCurrentEdge()
+            self.Canvas.Draw(True)
+            self.Canvas._RaiseMouseEvent(event, EventType)            
     
     # Records the coordinates of the box when the left button is no longer held down
     def OnLeftUp(self, event):

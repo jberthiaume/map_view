@@ -8,29 +8,24 @@ import wx
 import os, time, shutil
 import math
 import ROSNode
+import Resources
 from datetime import datetime
 from MapFrame import MapFrame
 
-APP_SIZE        = (240,392)
+APP_SIZE        = (240,387)
 APP_SIZE_EXP    = (240,620)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BUTTON_SIZE_SM  = (85,30)
 TXT_FG_COLOR    = (221,72,20)
 TXT_BG_COLOR    = (185,185,180)
-BG_COLOR        = (205,205,205)
+BG_COLOR        = (230,230,230)
 H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
 #TOOD: BUG 9/7/13: redraw state gets stuck on False randomly (hard to reproduce)
-
-#TODO: make edge tool icon
-
-#TODO: edge tool cursor?
-
-#TODO: move gg/tour/find to mapframe
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -354,7 +349,7 @@ class MainPanel(wx.Panel):
                 
         try:
             map_file = self.ros.GetDefaultFilename()
-            self.pf.SetTitle("%s" % map_file)
+            self.mframe.SetTitle("Map Viewer    |    %s" % map_file)
             
             # Update some statuses
             self.EnableButtons(self.btn_disabled, True)
@@ -445,7 +440,7 @@ class MainPanel(wx.Panel):
                 
                 # Set the viewer image to the selected file
                 filename = dlg.GetPath()  
-                self.pf.SetTitle("%s" % dlg.GetFilename()) 
+                self.mframe.SetTitle("Map Viewer    |    %s" % dlg.GetFilename()) 
                 
                 # Import the node data. For this to work, the node file must have the same
                 # name as the map file, but with the extension ".graph"
@@ -529,7 +524,7 @@ class MainPanel(wx.Panel):
             et = datetime.now()
             print "Saved map %s. Time taken: %s" % (filename, (et-st))         
             self.SetSaveStatus(True) 
-            self.pf.SetTitle("%s" % dlg.GetFilename())
+            self.mframe.SetTitle("Map Viewer    |    %s" % dlg.GetFilename())
                         
         dlg.Destroy()
         
@@ -993,40 +988,54 @@ class ExplorePanel(wx.Panel):
         vbox10.Add(self.btn_tour)        
         self.sizer.Add(vbox10,1,wx.TOP,10) 
         
-        # Node/Edge radio buttons
+#         # Node/Edge radio buttons
+#         vbox03 = wx.BoxSizer(wx.VERTICAL)
+#         self.radio_node = wx.RadioButton(self, -1, "Node", style=wx.RB_GROUP) 
+#         self.radio_edge = wx.RadioButton(self, -1, "Edge")
+#         vbox03.Add(self.radio_node) 
+#         vbox03.Add(self.radio_edge) 
+#         self.hbox01.Add(vbox03,0,wx.TOP,5)    
+#         self.radio_node.Bind(wx.EVT_RADIOBUTTON, self.OnSelectNode)
+#         self.radio_edge.Bind(wx.EVT_RADIOBUTTON, self.OnSelectEdge)
+
         vbox03 = wx.BoxSizer(wx.VERTICAL)
-        self.radio_node = wx.RadioButton(self, -1, "Node", style=wx.RB_GROUP) 
-        self.radio_edge = wx.RadioButton(self, -1, "Edge")
-        vbox03.Add(self.radio_node) 
-        vbox03.Add(self.radio_edge) 
-        self.hbox01.Add(vbox03,0,wx.TOP,5)    
-        self.radio_node.Bind(wx.EVT_RADIOBUTTON, self.OnSelectNode)
-        self.radio_edge.Bind(wx.EVT_RADIOBUTTON, self.OnSelectEdge)
+        lbl_font = self.pf.font
+        lbl_font.SetPointSize(12)
+        self.lbl = wx.StaticText(self, label="Find:", style=wx.CENTER)  
+        self.lbl.SetFont(lbl_font)
+        self.lbl.SetForegroundColour((85,85,80))
+        vbox03.Add(self.lbl, 0, wx.LEFT, 18) 
+        self.hbox01.Add(vbox03,0,wx.TOP,19)
+        self.pf.font.SetPointSize(14)
         
         # Textbox
         vbox06 = wx.BoxSizer(wx.VERTICAL)     
         vbox06.AddSpacer(7)
-        self.txt = wx.TextCtrl(self, size=(45,30), style=wx.NO_BORDER|wx.TE_CENTER)
-        self.txt.SetMaxLength(3)    #Maximum of 3 characters
+        self.txt = wx.TextCtrl(self, size=(58,28), style=wx.TE_CENTER)
+        self.txt.SetMaxLength(4)    #Maximum of 4 characters
         self.txt.SetFont(self.pf.font)
         self.txt.SetForegroundColour((255,131,79))
         self.txt.SetBackgroundColour((85,85,80))
-        vbox06.Add(self.txt)
-        self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,8)
+        st = ("Usage: write \"n\" or \"e\" followed by a number.\n\n"
+              "\"n14\" finds Node 14, \"e23\" finds Edge 23, etc.")
+        self.txt.SetToolTip( wx.ToolTip(st) )
+        vbox06.Add(self.txt,1,wx.RIGHT,3)
+        self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,7)
          
         # Go button
         vbox09 = wx.BoxSizer(wx.VERTICAL)     
         vbox09.AddSpacer(9)
-        self.btn_go = wx.Button(self, label="Find", size=(53,32))        
-        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)
+        self.btn_go = wx.BitmapButton(self, -1, Resources.getOrangeArrowRightBitmap(),
+                                      size=(40,33), style=wx.NO_BORDER)
+        self.btn_go.SetToolTip( wx.ToolTip("Find a node or edge") )
+#         self.btn_go = wx.Button(self, label="Find", size=(53,32))        
+        self.btn_go.Bind(wx.EVT_BUTTON, self.OnFind)
         self.GetParent().btn_disabled.append(self.btn_go)
-        self.GetParent().buttons.append(self.btn_go) 
+#         self.GetParent().buttons.append(self.btn_go) 
         vbox09.Add(self.btn_go)        
-        self.hbox01.Add(vbox09,1,wx.TOP|wx.LEFT,5)        
+        self.hbox01.Add(vbox09,1,wx.TOP|wx.BOTTOM,2)        
         
-        self.sizer.Add(self.hbox01)
-               
-        
+        self.sizer.Add(self.hbox01)       
         
         self.SetSizer(self.sizer)  
         self.Layout()        
@@ -1063,20 +1072,35 @@ class ExplorePanel(wx.Panel):
         self.btn_go.Bind(wx.EVT_BUTTON, None)
         self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoEdge)
         
+    def OnFind(self, event):
+        txt = self.txt.GetValue()
+        if txt[0] == 'n' or txt[0] == 'N':
+            n_id = txt[1:]
+            self.GotoNode(n_id)            
+        elif txt[0] == 'e' or txt[0] == 'E':
+            e_id = txt[1:]
+            self.GotoNode(e_id)            
+        else:
+            st = ("Usage: write \"n\" or \"e\" followed by a number.\n\n"
+              "\"n14\" finds Node 14, \"e23\" finds Edge 23, etc.")
+            dlg = wx.MessageDialog(self, st, "Input Error", wx.ICON_ERROR)
+            dlg.ShowModal() 
+            dlg.Destroy()            
+        
 #---------------------------------------------------------------------------------------------#    
 #    Selects a node and zooms in on it.                                                       #
 #    Accepts an integer X from user input. If X is positive, zooms in on Node #X. If X is     #
 #    negative, zooms in on Node #(NumTotalNodes - X)                                          #
 #---------------------------------------------------------------------------------------------#    
-    def OnGotoNode(self, event):
-        txt = self.txt.GetValue()           
+    def GotoNode(self, n_id):          
         try:
-            ID = int(txt)            
+            ID = int(n_id)            
             try:
-                magnification = self.mframe.image_width / 250
+                magnification = self.mframe.image_width / 300.0
                 node = self.mframe.nodelist[ID]                
                 self.mframe.SelectOneNode(self.mframe.graphics_nodes[ID], True)                
                 self.mframe.Zoom(node.coords, magnification)
+                print "Zooming to Node %s" % ID
             except IndexError:
                 dlg = wx.MessageDialog(self,
                 "Node %s does not exist." % str(ID), "Error", wx.ICON_ERROR)
@@ -1094,12 +1118,11 @@ class ExplorePanel(wx.Panel):
 #    Accepts an integer X from user input. If X is positive, zooms in on Edge #X. If X is     #
 #    negative, zooms in on Edge #(NumTotalEdges - X)                                          #
 #---------------------------------------------------------------------------------------------#     
-    def OnGotoEdge(self, event):
-        txt = self.txt.GetValue()            
+    def GotoEdge(self, e_id):         
         try:
-            ID = int(txt)            
+            ID = int(e_id)            
             try:
-                magnification = self.mframe.image_width / 250                
+                magnification = self.mframe.image_width / 300.0               
                 edge = self.mframe.edgelist[ID] 
                 self.mframe.SelectOneEdge(self.mframe.graphics_edges[ID], True)
                 end1 = self.mframe.nodelist[int(edge.node1)].coords
@@ -1108,6 +1131,7 @@ class ExplorePanel(wx.Panel):
                 x = int( (math.fabs( end1[0]+end2[0])) /2 )   
                 y = int( (math.fabs( end1[1]+end2[1])) /2 )                  
                 self.mframe.Zoom((x,y), magnification)
+                print "Zooming to Edge %s" % ID
             except IndexError:
                 dlg = wx.MessageDialog(self,
                 "Edge %s does not exist." % str(ID), "Error", wx.ICON_ERROR)

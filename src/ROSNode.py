@@ -127,7 +127,7 @@ class ROSNode():
             except OSError:
                 pass        
             img_mirror.save(self.filename)
-            if self.mframe.verbose is True:         
+            if self.mframe.modes['verbose'] is True:         
                 print "Map file created. (%s)" % self.filename
             self.refresh = True
 

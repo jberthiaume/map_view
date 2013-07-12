@@ -170,7 +170,7 @@ class MapFrame(wx.Frame):
         if current_mode=='GUIMouse':
             self.CreateNode(event.Coords)        
         elif current_mode == 'GUIEdges':
-            pass           
+            self.started_edge = False           
         elif current_mode=='GUISelect':
             pass               
     
@@ -237,6 +237,10 @@ class MapFrame(wx.Frame):
 #    Event handler for moving nodes around with the arrow keys                                #
 #---------------------------------------------------------------------------------------------#      
     def OnKeyPress(self, event):
+        current_mode = self.Canvas.GetMode()  
+        if current_mode == 'GUIEdges':
+            return
+        
         self.SetModes('KeyPress', {
                         'redraw':False, 
                       })
@@ -1532,8 +1536,8 @@ class MapFrame(wx.Frame):
                 (y_range[0] <= mp[1] <= y_range[1] or
                  y_range[1] <= mp[1] <= y_range[0]) ):
                 self.SelectOneEdge(self.graphics_edges[edge.id], False)
-        self.RestoreModes('SelectBox')
         self.Canvas.Draw(True)
+        self.RestoreModes('SelectBox')
         
 #--------------------------------------------------------------------------------------------#    
 #     Select/deselect everything                                                             #
