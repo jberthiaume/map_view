@@ -25,14 +25,10 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#BUG 9/7/13  : redraw state gets stuck on False randomly (hard to reproduce)
-
 #BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
 
 #TODO: GenerateConnMatrix could be more efficient (why generate entire matrix twice for each edge created?)
 #        -> AddRow()?
-
-#TODO: is False -> ::
 
 #TODO: clean up modes dictionary after restore? (minor optimization)
 
@@ -325,7 +321,7 @@ class MainPanel(wx.Panel):
     def OnRefreshMap(self, event):
         self.ros.refresh = False
         
-        if self.saved is False:
+        if not self.saved:
             
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it?", 
@@ -416,7 +412,7 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#    
     def OnOpen(self, event): 
           
-        if self.saved is False:
+        if not self.saved:
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it before opening a new one?", 
             "Notice", wx.YES_NO)
@@ -555,7 +551,7 @@ class MainPanel(wx.Panel):
         self.Layout()        
     
     def OnCloseMap(self, event):  
-        if self.saved is False:
+        if not self.saved:
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it before closing?", 
             "Warning", wx.YES|wx.NO|wx.CANCEL)
@@ -579,7 +575,7 @@ class MainPanel(wx.Panel):
 #    Exits the application. If the current map is unsaved, user is asked to save first.       #
 #---------------------------------------------------------------------------------------------#    
     def OnExit(self, event):
-        if self.saved is False:
+        if not self.saved:
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it before exiting?", 
             "Warning", wx.YES_NO)

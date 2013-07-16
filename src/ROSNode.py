@@ -121,7 +121,7 @@ class ROSNode():
         img = img.rotate(180)
         img_mirror = ImageOps.mirror(img)
         
-        if self.refresh is False:
+        if not self.refresh:
             try:
                 os.remove(self.filename)
             except OSError:

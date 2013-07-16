@@ -168,7 +168,8 @@ class MapFrame(wx.Frame):
     def OnLeftDown(self, event):
         current_mode = self.Canvas.GetMode()        
         if current_mode=='GUIMouse':
-            self.CreateNode(event.Coords)        
+            self.CreateNode(event.Coords)   
+            print self.modes['redraw']     
         elif current_mode == 'GUIEdges':
             if self.started_edge:
                 self.CreateNode(event.Coords)
@@ -270,6 +271,8 @@ class MapFrame(wx.Frame):
                 xy = node.coords[0]+step, node.coords[1]
                 dxy = step,0
             else:
+                self.RestoreModes('KeyPress')
+                self.Canvas.Draw(True)
                 return    
                  
             node.coords = xy
@@ -302,7 +305,7 @@ class MapFrame(wx.Frame):
             self.graphics_edges[edge_id] = e           
             e.Name = str(edge_id)
         
-        self.RestoreModes('KeyPress')   
+        self.RestoreModes('KeyPress')  
         self.Canvas.Draw(True)            
         
               
@@ -418,7 +421,7 @@ class MapFrame(wx.Frame):
                 a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 self.arrow_drawn = True
              
-            elif self.workaround is False:    
+            elif not self.workaround:    
                 new_theta = theta + self.dt             
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
@@ -782,7 +785,7 @@ class MapFrame(wx.Frame):
                 data2 = image_data[ (w*y2)+x2 ]               
                 
                 if self.image_data_format is 'int':
-                    if self.modes['unknown_edges'] is False:
+                    if not self.modes['unknown_edges']:
                         if data1 != 0 or data2 != 0:
                             return False      
                     else:
@@ -790,7 +793,7 @@ class MapFrame(wx.Frame):
                             return False 
                                  
                 if self.image_data_format is 'byte':                    
-                    if self.modes['unknown_edges'] is False:
+                    if not self.modes['unknown_edges']:
                         if ord(data1) < 150 or ord(data2) < 150:
                             return False
                     else:
@@ -811,7 +814,7 @@ class MapFrame(wx.Frame):
                 data = image_data[ (w*y)+x ]    
                 
                 if self.image_data_format is 'int':
-                    if self.modes['unknown_edges'] is False:
+                    if not self.modes['unknown_edges']:
                         if data != 0:
                             return False      
                     else:
@@ -819,7 +822,7 @@ class MapFrame(wx.Frame):
                             return False 
                                        
                 if self.image_data_format is 'byte':
-                    if self.modes['unknown_edges'] is False:
+                    if not self.modes['unknown_edges']:
                         if ord(data) < 150:
                             return False
                     else:
@@ -943,7 +946,7 @@ class MapFrame(wx.Frame):
                         self.SelectOneNode(self.graphics_nodes[existing_node], False)
                         self.CreateEdges(None)
                         
-                    self.ConnectNeighbors(new_node, self.gg_const['k'], self.gg_const['e'], True)
+#                     self.ConnectNeighbors(new_node, self.gg_const['k'], self.gg_const['e'], True)
                     ok_to_proceed = True
             else:
                 ok_to_proceed = True
@@ -1115,9 +1118,11 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
     def ConnectNeighbors(self, input_node, k, e, refresh):  
         
-#         print "Connecting neighbors for node %s" % input_node
+        if self.modes['verbose']:
+            print "Connecting neighbors for node %s" % input_node
         self.SetModes('ConnectNeighbors', {
-                        'redraw':False
+                        'redraw':False,
+                        'auto_edges':False
                         })
         
         data = self.image_data
@@ -1328,7 +1333,7 @@ class MapFrame(wx.Frame):
     def ExportConnectionMatrix(self, filename, edgeitems, linewidth):         
         np.set_printoptions(edgeitems=edgeitems, linewidth=linewidth)  
               
-        if self.modes['export'] is False:
+        if not self.modes['export']:
             conn_file = open(filename, "w")
             self.SetModes('Export', {'export':True})
         else:
@@ -1605,7 +1610,7 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode()  
         if current_mode == 'GUIEdges':
-            if self.started_edge is False:
+            if not self.started_edge:
                 self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
                 self.started_edge = True
             else:
@@ -1767,19 +1772,19 @@ class MapFrame(wx.Frame):
             for i in range(w/d):
                 for j in range(w/d):
                     try:
-                        if image_data[ (w*i*d)+(j*d) ] >= 0 and foundB is False:
+                        if image_data[ (w*i*d)+(j*d) ] >= 0 and not foundB:
                             bot = i*d
                             foundB = True
                             
-                        if image_data[ w-((w*i*d)+(j*d)) ] >= 0 and foundT is False:
+                        if image_data[ w-((w*i*d)+(j*d)) ] >= 0 and not foundT:
                             top = w-(i*d)
                             foundT = True
                             
-                        if image_data[ (w*j*d)+(i*d) ] >= 0 and foundL is False:
+                        if image_data[ (w*j*d)+(i*d) ] >= 0 and not foundL:
                             left = i*d
                             foundL = True
                             
-                        if image_data[ w-((w*j*d)+(i*d)) ] >= 0 and foundR is False:
+                        if image_data[ w-((w*j*d)+(i*d)) ] >= 0 and not foundR:
                             right = w-(i*d)
                             foundR = True
                             
@@ -1797,19 +1802,19 @@ class MapFrame(wx.Frame):
             for i in range(w/d):
                 for j in range(w/d):
                     try:
-                        if image_data[ (w*i*d)+(j*d) ] != chr(100) and foundB is False:
+                        if image_data[ (w*i*d)+(j*d) ] != chr(100) and not foundB:
                             bot = i*d
                             foundB = True
                             
-                        if image_data[ w**2-((w*i*d)+(j*d)) ] != chr(100) and foundT is False:
+                        if image_data[ w**2-((w*i*d)+(j*d)) ] != chr(100) and not foundT:
                             top = w-(i*d)
                             foundT = True
                             
-                        if image_data[ (w*j*d)+(i*d) ] != chr(100) and foundL is False:
+                        if image_data[ (w*j*d)+(i*d) ] != chr(100) and not foundL:
                             left = i*d
                             foundL = True
                             
-                        if image_data[ w**2-((w*j*d)+(i*d)) ] != chr(100) and foundR is False:
+                        if image_data[ w**2-((w*j*d)+(i*d)) ] != chr(100) and not foundR:
                             right = w-(i*d)
                             foundR = True
                             
@@ -1849,10 +1854,9 @@ class MapFrame(wx.Frame):
 #     Zooms to the edges of the currently displayed map                                      #
 #--------------------------------------------------------------------------------------------#        
     def ZoomToFit(self):
-        #TODO: fgfg
         if self.update_imglimits:
             data_ready = False
-            while data_ready is False: 
+            while not data_ready: 
                 try:
                     self.img_limits = self.FindImageLimit(self.image_data, 10) 
                     self.update_imglimits = False
