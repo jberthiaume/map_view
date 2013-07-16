@@ -27,9 +27,6 @@ SIZER_BORDER    = 10
 
 #BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
 
-#TODO: GenerateConnMatrix could be more efficient (why generate entire matrix twice for each edge created?)
-#        -> AddRow()?
-
 #TODO: clean up modes dictionary after restore? (minor optimization)
 
 class MainFrame(wx.Frame):
@@ -1085,7 +1082,7 @@ class ExplorePanel(wx.Panel):
             self.GotoNode(n_id)            
         elif txt[0] == 'e' or txt[0] == 'E':
             e_id = txt[1:]
-            self.GotoNode(e_id)            
+            self.GotoEdge(e_id)            
         else:
             st = ("Usage: write \"N\" or \"E\" followed by a number.\n\n"
               "\"N14\" finds Node 14, \"E23\" finds Edge 23, etc.")
@@ -1167,7 +1164,10 @@ class ExplorePanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#             
     def OnTour(self, event):       
 #         self.pf.ros.PublishTour()
-        self.pf.mp.mframe.SaveCanvasImage("canvas.png")
+#         self.pf.mp.mframe.SaveCanvasImage("canvas.png")
+        self.pf.mp.mframe.ExportConnectionMatrix("conns.txt", 12, 250, "BEFORE")
+        self.pf.mp.mframe.GenerateConnectionMatrix()
+        self.pf.mp.mframe.ExportConnectionMatrix("conns.txt", 12, 250, "AFTER")
     
 if __name__ == '__main__':
     app = wx.App(False)

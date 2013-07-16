@@ -73,7 +73,8 @@ class MapFrame(wx.Frame):
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
         self.conn_matrix = np.empty(shape=(150,150))
-        self.conn_matrix[:] = -1          
+        self.conn_matrix[:] = -1   
+        self.tt = datetime(1000,1,1,0,0,0)       
        
         self.mp = self.GetParent()
         self.ros = self.mp.ros
@@ -168,8 +169,7 @@ class MapFrame(wx.Frame):
     def OnLeftDown(self, event):
         current_mode = self.Canvas.GetMode()        
         if current_mode=='GUIMouse':
-            self.CreateNode(event.Coords)   
-            print self.modes['redraw']     
+            self.CreateNode(event.Coords)
         elif current_mode == 'GUIEdges':
             if self.started_edge:
                 self.CreateNode(event.Coords)
@@ -397,7 +397,6 @@ class MapFrame(wx.Frame):
         
         
         if  self.TimeStep < self.NumTimeSteps: 
-            print self.TimeStep
             r.Move( (self.dx,self.dy) ) 
             x,y = r.XY
             theta = a.Theta           
@@ -616,11 +615,13 @@ class MapFrame(wx.Frame):
                 
             # Create the edges 
             lw = EDGE_WIDTH          
-            cl = EDGE_COLOR              
+            cl = EDGE_COLOR 
+            if self.conn_matrix[0][0] == -1:
+                self.GenerateConnectionMatrix() 
+                        
             for j in range(len(points)-1): 
                 
                 try:
-                    self.GenerateConnectionMatrix()
                     node1 = self.sel_nodes[j]
                     node2 = self.sel_nodes[j+1]
                     
@@ -651,7 +652,8 @@ class MapFrame(wx.Frame):
                                 print st % (node1.Name, node2.Name, md[0])
                             self.SelectOneEdge(self.graphics_edges[edge.id], True)
                             self.DeleteSelection(None)
-                        else:                              
+                        else:
+                            self.AddConnectionEntry(edge)                              
                             if self.modes['auto_intersections']:
                                 self.ConvertIntersections(edge)                                                        
                             if self.modes['verbose']:
@@ -665,8 +667,7 @@ class MapFrame(wx.Frame):
                             
                 except IndexError:
                     pass
-            
-            self.GenerateConnectionMatrix()   
+
             if self.modes['redraw']:
                 self.Canvas.Draw(True)
             self.DeselectAll(event)
@@ -1051,7 +1052,8 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
         wx.BeginBusyCursor()
-        st = datetime.now()        
+        st = datetime.now() 
+        self.tt = datetime(100,1,1,0,0,0) 
         self.SetModes('GenerateGraph', {
                         'auto_edges':False, 
                         'redraw':False, 
@@ -1085,6 +1087,7 @@ class MapFrame(wx.Frame):
         self.RestoreModes('GenerateGraph')
         if self.modes['verbose']:
             print "Total time to generate graph: %s" % str(et-st)
+        print "Total gcm time: %s" % self.tt
 
 #--------------------------------------------------------------------------------------------#
 #     Find the distances from a given node 'node1' to all other nodes in the graph.          # 
@@ -1309,7 +1312,8 @@ class MapFrame(wx.Frame):
 #       conn_matrix[B][A] are both -1.                                                       #
 #                                                                                            #
 #--------------------------------------------------------------------------------------------#       
-    def GenerateConnectionMatrix(self):        
+    def GenerateConnectionMatrix(self): 
+        st = datetime.now()
         Shape = self.conn_matrix.shape
         conn_mtx = np.empty(shape=Shape)        
         conn_mtx[:] = -1 
@@ -1324,13 +1328,22 @@ class MapFrame(wx.Frame):
             conn_mtx[i][i] = 0
             
         self.conn_matrix = conn_mtx
-#         return conn_mtx
+        et = datetime.now()
+        self.tt = self.tt + (et-st)
+#         print "Generated connection matrix. Time taken: %s" % (et-st)
+#         return conn_mtx     
+
+    def AddConnectionEntry(self, edge):
+        st = datetime.now()
+        self.conn_matrix[ int(edge.node1) ][ int(edge.node2) ] = edge.id
+        self.conn_matrix[ int(edge.node2) ][ int(edge.node1) ] = edge.id
+        et = datetime.now()
+        self.tt = self.tt + (et-st)
         
-    
 #--------------------------------------------------------------------------------------------#    
 #     For debugging purposes. Writes the connection matrix to a text file.                   #
 #--------------------------------------------------------------------------------------------#    
-    def ExportConnectionMatrix(self, filename, edgeitems, linewidth):         
+    def ExportConnectionMatrix(self, filename, edgeitems, linewidth, string):         
         np.set_printoptions(edgeitems=edgeitems, linewidth=linewidth)  
               
         if not self.modes['export']:
@@ -1341,7 +1354,8 @@ class MapFrame(wx.Frame):
         
         L = len(self.nodelist)   
         export_mtx = self.conn_matrix[0:L,0:L]       
-            
+        
+        conn_file.write("%s:\n" % string)    
         conn_file.write(str( export_mtx ))
         conn_file.write("\n\n")
         conn_file.close()            
@@ -1976,7 +1990,6 @@ class MapFrame(wx.Frame):
             self.image_data = self.ros.image_data
             self.image_data_format = "int"    
         
-#         if self.image_width is None: #TODO: figure out something here
         self.image_width = image.GetHeight() # Case where metadata was not set
         self.update_imglimits = True
         self.img = self.Canvas.AddScaledBitmap( image, 
@@ -1986,8 +1999,11 @@ class MapFrame(wx.Frame):
         self.LoadNodes()
         self.LoadEdges()
         self.GenerateConnectionMatrix()
-                
-        self.AddRobot(-1,-1)    
+         
+        if self.robot is None:        
+            self.AddRobot(-1,-1) 
+        else:
+            self.AddRobot(self.robot.Coords, self.arrow.Theta)   
         self.SetCurrentMapPath(image_file)
         self.Show() 
         self.Layout()        
