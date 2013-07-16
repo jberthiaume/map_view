@@ -25,7 +25,16 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TOOD: BUG 9/7/13: redraw state gets stuck on False randomly (hard to reproduce)
+#BUG 9/7/13  : redraw state gets stuck on False randomly (hard to reproduce)
+
+#BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
+
+#TODO: GenerateConnMatrix could be more efficient (why generate entire matrix twice for each edge created?)
+#        -> AddRow()?
+
+#TODO: is False -> ::
+
+#TODO: clean up modes dictionary after restore? (minor optimization)
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -62,9 +71,10 @@ class MainFrame(wx.Frame):
         self.Layout() 
         self.mp.ep.size = self.mp.ep.GetSize()
         self.ros.Listen()       
-        
+    
+    # Placeholder function in case I want to reroute stdout at some point   
     def SuppressOutput(self, boolean):
-        if boolean is True:
+        if boolean:
             self.verbose = False
         else:
             self.verbose = True
@@ -344,7 +354,7 @@ class MainPanel(wx.Panel):
         msg = "Retrieving map..."
         self.mframe.SetBusyDialog(msg)  
         wx.Yield() 
-        if self.verbose is True:
+        if self.verbose:
             print "Retrieving data from /map topic..."  
                 
         try:
@@ -463,7 +473,7 @@ class MainPanel(wx.Panel):
                 et = datetime.now()
                 self.mframe.Show()
 #                 self.mframe.NavCanvas.Show()
-#                 if self.verbose is True:
+#                 if self.verbose:
                 print "Loaded map %s. Time taken: %s" % (filename, (et-st))
                             
             dlg.Destroy()
@@ -486,7 +496,7 @@ class MainPanel(wx.Panel):
             self.mframe.ExportGraph(graph_file)
             graph_file.close()
             
-#             if self.verbose is True:
+#             if self.verbose:
             et = datetime.now()
             print "Saved map %s. Time taken: %s" % (current_map, (et-st))
             self.SetSaveStatus(True) 
@@ -520,7 +530,7 @@ class MainPanel(wx.Panel):
             graph_file.close()            
             self.mframe.current_map = filename
             
-#             if self.verbose is True:  
+#             if self.verbose:  
             et = datetime.now()
             print "Saved map %s. Time taken: %s" % (filename, (et-st))         
             self.SetSaveStatus(True) 
@@ -1016,8 +1026,8 @@ class ExplorePanel(wx.Panel):
         self.txt.SetFont(self.pf.font)
         self.txt.SetForegroundColour((255,131,79))
         self.txt.SetBackgroundColour((85,85,80))
-        st = ("Usage: write \"n\" or \"e\" followed by a number.\n\n"
-              "\"n14\" finds Node 14, \"e23\" finds Edge 23, etc.")
+        st = ("Usage: write \"N\" or \"E\" followed by a number.\n\n"
+              "\"N14\" finds Node 14, \"E23\" finds Edge 23, etc.")
         self.txt.SetToolTip( wx.ToolTip(st) )
         vbox06.Add(self.txt,1,wx.RIGHT,3)
         self.hbox01.Add(vbox06,1,wx.TOP|wx.LEFT,7)
@@ -1081,8 +1091,8 @@ class ExplorePanel(wx.Panel):
             e_id = txt[1:]
             self.GotoNode(e_id)            
         else:
-            st = ("Usage: write \"n\" or \"e\" followed by a number.\n\n"
-              "\"n14\" finds Node 14, \"e23\" finds Edge 23, etc.")
+            st = ("Usage: write \"N\" or \"E\" followed by a number.\n\n"
+              "\"N14\" finds Node 14, \"E23\" finds Edge 23, etc.")
             dlg = wx.MessageDialog(self, st, "Input Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()            

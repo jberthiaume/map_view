@@ -17,7 +17,8 @@ import Resources
 from wx.lib.floatcanvas.Utilities import BBox
 
 LINE_WIDTH        =  3
-LINE_COLOR        = (20,200,0)
+LINE_COLOR_DRAW   = (225,113,45)
+LINE_COLOR_DONE   = (20,200,0)
 EDGE_WIDTH        =  4
 EDGE_COLOR_NORMAL = (110,110,105)
 EDGE_COLOR_LOCKED = (255,106,54)
@@ -333,8 +334,15 @@ class GUIPoseEst(GUIBase):
                     and abs(StartPoint[1] - EndPoint[1]) > 5 ):
                 StartPoint = self.Canvas.PixelToWorld(StartPoint)
                 EndPoint = self.Canvas.PixelToWorld(event.GetPosition())
-                self.Canvas.PoseEstStart = StartPoint
-                self.Canvas.PoseEstEnd   = EndPoint
+                
+                try:
+                    self.Canvas.RemoveObject(self.ArrowLine)
+                except (ValueError, AttributeError):
+                    pass
+                self.ArrowLine = self.Canvas.AddArrowLine((StartPoint,EndPoint), 
+                                                     LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_DONE,
+                                                     ArrowHeadSize=10, InForeground=True)
+                
                 self.Publish2DPoseEstimate(StartPoint, EndPoint, self.ArrowLine)
             else:
                 self.Canvas.PoseEstStart = (0,0)
@@ -354,7 +362,7 @@ class GUIPoseEst(GUIBase):
             except (ValueError, AttributeError):
                 pass
             self.ArrowLine = self.Canvas.AddArrowLine((xy0,xy1), 
-                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR,
+                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_DRAW,
                                                  ArrowHeadSize=10, InForeground=True)
             self.PrevPoint = xy1
             self.Canvas.Draw(True)
@@ -417,7 +425,7 @@ class GUIEdges(GUIBase):
         if not self.Canvas.HitTest(event, EventType):
             try:
                 mf.graphics_nodes[ int(self.start_node) ].SetFillColor(NODE_COLOR_NORMAL)
-            except (AttributeError, ValueError, TypeError):
+            except (AttributeError, ValueError, TypeError, IndexError):
                 pass
             self.start_node = None
             self.start_coords = None
@@ -431,9 +439,11 @@ class GUIEdges(GUIBase):
         if not self.Canvas.HitTest(event, EventType):
                 self.Canvas._RaiseMouseEvent(event, EventType)     
 
-    def SetStartNode(self, n_id, n_coords):
+    def SetStartNode(self, n_id, n_coords):        
+        mf = self.Canvas.GetParent().GetParent()
         self.start_node = n_id
         self.start_coords = n_coords
+        mf.graphics_nodes[ int(n_id) ].SetFillColor(NODE_COLOR_LOCKED)
         self.curr_node = None
         self.Canvas.CaptureMouse()
     
@@ -479,10 +489,11 @@ class GUIEdges(GUIBase):
             
     def SetEndNode(self, n_id):
         mf = self.Canvas.GetParent().GetParent()
+        
 #         if self.curr_node is not None:
+        mf.SetModes('SetEndNode', {'auto_erase':False, 'manual_edges':True, 'redraw':False})
         mf.SelectOneNode(mf.graphics_nodes[int(self.start_node)], True)
         mf.SelectOneNode(mf.graphics_nodes[int(n_id) ], False)
-        mf.SetModes('SetEndNode', {'auto_erase':False, 'manual_edges':True})
         mf.CreateEdges(None)  
         mf.RestoreModes('SetEndNode')
         self.start_node = None
