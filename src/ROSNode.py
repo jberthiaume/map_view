@@ -8,11 +8,14 @@ from datetime import datetime
 from std_msgs.msg import String                             #@UnresolvedImport
 from std_msgs.msg import UInt32                             #@UnresolvedImport
 from nav_msgs.msg import OccupancyGrid                      #@UnresolvedImport
+from nav_msgs.msg import GridCells                          #@UnresolvedImport
 from geometry_msgs.msg import PoseWithCovarianceStamped     #@UnresolvedImport
 from geometry_msgs.msg import Twist                         #@UnresolvedImport
-# from move_base_msgs.msg import MoveBaseActionGoal    ##incompatible with catkin##
 import Image
 import ImageOps
+
+from move_base_msgs.msg import MoveBaseActionGoal           #@UnresolvedImport
+from move_base_msgs.msg import MoveBaseActionResult         #@UnresolvedImport      
 
 FILENAME = "map.png"
 
@@ -36,16 +39,21 @@ class ROSNode():
         
         self.vel_linear = None
         self.vel_angular = None
+        self.obstacles = []
                  
         self.image_width = 1000
         self.resolution = None
         self.refresh = False
+        self.ok = True
         self.image = None
         self.filename = FILENAME       
         
         self.parent = parent
+#         self.tt = TimerThread(self)
+#         self.tt.start()
         self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
+        self.goal_pub = rospy.Publisher('move_base/goal', MoveBaseActionGoal)
         
     def PublishTour(self):  
         msg = "Tour %s" % rospy.get_time()
@@ -57,7 +65,16 @@ class ROSNode():
         pwc.pose.pose.position.y = point[1]
         pwc.pose.pose.orientation.z = orient[2]
         pwc.pose.pose.orientation.w = orient[3]
-        self.pose_pub.publish(pwc)        
+        self.pose_pub.publish(pwc)   
+        
+    def Publish2DNavGoal(self, point, orient):
+        ag = MoveBaseActionGoal()
+        ag.goal.target_pose.header.frame_id = "/map"
+        ag.goal.target_pose.pose.position.x = point[0]
+        ag.goal.target_pose.pose.position.y = point[1]
+        ag.goal.target_pose.pose.orientation.z = orient[2]
+        ag.goal.target_pose.pose.orientation.w = orient[3]
+        self.goal_pub.publish(ag)     
     
     def Listen(self):
         self.refresh = False
@@ -67,6 +84,8 @@ class ROSNode():
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
         rospy.Subscriber("tour", String, self.TourCB)
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
+#         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
+#         rospy.Subscriber("move_base/goal", MoveBaseActionGoal, self.GoalCB)
         
         if __name__ == '__main__':
             rospy.spin()       
@@ -75,7 +94,6 @@ class ROSNode():
 #    Callback function for the "/node_traveller/dest" topic                                   #
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
-#         print "map viewer received data: %s" % str(data.data)
         dest = int(data.data) 
         self.mframe.HighlightDestination(dest)             
 
@@ -92,11 +110,27 @@ class ROSNode():
         self.mframe.MoveRobotTo(destination, orient, True)
         
 #---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/cmd_vel" topic                                             #
+#    Callback function for the "/cmd_vel" topic                                               #
 #---------------------------------------------------------------------------------------------#    
     def VelocityCB(self, data):
         self.vel_linear = (data.linear.x, data.linear.y)
         self.vel_angular = (data.angular.z)
+        
+#     def StatusCB(self, data):
+#         status = int(data.status.status)
+#         if status == 3:
+#             self.mframe.OnReachDestination()
+#         pass
+        
+#     def ObsCB(self, data):
+#         pass
+#         if self.ok:
+#             print "Received obstacles"
+#             if ( (data.cell_width+0.01 < 0.05) or (data.cell_width-0.01 > 0.05) ):
+#                 print "Warning: obstacle cell size different than expected"
+#             self.obstacles = data.cells
+# #             self.mframe.DrawObstacles(self.obstacles)
+#             self.ok = False
         
     def TourCB(self, data):
         print "Received tour message"
@@ -173,7 +207,7 @@ class ROSNode():
         return self.filename     
     
     def SetAttributes(self):        
-        self.mframe = self.parent.mp.mframe  
+        self.mframe = self.parent.mp.mframe 
     
     
 if __name__ == '__main__':

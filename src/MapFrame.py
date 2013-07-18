@@ -7,7 +7,6 @@ Created on May 30, 2013
 '''
 
 import wx 
-import sys
 import pickle
 import math
 import time
@@ -28,6 +27,7 @@ ROBOT_FILL_2        = (180,0,0)
 ROBOT_BORDER        = (50,0,0)
 HIGHLIGHT_COLOR     = (255,106,54)
 DESTINATION_COLOR   = (50,200,50)
+OBSTACLE_COLOR      = (240,30,30)
 TEXT_COLOR          = (119,41,83)
 
 #----- Global dimensions for graphical objects -----#
@@ -60,6 +60,7 @@ class MapFrame(wx.Frame):
         
         self.nodelist = []
         self.edgelist = []
+        self.obstacles = []
         self.graphics_nodes = []
         self.graphics_edges = []
         self.graphics_text = []
@@ -67,6 +68,7 @@ class MapFrame(wx.Frame):
         self.sel_nodes = []
         self.sel_edges = [] 
         self.pe_graphic = None
+        self.ng_graphic = None
         self.curr_dest = None   
         self.started_edge = False    
         
@@ -364,9 +366,9 @@ class MapFrame(wx.Frame):
         
         distance = self.Distance(dest, r.XY)
         if distance < 150:
-            self.NumTimeSteps = 24  
+            self.NumTimeSteps = 12  
         else:
-            self.NumTimeSteps = 60 
+            self.NumTimeSteps = 48 
         
         self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
@@ -455,17 +457,30 @@ class MapFrame(wx.Frame):
             a.Coords = r.XY
             a.Theta  = new_theta
             self.arrow = a
-            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-                    
-            self.robot.SetFillColor(ROBOT_FILL_2)
+            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)            
+                      
             try:
                 self.Canvas.RemoveObject(self.pe_graphic)
                 self.pe_graphic = None
             except (ValueError, AttributeError):
-                pass
+                pass        
+            self.robot.SetFillColor(ROBOT_FILL_2)
             
             self.Timer.Stop()
             self.Canvas.Draw(True)
+            
+    def OnReachDestination(self):       
+        try:
+            self.Canvas.RemoveObject(self.ng_graphic)
+            self.ng_graphic = None
+        except (ValueError, AttributeError):
+            pass
+        
+        if self.curr_dest is not None: 
+            self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
+            self.curr_dest = None
+            
+        self.Canvas.Draw(True)
             
 #---------------------------------------------------------------------------------------------#    
 #    Sends 2D Pose Estimate data to the ROS node to be published                              #
@@ -487,11 +502,52 @@ class MapFrame(wx.Frame):
         if self.modes['verbose']:
             x = self.Truncate(pose[0], 4)
             y = self.Truncate(pose[1], 4)
-            print "Created 2D Pose estimate at point (%s, %s)" % (x, y)
+            print "Created 2D pose estimate at point (%s, %s)" % (x, y)
         self.ros.Publish2DPoseEstimate(pose, orient)
         
-    def DrawObstacle(self, points, graphics):
-        pass  
+#---------------------------------------------------------------------------------------------#    
+#    Sends 2D NavGoal data to the ROS node to be published                                    #
+#---------------------------------------------------------------------------------------------# 
+    def Publish2DNavGoal(self, start_pt, end_pt, graphic_obj):
+        x1 = start_pt[0]
+        y1 = start_pt[1]
+        x2 = end_pt[0]
+        y2 = end_pt[1]
+        self.ng_graphic = graphic_obj
+        
+        pose = self.PixelsToMeters(start_pt)
+        
+        theta = math.atan2(y2-y1, x2-x1)
+        z = math.sin(theta/2.0)
+        w = math.cos(theta/2.0)        
+        orient = (0,0,z,w)        
+        
+        if self.modes['verbose']:
+            x = self.Truncate(pose[0], 4)
+            y = self.Truncate(pose[1], 4)
+            print "Created 2D nav goal at point (%s, %s)" % (x, y)
+        self.ros.Publish2DNavGoal(pose, orient)
+        
+    def DrawObstacles(self, points):
+        pass
+#         print len(points)
+#         try:
+#             for point in points:
+#                 x = int( self.MetersToPixels((point.x,0))[0] )
+#                 y = int( self.MetersToPixels((point.y,0))[0] )               
+#                 
+#                 fc = OBSTACLE_COLOR
+#                 lc = ROBOT_BORDER
+#                 d = 5
+#                 lw = 1
+# #                 p = self.Canvas.AddRectangle((x-(d/2), y-(d/2)), (d,d), LineWidth = lw, 
+# #                                           LineColor = lc, FillColor = fc)
+#                 p = self.Canvas.AddCircle((x,y), d, FillColor=fc, LineColor=fc)
+#                 p.Coords = (x,y)
+#                 self.obstacles.append(p)
+#             self.Canvas.Draw(True)
+#         except AttributeError:
+#             pass
             
 #---------------------------------------------------------------------------------------------#    
 #    Event handler when the user clicks on the robot graphic.                                 #
@@ -507,11 +563,12 @@ class MapFrame(wx.Frame):
 #    Marks the robot's current goal node                                                      #
 #---------------------------------------------------------------------------------------------#             
     def HighlightDestination(self, dest):
-        if self.curr_dest is not None: 
-            self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
-        self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)      
-        self.curr_dest = dest
-        self.Canvas.Draw(True)
+        print "Heading to node %s" % dest
+#         if self.curr_dest is not None: 
+#             self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
+#         self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)  
+#         self.curr_dest = dest
+#         self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -1472,13 +1529,23 @@ class MapFrame(wx.Frame):
 #     Functions to convert between pixel coordinates and real-world metric coordinates       #
 #--------------------------------------------------------------------------------------------#    
     def PixelsToMeters(self, xy_p):
-        x = (xy_p[0] * self.resolution) + self.origin.x
-        y = (xy_p[1] * self.resolution) + self.origin.y
-        return (x,y)      
+        try:
+            x = (xy_p[0] * self.resolution) + self.origin.x
+            y = (xy_p[1] * self.resolution) + self.origin.y
+            return (x,y)  
+        except AttributeError:
+            x = (xy_p[0] * self.resolution) - 100
+            y = (xy_p[1] * self.resolution) - 100
+            return (x,y)    
     def MetersToPixels(self, xy_m):
-        x = (xy_m[0] - self.origin.x) / self.resolution
-        y = (xy_m[1] - self.origin.y) / self.resolution
-        return (x,y)
+        try:
+            x = (xy_m[0] - self.origin.x) / self.resolution
+            y = (xy_m[1] - self.origin.y) / self.resolution
+            return (x,y)
+        except AttributeError:
+            x = (xy_m[0] + 100) / self.resolution
+            y = (xy_m[1] + 100) / self.resolution
+            return (x,y)
 
 #--------------------------------------------------------------------------------------------#    
 #     Truncates a floating point number 'f' to 'n' decimal places                            #
@@ -2003,7 +2070,9 @@ class MapFrame(wx.Frame):
         if self.robot is None:        
             self.AddRobot(-1,-1) 
         else:
-            self.AddRobot(self.robot.Coords, self.arrow.Theta)   
+            self.AddRobot(self.robot.Coords, self.arrow.Theta)  
+#         self.DrawObstacles(self.ros.obstacles)
+             
         self.SetCurrentMapPath(image_file)
         self.Show() 
         self.Layout()        

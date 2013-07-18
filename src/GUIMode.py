@@ -409,6 +409,109 @@ class GUIPoseEst(GUIBase):
         EventType = FloatCanvas.EVT_FC_MOUSEWHEEL
         self.Canvas._RaiseMouseEvent(event, EventType)
         
+class GUINavGoal(GUIBase):
+    def __init__(self, canvas=None):
+        GUIBase.__init__(self, canvas)
+        self.Cursor = self.Cursors.ArrowCursor
+
+    # Starts drawing the selection box when the left mouse button is pressed
+    def OnLeftDown(self, event):
+        self.StartPoint = N.array( event.GetPosition() )
+        try:
+            self.Canvas.RemoveObject(self.NGArrowLine)
+        except (ValueError, AttributeError):
+                pass
+        self.NGArrowLine = None        
+        self.PrevPoint = None
+        self.Canvas.CaptureMouse()
+    
+    # Records the coordinates of the box when the left button is no longer held down
+    def OnLeftUp(self, event):
+        if event.LeftUp() and not self.StartPoint is None:            
+            self.PrevPoint = None
+            EndPoint = event.GetPosition()
+            StartPoint = self.StartPoint
+            
+            # if mouse has moved less that ten pixels, don't use the box.
+            if ( abs(StartPoint[0] - EndPoint[0]) > 5
+                    and abs(StartPoint[1] - EndPoint[1]) > 5 ):
+                StartPoint = self.Canvas.PixelToWorld(StartPoint)
+                EndPoint = self.Canvas.PixelToWorld(event.GetPosition())
+                
+                try:
+                    self.Canvas.RemoveObject(self.NGArrowLine)
+                except (ValueError, AttributeError):
+                    pass
+                self.NGArrowLine = self.Canvas.AddArrowLine((StartPoint,EndPoint), 
+                                                     LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_DONE,
+                                                     ArrowHeadSize=10, InForeground=True)
+                
+                self.Publish2DNavGoal(StartPoint, EndPoint, self.NGArrowLine)
+            else:
+                self.Canvas.PoseEstStart = (0,0)
+                self.Canvas.PoseEstEnd   = (0,0)
+            self.StartPoint = None
+            self.Canvas.Draw(True)
+    
+    # Keep track of the mouse position while the left button is held down
+    def OnMove(self, event):
+        self.Canvas._RaiseMouseEvent(event,FloatCanvas.EVT_FC_MOTION)
+        if event.Dragging() and event.LeftIsDown() and not (self.StartPoint is None):
+            xy0 = self.Canvas.PixelToWorld(self.StartPoint)
+            xy1 = self.Canvas.PixelToWorld(N.array( event.GetPosition() ))
+            
+            try:
+                self.Canvas.RemoveObject(self.NGArrowLine)
+            except (ValueError, AttributeError):
+                pass
+            self.NGArrowLine = self.Canvas.AddArrowLine((xy0,xy1), 
+                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_DRAW,
+                                                 ArrowHeadSize=10, InForeground=True)
+            self.PrevPoint = xy1
+            self.Canvas.Draw(True)
+
+    def Publish2DNavGoal(self, start, end, graphic_obj):        
+        self.Canvas.GetParent().GetParent().Publish2DNavGoal(start,end, graphic_obj)
+
+    def OnLeftDouble(self, event):
+        EventType = FloatCanvas.EVT_FC_LEFT_DCLICK
+        if not self.Canvas.HitTest(event, EventType):
+                self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMiddleDown(self, event):
+        EventType = FloatCanvas.EVT_FC_MIDDLE_DOWN
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMiddleUp(self, event):
+        EventType = FloatCanvas.EVT_FC_MIDDLE_UP
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnMiddleDouble(self, event):
+        EventType = FloatCanvas.EVT_FC_MIDDLE_DCLICK
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnRightDown(self, event):
+        EventType = FloatCanvas.EVT_FC_RIGHT_DOWN
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnRightUp(self, event):
+        EventType = FloatCanvas.EVT_FC_RIGHT_UP
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnRightDouble(self, event):
+        EventType = FloatCanvas.EVT_FC_RIGHT_DCLICK
+        if not self.Canvas.HitTest(event, EventType):
+            self.Canvas._RaiseMouseEvent(event, EventType)
+
+    def OnWheel(self, event):
+        EventType = FloatCanvas.EVT_FC_MOUSEWHEEL
+        self.Canvas._RaiseMouseEvent(event, EventType)
+        
 
 class GUIEdges(GUIBase):
     def __init__(self, canvas=None):

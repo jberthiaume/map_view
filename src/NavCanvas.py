@@ -37,11 +37,12 @@ class NavCanvas(wx.Panel):
         self.Modes = [
           ("Add Nodes / Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
           ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
-          ("Add Edges",  GUIMode.GUIEdges(),   Resources.getEdgeIconBitmap()),
-          ("2D Pose Estimate",  GUIMode.GUIPoseEst(),   Resources.getDiagonalArrowBitmap()),
-          ("Zoom In",     GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
-          ("Zoom Out",    GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),          
-          ("Pan",         GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
+          ("Add Edges",           GUIMode.GUIEdges(),   Resources.getEdgeIconBitmap()),
+          ("2D Pose Estimate",    GUIMode.GUIPoseEst(),   Resources.getDiagonalArrowBitmap()),
+          ("2D Nav Goal",         GUIMode.GUINavGoal(),   Resources.getMoveRLCursorBitmap()),
+          ("Zoom In",             GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
+          ("Zoom Out",            GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),          
+          ("Pan",                 GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
                       ]
         
                                       

@@ -27,7 +27,9 @@ SIZER_BORDER    = 10
 
 #BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
 
-#TODO: clean up modes dictionary after restore? (minor optimization)
+#TODO: fix 2d pose estimate angles
+
+#TODO: 2d nav goal icon
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -359,7 +361,12 @@ class MainPanel(wx.Panel):
             self.SetSaveStatus(False)     
             
             while self.ros.image is None:
-                time.sleep(0.5)                  
+                time.sleep(0.5) 
+#             wait_time = 0
+#             while self.ros.obstacles == [] and wait_time < 6:
+#                 print "sleeping 0.5"
+#                 time.sleep(0.5)
+#                 wait_time += 1                 
             self.mframe.SetImage(self.ros.image)
             
         except IndexError:
@@ -369,6 +376,7 @@ class MainPanel(wx.Panel):
         self.mframe.Show()   
         self.mframe.KillBusyDialog()
         wx.EndBusyCursor()
+        self.ros.refresh2 = False
         self.btn_map.SetLabel("Hide Map")         
         self.Layout()           
        
@@ -581,7 +589,9 @@ class MainPanel(wx.Panel):
                 # User has chosen to save the map
                 self.OnSaveAs(event)
             dlg.Destroy()        
-            
+        
+#         self.ros.tt.stopped = True
+#         self.ros.tt.join()    
         self.mframe.Close()
         self.pf.Close()
                 
