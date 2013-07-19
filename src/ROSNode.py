@@ -102,8 +102,7 @@ class ROSNode():
 #---------------------------------------------------------------------------------------------#    
     def PoseCB(self, data):
         self.pose_pos = data.pose.pose.position
-        self.pose_orient = data.pose.pose.orientation
-                
+        self.pose_orient = data.pose.pose.orientation                
         destination = (self.pose_pos.x, self.pose_pos.y)
         orient = self.pose_orient
                

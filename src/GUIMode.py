@@ -17,7 +17,8 @@ import Resources
 from wx.lib.floatcanvas.Utilities import BBox
 
 LINE_WIDTH        =  3
-LINE_COLOR_DRAW   = (225,113,45)
+LINE_COLOR_POSE   = (225,113,45)
+LINE_COLOR_NAV    = (119,41,83)
 LINE_COLOR_DONE   = (20,200,0)
 EDGE_WIDTH        =  4
 EDGE_COLOR_NORMAL = (110,110,105)
@@ -362,7 +363,7 @@ class GUIPoseEst(GUIBase):
             except (ValueError, AttributeError):
                 pass
             self.ArrowLine = self.Canvas.AddArrowLine((xy0,xy1), 
-                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_DRAW,
+                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_POSE,
                                                  ArrowHeadSize=10, InForeground=True)
             self.PrevPoint = xy1
             self.Canvas.Draw(True)
@@ -465,7 +466,7 @@ class GUINavGoal(GUIBase):
             except (ValueError, AttributeError):
                 pass
             self.NGArrowLine = self.Canvas.AddArrowLine((xy0,xy1), 
-                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_DRAW,
+                                                 LineWidth=LINE_WIDTH, LineColor=LINE_COLOR_NAV,
                                                  ArrowHeadSize=10, InForeground=True)
             self.PrevPoint = xy1
             self.Canvas.Draw(True)
