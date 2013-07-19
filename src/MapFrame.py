@@ -469,16 +469,39 @@ class MapFrame(wx.Frame):
             self.Timer.Stop()
             self.Canvas.Draw(True)
             
-    def OnReachDestination(self):       
-        try:
-            self.Canvas.RemoveObject(self.ng_graphic)
-            self.ng_graphic = None
-        except (ValueError, AttributeError):
-            pass
+    def OnReachDestination(self):  
+        print "Reached destination"   
+        rm_obj = False
+        while not rm_obj:
+            try:                        
+                try:
+                    print "Removing 2D nav goal graphic"
+                    self.Canvas.RemoveObject(self.ng_graphic)
+                    self.ng_graphic = None
+                except (ValueError, AttributeError):
+                    pass    
+                rm_obj = True
+            except OSError as e:
+                if e.errno == 11:
+                    print "error 11"
+                    time.sleep(0.5)
+                else:
+                    print e.errno      
         
-        if self.curr_dest is not None: 
-            self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
-            self.curr_dest = None
+        color_set = False
+        while not color_set:
+            try:
+                if self.curr_dest is not None: 
+                    print "Resetting node color"
+                    self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
+                    self.curr_dest = None
+                color_set = True
+            except OSError as e:
+                if e.errno == 11:
+                    print "error 11"
+                    time.sleep(0.5)
+                else:
+                    print e.errno
             
         self.Canvas.Draw(True)
             
@@ -563,12 +586,52 @@ class MapFrame(wx.Frame):
 #    Marks the robot's current goal node                                                      #
 #---------------------------------------------------------------------------------------------#             
     def HighlightDestination(self, dest):
-        print "Heading to node %s" % dest
-#         if self.curr_dest is not None: 
-#             self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL) 
-#         self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)  
-#         self.curr_dest = dest
-#         self.Canvas.Draw(True)
+#         rm_obj = False
+#         while not rm_obj:
+#             try:                        
+#                 try:
+#                     print "Removing 2D nav goal graphic"
+#                     self.Canvas.RemoveObject(self.ng_graphic)
+#                     self.ng_graphic = None
+#                 except (ValueError, AttributeError):
+#                     pass    
+#                 rm_obj = True
+#             except OSError as e:
+#                 if e.errno == 11:
+#                     print "error 11"
+#                     time.sleep(0.5)
+#                 else:
+#                     print e.errno      
+        
+        color_set = False
+        while not color_set:
+            try:
+                if self.curr_dest is not None: 
+                    print "Resetting node color"
+                    self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
+                    self.curr_dest = None
+                color_set = True
+            except OSError as e:
+                if e.errno == 11:
+                    print "error 11"
+                    time.sleep(0.5)
+                else:
+                    print e.errno
+        
+        print "Set heading to node %s" % dest                    
+        color_set = False
+        while not color_set:
+            try:
+                self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)
+                color_set = True
+            except OSError as e:
+                if e.errno == 11:
+                    print "error 11"
+                    time.sleep(0.5)
+                else:
+                    print e.errno  
+        self.curr_dest = dest
+        self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #

@@ -29,7 +29,7 @@ SIZER_BORDER    = 10
 
 #TODO: fix 2d pose estimate angles
 
-#TODO: 2d nav goal icon
+#TODO: OnReachDestination() / HighlightDestination()
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):

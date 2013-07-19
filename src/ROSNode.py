@@ -84,7 +84,7 @@ class ROSNode():
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
         rospy.Subscriber("tour", String, self.TourCB)
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
-#         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
+        rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
 #         rospy.Subscriber("move_base/goal", MoveBaseActionGoal, self.GoalCB)
         
         if __name__ == '__main__':
@@ -95,7 +95,8 @@ class ROSNode():
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
         dest = int(data.data) 
-        self.mframe.HighlightDestination(dest)             
+        print "Heading to node %s" % dest
+#         self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
@@ -115,9 +116,10 @@ class ROSNode():
         self.vel_linear = (data.linear.x, data.linear.y)
         self.vel_angular = (data.angular.z)
         
-#     def StatusCB(self, data):
-#         status = int(data.status.status)
-#         if status == 3:
+    def StatusCB(self, data):
+        status = int(data.status.status)
+        if status == 3:
+            print "Reached destination."
 #             self.mframe.OnReachDestination()
 #         pass
         
