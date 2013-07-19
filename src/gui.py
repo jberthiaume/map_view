@@ -31,6 +31,8 @@ SIZER_BORDER    = 10
 
 #TODO: OnReachDestination() / HighlightDestination()
 
+#TODO: color edges ^
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE,

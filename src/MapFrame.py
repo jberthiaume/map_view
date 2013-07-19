@@ -28,6 +28,7 @@ ROBOT_BORDER        = (50,0,0)
 HIGHLIGHT_COLOR     = (255,106,54)
 DESTINATION_COLOR   = (50,200,50)
 OBSTACLE_COLOR      = (240,30,30)
+ROUTE_COLOR         = (20,165,0)
 TEXT_COLOR          = (119,41,83)
 
 #----- Global dimensions for graphical objects -----#
@@ -38,6 +39,7 @@ ROBOT_DIAM          = 9
 ROBOT_BORDER_WIDTH  = 2
 FONT_SIZE_1         = 4     # for one/two-digit numbers
 FONT_SIZE_2         = 3     # for three-digit numbers
+FONT_SIZE_3         = 6     # large font
 
 class MapFrame(wx.Frame): 
 
@@ -64,6 +66,7 @@ class MapFrame(wx.Frame):
         self.graphics_nodes = []
         self.graphics_edges = []
         self.graphics_text = []
+        self.graphics_route = []
         
         self.sel_nodes = []
         self.sel_edges = [] 
@@ -351,12 +354,19 @@ class MapFrame(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Sets a destination for the robot graphic and starts the animation timer                  #
 #---------------------------------------------------------------------------------------------#  
-    def MoveRobotTo(self, dest, orient, metric):        
-        if metric:
-            self.destination = self.MetersToPixels(dest)
-            dest = self.destination
-        else:
-            self.destination = dest        
+    def MoveRobotTo(self, dest, orient, metric):   
+        if self.robot is None:
+            return
+         
+        try:    
+            if metric:
+                self.destination = self.MetersToPixels(dest)
+                dest = self.destination
+            else:
+                self.destination = dest 
+        except AttributeError:
+            print "Could not move robot graphic (initialization error)"   
+            return    
         self.dest_theta = self.ToDegrees( self.Angle(orient) )         
         
         r = self.robot
@@ -602,27 +612,48 @@ class MapFrame(wx.Frame):
 #                     time.sleep(0.5)
 #                 else:
 #                     print e.errno      
-        
+#         
+#         color_set = False
+#         while not color_set:
+#             try:
+#                 if self.curr_dest is not None: 
+#                     print "Resetting node color"
+#                     self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
+#                     self.curr_dest = None
+#                 color_set = True
+#             except OSError as e:
+#                 if e.errno == 11:
+#                     print "error 11"
+#                     time.sleep(0.5)
+#                 else:
+#                     print e.errno
+#         
+#         print "Set heading to node %s" % dest                    
+#         color_set = False
+#         while not color_set:
+#             try:
+#                 self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)
+#                 color_set = True
+#             except OSError as e:
+#                 if e.errno == 11:
+#                     print "error 11"
+#                     time.sleep(0.5)
+#                 else:
+#                     print e.errno  
+#         self.curr_dest = dest
+#         self.Canvas.Draw(True)
+
+#         print "Set heading to node %s" % dest                    
         color_set = False
         while not color_set:
             try:
-                if self.curr_dest is not None: 
-                    print "Resetting node color"
-                    self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
-                    self.curr_dest = None
-                color_set = True
-            except OSError as e:
-                if e.errno == 11:
-                    print "error 11"
-                    time.sleep(0.5)
-                else:
-                    print e.errno
-        
-        print "Set heading to node %s" % dest                    
-        color_set = False
-        while not color_set:
-            try:
-                self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)
+                coords = self.nodelist[dest].coords
+                diam = NODE_DIAM
+                lw = NODE_BORDER_WIDTH
+                lc = NODE_BORDER    
+                fc = DESTINATION_COLOR
+                self.Canvas.AddCircle(coords, diam, LineWidth=lw, 
+                                      LineColor=lc, FillColor=fc, InForeground = True)
                 color_set = True
             except OSError as e:
                 if e.errno == 11:
@@ -631,6 +662,34 @@ class MapFrame(wx.Frame):
                 else:
                     print e.errno  
         self.curr_dest = dest
+        self.Canvas.Draw(True)
+        
+        
+    def ShowRoute(self, route):
+        tmp_edges = []
+        for idx,node in enumerate(route):            
+            try:
+                n1_id = int(node)
+                n2_id = int(route[idx+1])
+                node1 = self.nodelist[n1_id]
+                node2 = self.nodelist[n2_id]
+            except IndexError:
+                break      
+     
+            edge_id = int( self.conn_matrix[n1_id][n2_id] )
+            if edge_id in tmp_edges:
+                print "duplicate edge %s" % edge_id
+                continue
+            
+            tmp_edges.append(edge_id)
+#             edge = self.edgelist[edge_id]
+            
+            coords = self.Midpoint(node1.coords, node2.coords)
+            
+            fs = FONT_SIZE_3
+            t = self.Canvas.AddScaledText(str(idx), coords, Size=fs, Position="cc", 
+                                          Color=ROUTE_COLOR, Weight=wx.BOLD, InForeground = True)
+            self.graphics_route.append(t)
         self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
@@ -1592,23 +1651,13 @@ class MapFrame(wx.Frame):
 #     Functions to convert between pixel coordinates and real-world metric coordinates       #
 #--------------------------------------------------------------------------------------------#    
     def PixelsToMeters(self, xy_p):
-        try:
-            x = (xy_p[0] * self.resolution) + self.origin.x
-            y = (xy_p[1] * self.resolution) + self.origin.y
-            return (x,y)  
-        except AttributeError:
-            x = (xy_p[0] * self.resolution) - 100
-            y = (xy_p[1] * self.resolution) - 100
-            return (x,y)    
+        x = (xy_p[0] * self.resolution) + self.origin.x
+        y = (xy_p[1] * self.resolution) + self.origin.y
+        return (x,y)    
     def MetersToPixels(self, xy_m):
-        try:
-            x = (xy_m[0] - self.origin.x) / self.resolution
-            y = (xy_m[1] - self.origin.y) / self.resolution
-            return (x,y)
-        except AttributeError:
-            x = (xy_m[0] + 100) / self.resolution
-            y = (xy_m[1] + 100) / self.resolution
-            return (x,y)
+        x = (xy_m[0] - self.origin.x) / self.resolution
+        y = (xy_m[1] - self.origin.y) / self.resolution
+        return (x,y)
 
 #--------------------------------------------------------------------------------------------#    
 #     Truncates a floating point number 'f' to 'n' decimal places                            #

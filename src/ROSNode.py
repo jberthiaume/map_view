@@ -7,6 +7,7 @@ import numpy as np
 from datetime import datetime
 from std_msgs.msg import String                             #@UnresolvedImport
 from std_msgs.msg import UInt32                             #@UnresolvedImport
+from std_msgs.msg import Int32MultiArray                    #@UnresolvedImport
 from nav_msgs.msg import OccupancyGrid                      #@UnresolvedImport
 from nav_msgs.msg import GridCells                          #@UnresolvedImport
 from geometry_msgs.msg import PoseWithCovarianceStamped     #@UnresolvedImport
@@ -84,6 +85,7 @@ class ROSNode():
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
         rospy.Subscriber("tour", String, self.TourCB)
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
+        rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
 #         rospy.Subscriber("move_base/goal", MoveBaseActionGoal, self.GoalCB)
         
@@ -96,7 +98,7 @@ class ROSNode():
     def DestCB(self, data):
         dest = int(data.data) 
         print "Heading to node %s" % dest
-#         self.mframe.HighlightDestination(dest)             
+        self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
@@ -122,6 +124,9 @@ class ROSNode():
             print "Reached destination."
 #             self.mframe.OnReachDestination()
 #         pass
+
+    def RouteCB(self, data):
+        self.mframe.ShowRoute(data.data)
         
 #     def ObsCB(self, data):
 #         pass
