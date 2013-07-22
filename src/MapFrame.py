@@ -50,7 +50,8 @@ class MapFrame(wx.Frame):
         # Initialize data structures                
         self.modes = {'export':False, 'auto_erase':True, 'verbose':True, 'redraw':True, 
                        'auto_edges':True, 'spaced_edges':True,  'unknown_edges':True, 
-                       'clear_graph':True, 'auto_intersections':True, 'manual_edges':False}
+                       'clear_graph':True, 'auto_intersections':True, 'manual_edges':False,
+                       'pose_est':False}
         self.saved_modes = {}
         
         self.resolution = None
@@ -62,7 +63,7 @@ class MapFrame(wx.Frame):
         
         self.nodelist = []
         self.edgelist = []
-        self.obstacles = []
+        self.highlights = []
         self.graphics_nodes = []
         self.graphics_edges = []
         self.graphics_text = []
@@ -498,20 +499,20 @@ class MapFrame(wx.Frame):
                 else:
                     print e.errno      
         
-        color_set = False
-        while not color_set:
-            try:
-                if self.curr_dest is not None: 
-                    print "Resetting node color"
-                    self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
-                    self.curr_dest = None
-                color_set = True
-            except OSError as e:
-                if e.errno == 11:
-                    print "error 11"
-                    time.sleep(0.5)
-                else:
-                    print e.errno
+#         color_set = False
+#         while not color_set:
+#             try:
+#                 if self.curr_dest is not None: 
+#                     print "Resetting node color"
+#                     self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
+#                     self.curr_dest = None
+#                 color_set = True
+#             except OSError as e:
+#                 if e.errno == 11:
+#                     print "error 11"
+#                     time.sleep(0.5)
+#                 else:
+#                     print e.errno
             
         self.Canvas.Draw(True)
             
@@ -536,6 +537,7 @@ class MapFrame(wx.Frame):
             x = self.Truncate(pose[0], 4)
             y = self.Truncate(pose[1], 4)
             print "Created 2D pose estimate at point (%s, %s)" % (x, y)
+        self.SetModes('PoseEst', {'pose_est':True})
         self.ros.Publish2DPoseEstimate(pose, orient)
         
 #---------------------------------------------------------------------------------------------#    
@@ -643,30 +645,48 @@ class MapFrame(wx.Frame):
 #         self.curr_dest = dest
 #         self.Canvas.Draw(True)
 
-#         print "Set heading to node %s" % dest                    
+#         print "Set heading to node %s" % dest 
+        if self.curr_dest is None:
+            self.curr_dest = dest
+            return
+                   
         color_set = False
         while not color_set:
             try:
-                coords = self.nodelist[dest].coords
-                diam = NODE_DIAM
-                lw = NODE_BORDER_WIDTH
-                lc = NODE_BORDER    
-                fc = DESTINATION_COLOR
-                self.Canvas.AddCircle(coords, diam, LineWidth=lw, 
-                                      LineColor=lc, FillColor=fc, InForeground = True)
+                coords1 = self.nodelist[self.curr_dest].coords
+                coords2 = self.nodelist[dest].coords
+                lw = EDGE_WIDTH
+                lc = DESTINATION_COLOR    
+                l = self.Canvas.AddLine( (coords1,coords2), LineWidth=lw, LineColor=lc)
+                self.highlights.append(l)
+                self.curr_dest = dest
                 color_set = True
+                self.Canvas.Draw(True)
             except OSError as e:
-                if e.errno == 11:
-                    print "error 11"
+                if e.errno == 11 or e.errno == 0:
+                    print "error 11/0"
                     time.sleep(0.5)
                 else:
+                    print "OS error"
+                    time.sleep(0.5)
                     print e.errno  
-        self.curr_dest = dest
-        self.Canvas.Draw(True)
-        
+                    
+    def ClearHighlighting(self):
+        print "Tour complete. Reset highlighted edges."
+        for edge in self.graphics_edges:
+            edge.Visible = True
+        for obj in self.graphics_route:
+            self.Canvas.RemoveObject(obj)
+        self.Canvas.Draw(True)        
         
     def ShowRoute(self, route):
         tmp_edges = []
+        for edge in self.graphics_edges:
+            edge.Visible = False            
+        
+        color = (240,0,0)
+        steps = len(route)
+        incr = min(720.0/steps, 30)
         for idx,node in enumerate(route):            
             try:
                 n1_id = int(node)
@@ -678,19 +698,47 @@ class MapFrame(wx.Frame):
      
             edge_id = int( self.conn_matrix[n1_id][n2_id] )
             if edge_id in tmp_edges:
-                print "duplicate edge %s" % edge_id
-                continue
-            
+                continue            
             tmp_edges.append(edge_id)
-#             edge = self.edgelist[edge_id]
             
-            coords = self.Midpoint(node1.coords, node2.coords)
+            x1 = node1.coords[0]
+            y1 = node1.coords[1]
+            x2 = node2.coords[0]
+            y2 = node2.coords[1]       
             
-            fs = FONT_SIZE_3
-            t = self.Canvas.AddScaledText(str(idx), coords, Size=fs, Position="cc", 
-                                          Color=ROUTE_COLOR, Weight=wx.BOLD, InForeground = True)
-            self.graphics_route.append(t)
+            dx    = x2-x1
+            dy    = y2-y1
+            theta = math.atan2(dy,dx)
+            kx    = math.cos(theta)
+            ky    = math.sin(theta)
+            
+            xD = self.Round( x2-((NODE_DIAM/2.0)*kx) )
+            yD = self.Round( y2-((NODE_DIAM/2.0)*ky) )            
+            p1 = (x1,y1)
+            p2 = (xD,yD)
+            
+            l = self.Canvas.AddArrowLine( (p1,p2), LineWidth = EDGE_WIDTH,
+                                        LineColor = color, ArrowHeadSize=15)
+            self.graphics_route.append(l)
+            if color[1]+incr < 240:
+                color =  ( color[0], int(color[1]+incr), color[2] )
+            elif color[0]-incr > 0:
+                color =  ( int(color[0]-incr), color[1], color[2] )
+            else:
+                color = (0,0,0)
+            
+#             coords = self.Midpoint(node1.coords, node2.coords)            
+#             fs = FONT_SIZE_3
+#             t = self.Canvas.AddScaledText(str(idx), coords, Size=fs, Position="cc", 
+#                                           Color=ROUTE_COLOR, Weight=wx.BOLD, InForeground = True)
+#             self.graphics_route.append(t)
         self.Canvas.Draw(True)
+
+    def Round(self, flt):
+        if flt % 1 >= 0.5:
+            return int(flt)+1
+        else:
+            return int(flt)
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -2098,8 +2146,9 @@ class MapFrame(wx.Frame):
         self.SetModes('ClearGraph', {                        
                         'verbose':False, 
                         }) 
-        self.SelectAll(None)
-        self.DeleteSelection(None)  
+#         self.SelectAll(None)
+#         self.DeleteSelection(None)  
+        self.ClearHighlighting()
         self.RestoreModes('ClearGraph')    
     
     def SaveCanvasImage(self, filename):

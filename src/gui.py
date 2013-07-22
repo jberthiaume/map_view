@@ -996,7 +996,7 @@ class ExplorePanel(wx.Panel):
         
         # Tour button
         vbox10 = wx.BoxSizer(wx.VERTICAL)   
-        self.btn_tour = wx.Button(self, label="Save Canvas", size=BUTTON_SIZE)        
+        self.btn_tour = wx.Button(self, label="Travel Nodes", size=BUTTON_SIZE)        
         self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
         self.GetParent().btn_disabled.append(self.btn_tour)
         self.GetParent().buttons.append(self.btn_tour) 
@@ -1174,12 +1174,19 @@ class ExplorePanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#    
 #    Publish some stuff                                                                       #
 #---------------------------------------------------------------------------------------------#             
-    def OnTour(self, event):       
+#     def OnTour(self, event):       
 #         self.pf.ros.PublishTour()
 #         self.pf.mp.mframe.SaveCanvasImage("canvas.png")
-        self.pf.mp.mframe.ExportConnectionMatrix("conns.txt", 12, 250, "BEFORE")
-        self.pf.mp.mframe.GenerateConnectionMatrix()
-        self.pf.mp.mframe.ExportConnectionMatrix("conns.txt", 12, 250, "AFTER")
+
+    def OnTour(self, event):
+        if not self.mframe.modes['pose_est']:
+            dlg = wx.MessageDialog(self,
+                "Create a 2D pose estimate before\n launching node traveller.",
+                "Error", wx.ICON_ERROR)
+            dlg.ShowModal() 
+            dlg.Destroy()
+            return
+        os.system("gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'")
     
 if __name__ == '__main__':
     app = wx.App(False)

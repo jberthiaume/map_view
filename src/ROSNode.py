@@ -96,9 +96,12 @@ class ROSNode():
 #    Callback function for the "/node_traveller/dest" topic                                   #
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
-        dest = int(data.data) 
-        print "Heading to node %s" % dest
-        self.mframe.HighlightDestination(dest)             
+        dest = int(data.data)         
+#         if dest == -1:
+#             self.mframe.ClearHighlighting()
+#         else:
+#             print "Heading to node %s" % dest
+#             self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
