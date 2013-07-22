@@ -994,7 +994,7 @@ class ExplorePanel(wx.Panel):
         
         # Tour button
         vbox10 = wx.BoxSizer(wx.VERTICAL)   
-        self.btn_tour = wx.Button(self, label="Travel Nodes", size=BUTTON_SIZE)        
+        self.btn_tour = wx.Button(self, label="Tour All Edges", size=BUTTON_SIZE)        
         self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
         self.GetParent().btn_disabled.append(self.btn_tour)
         self.GetParent().buttons.append(self.btn_tour) 

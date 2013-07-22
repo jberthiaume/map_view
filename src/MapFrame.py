@@ -77,6 +77,7 @@ class MapFrame(wx.Frame):
         self.pe_graphic = None
         self.ng_graphic = None
         self.curr_dest = None   
+        self.curr_edge = None
         self.started_edge = False    
         
         # Connection matrix data structure
@@ -484,44 +485,8 @@ class MapFrame(wx.Frame):
                 self.robot.SetFillColor(ROBOT_FILL_2)
                 
                 self.Timer.Stop()
-                self.Canvas.Draw(True)
-            
-    def OnReachDestination(self):  
-        with self.canvas_lock:
-            print "Reached destination"   
-            rm_obj = False
-            while not rm_obj:
-                try:                        
-                    try:
-                        print "Removing 2D nav goal graphic"
-                        self.Canvas.RemoveObject(self.ng_graphic)
-                        self.ng_graphic = None
-                    except (ValueError, AttributeError):
-                        pass    
-                    rm_obj = True
-                except OSError as e:
-                    if e.errno == 11:
-                        print "error 11"
-                        time.sleep(0.5)
-                    else:
-                        print e.errno      
-            
-    #         color_set = False
-    #         while not color_set:
-    #             try:
-    #                 if self.curr_dest is not None: 
-    #                     print "Resetting node color"
-    #                     self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
-    #                     self.curr_dest = None
-    #                 color_set = True
-    #             except OSError as e:
-    #                 if e.errno == 11:
-    #                     print "error 11"
-    #                     time.sleep(0.5)
-    #                 else:
-    #                     print e.errno
-                
-            self.Canvas.Draw(True)
+                self.Canvas.Draw(True)           
+
             
 #---------------------------------------------------------------------------------------------#    
 #    Sends 2D Pose Estimate data to the ROS node to be published                              #
@@ -620,57 +585,71 @@ class MapFrame(wx.Frame):
 #                     print "error 11"
 #                     time.sleep(0.5)
 #                 else:
-#                     print e.errno      
-#       
-        
-        with self.canvas_lock:  
-            color_set = False
-            while not color_set:
-                if self.curr_dest is not None: 
-                    print "Resetting node color"
-                    self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
-                    self.curr_dest = None
-                color_set = True
+#                     print e.errno               
              
-            print "Set heading to node %s" % dest                    
-            color_set = False
-            while not color_set:
-                self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)
-                color_set = True
-            self.curr_dest = dest
-            self.Canvas.Draw(True)
+#             color_set = False
+#             while not color_set:
+#                 if self.curr_dest is not None: 
+#                     print "Resetting node color"
+#                     self.graphics_nodes[ self.curr_dest ].SetFillColor(NODE_FILL)
+#                     self.curr_dest = None
+#                 color_set = True
+#              
+#             print "Set heading to node %s" % dest                    
+#             color_set = False
+#             while not color_set:
+#                 self.graphics_nodes[ dest ].SetFillColor(DESTINATION_COLOR)
+#                 color_set = True
+#             self.curr_dest = dest
+#             self.Canvas.Draw(True)
 
 #         print "Set heading to node %s" % dest 
 #         if self.curr_dest is None:
 #             self.curr_dest = dest
 #             return
 #                    
-#         color_set = False
-#         while not color_set:
-#             try:
-#                 coords1 = self.nodelist[self.curr_dest].coords
-#                 coords2 = self.nodelist[dest].coords
-#                 lw = EDGE_WIDTH
-#                 lc = DESTINATION_COLOR    
-#                 l = self.Canvas.AddLine( (coords1,coords2), LineWidth=lw, LineColor=lc)
-#                 self.highlights.append(l)
-#                 self.curr_dest = dest
-#                 color_set = True
-#                 self.Canvas.Draw(True)
-#             except OSError as e:
-#                 if e.errno == 11 or e.errno == 0:
-#                     print "error 11/0"
-#                     time.sleep(0.5)
-#                 else:
-#                     print "OS error"
-#                     time.sleep(0.5)
-#                     print e.errno  
+        with self.canvas_lock:
+            if self.curr_dest is not None:
+                n1 = self.nodelist[self.curr_dest]
+                n2 = self.nodelist[dest]
+                e = int(self.conn_matrix[n1.id][n2.id])
+                lw = EDGE_WIDTH
+                lc = HIGHLIGHT_COLOR    
+                l = self.Canvas.AddLine( (n1.coords,n2.coords), LineWidth=lw, LineColor=lc)
+                self.highlights.append(l)
+                self.curr_edge = e
+                self.Canvas.Draw(True)
+            self.curr_dest = dest     
+            
+
+    def OnReachDestination(self):  
+        with self.canvas_lock:
+            print "Reached destination." 
+            try:
+                self.Canvas.RemoveObject(self.ng_graphic)
+                self.ng_graphic = None
+            except (ValueError, AttributeError):
+                pass         
+                  
+        with self.canvas_lock:    
+            if self.curr_edge is not None:
+                edge = self.edgelist[self.curr_edge]
+                coords1 = self.nodelist[int(edge.node1)].coords
+                coords2 = self.nodelist[int(edge.node2)].coords
+                lw = EDGE_WIDTH
+                lc = DESTINATION_COLOR    
+                l = self.Canvas.AddLine( (coords1,coords2), LineWidth=lw, LineColor=lc)
+                self.highlights.append(l)
+                self.Canvas.Draw(True) 
+                
+            self.Canvas.Draw(True)
                     
     def ClearHighlighting(self):
-#         print "Tour complete. Reset highlighted edges."
+        print "Tour complete. Reset highlighted edges."
         with self.canvas_lock:
             for edge in self.graphics_edges:
                 edge.Visible = True
+                edge.SetFillColor(EDGE_COLOR)
             for obj in self.graphics_route:
                 self.Canvas.RemoveObject(obj)
             self.Canvas.Draw(True)        

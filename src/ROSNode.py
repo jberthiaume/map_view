@@ -124,8 +124,7 @@ class ROSNode():
     def StatusCB(self, data):
         status = int(data.status.status)
         if status == 3:
-            print "Reached destination."
-#             self.mframe.OnReachDestination()
+            self.mframe.OnReachDestination()
 #         pass
 
     def RouteCB(self, data):
