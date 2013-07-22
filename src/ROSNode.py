@@ -100,8 +100,8 @@ class ROSNode():
 #         if dest == -1:
 #             self.mframe.ClearHighlighting()
 #         else:
-#             print "Heading to node %s" % dest
-#             self.mframe.HighlightDestination(dest)             
+        print "Heading to node %s" % dest
+        self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
@@ -129,7 +129,8 @@ class ROSNode():
 #         pass
 
     def RouteCB(self, data):
-        self.mframe.ShowRoute(data.data)
+#         self.mframe.ShowRoute(data.data)
+        pass
         
 #     def ObsCB(self, data):
 #         pass
