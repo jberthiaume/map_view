@@ -672,7 +672,7 @@ class MapFrame(wx.Frame):
                     print e.errno  
                     
     def ClearHighlighting(self):
-        print "Tour complete. Reset highlighted edges."
+#         print "Tour complete. Reset highlighted edges."
         for edge in self.graphics_edges:
             edge.Visible = True
         for obj in self.graphics_route:
@@ -687,6 +687,7 @@ class MapFrame(wx.Frame):
         color = (240,0,0)
         steps = len(route)
         incr = min(720.0/steps, 30)
+        phase = 0
         for idx,node in enumerate(route):            
             try:
                 n1_id = int(node)
@@ -697,8 +698,8 @@ class MapFrame(wx.Frame):
                 break      
      
             edge_id = int( self.conn_matrix[n1_id][n2_id] )
-            if edge_id in tmp_edges:
-                continue            
+#             if edge_id in tmp_edges:
+#                 continue            
             tmp_edges.append(edge_id)
             
             x1 = node1.coords[0]
@@ -720,12 +721,20 @@ class MapFrame(wx.Frame):
             l = self.Canvas.AddArrowLine( (p1,p2), LineWidth = EDGE_WIDTH,
                                         LineColor = color, ArrowHeadSize=15)
             self.graphics_route.append(l)
-            if color[1]+incr < 240:
+            if color[1]+incr < 240 and phase == 0:
                 color =  ( color[0], int(color[1]+incr), color[2] )
-            elif color[0]-incr > 0:
+                continue
+            elif color[0]-incr > 0 and phase == 1:
                 color =  ( int(color[0]-incr), color[1], color[2] )
+                continue
+            elif color[2]+(2*incr) < 240 and phase == 2:
+                color =  ( color[0], color[1], int(color[2]+(2*incr)) )
+                continue
+            elif color[1]-(2*incr) > 0 and phase == 3:
+                color =  ( color[0], int(color[1]-(2*incr)), color[2] )
+                continue
             else:
-                color = (0,0,0)
+                phase = phase+1
             
 #             coords = self.Midpoint(node1.coords, node2.coords)            
 #             fs = FONT_SIZE_3
@@ -2146,9 +2155,8 @@ class MapFrame(wx.Frame):
         self.SetModes('ClearGraph', {                        
                         'verbose':False, 
                         }) 
-#         self.SelectAll(None)
-#         self.DeleteSelection(None)  
-        self.ClearHighlighting()
+        self.SelectAll(None)
+        self.DeleteSelection(None)  
         self.RestoreModes('ClearGraph')    
     
     def SaveCanvasImage(self, filename):
@@ -2197,7 +2205,7 @@ class MapFrame(wx.Frame):
         st = datetime.now()    
                  
         try:
-            # Creates the image from a .png file (used when loading a .png map file)
+            # Creates the image from a file (used when loading a .png map file)
             self.image_data = []
             image_file = image_obj
             

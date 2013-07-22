@@ -29,9 +29,7 @@ SIZER_BORDER    = 10
 
 #TODO: fix 2d pose estimate angles
 
-#TODO: OnReachDestination() / HighlightDestination()
-
-#TODO: color edges ^
+#TODO: Locking
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):

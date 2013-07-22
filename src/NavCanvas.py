@@ -198,7 +198,7 @@ class NavCanvas(wx.Panel):
         self.Canvas.SetFocus() # Otherwise the focus stays on the Button, and wheel events are lost.
 
     def Clear(self, event):
-        self.GetParent().ClearGraph()
+        self.GetParent().ClearHighlighting()
         self.Canvas.SetFocus()
     
     def ZoomToCanvas(self,event):
