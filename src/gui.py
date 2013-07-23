@@ -9,6 +9,7 @@ import os, time, shutil
 import math
 import ROSNode
 import Resources
+import subprocess
 from datetime import datetime
 from MapFrame import MapFrame
 
@@ -27,7 +28,7 @@ SIZER_BORDER    = 10
 
 #BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
 
-#TODO: stop NT button?
+#TODO: stop travel button?
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -530,8 +531,8 @@ class MainPanel(wx.Panel):
                 self.OnSaveAs(event)
             dlg.Destroy()        
         
-#         self.ros.tt.stopped = True
-#         self.ros.tt.join()    
+        self.ros.tt.stopped = True
+        self.ros.tt.join()    
         self.mframe.Close()
         self.pf.Close()
                 
@@ -1122,6 +1123,7 @@ class ExplorePanel(wx.Panel):
             dlg.Destroy()
             return
         os.system("gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'")
+        
     
 if __name__ == '__main__':
     app = wx.App(False)

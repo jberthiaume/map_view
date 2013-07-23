@@ -5,6 +5,7 @@ import os, time
 import rospy                                                #@UnresolvedImport
 import numpy as np
 from datetime import datetime
+from TimerThread import TimerThread
 from std_msgs.msg import String                             #@UnresolvedImport
 from std_msgs.msg import UInt32                             #@UnresolvedImport
 from std_msgs.msg import Int32MultiArray                    #@UnresolvedImport
@@ -50,8 +51,8 @@ class ROSNode():
         self.filename = FILENAME       
         
         self.parent = parent
-#         self.tt = TimerThread(self)
-#         self.tt.start()
+        self.tt = TimerThread(self)
+        self.tt.start()
         self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
         self.goal_pub = rospy.Publisher('move_base/goal', MoveBaseActionGoal)
@@ -87,6 +88,7 @@ class ROSNode():
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
         rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
+#         rospy.Subscriber("move_base_node/local_costmap/obstacles", GridCells, self.ObsCB)
 #         rospy.Subscriber("move_base/goal", MoveBaseActionGoal, self.GoalCB)
         
         if __name__ == '__main__':
@@ -100,7 +102,7 @@ class ROSNode():
 #         if dest == -1:
 #             self.mframe.ClearHighlighting()
 #         else:
-        print "Heading to node %s" % dest
+#         print "Heading to node %s" % dest
         self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
@@ -130,16 +132,13 @@ class ROSNode():
     def RouteCB(self, data):
         self.mframe.DrawRoute(data.data, False)
         self.parent.mp.ep.btn_rte.Enable(True)
+        wx.Yield()
         
-#     def ObsCB(self, data):
-#         pass
-#         if self.ok:
-#             print "Received obstacles"
-#             if ( (data.cell_width+0.01 < 0.05) or (data.cell_width-0.01 > 0.05) ):
-#                 print "Warning: obstacle cell size different than expected"
-#             self.obstacles = data.cells
-# #             self.mframe.DrawObstacles(self.obstacles)
-#             self.ok = False
+    def ObsCB(self, data):
+        if self.ok:
+            self.obstacles = data.cells
+            self.mframe.DrawObstacles(self.obstacles)
+            self.ok = False
         
     def TourCB(self, data):
         print "Received tour message"

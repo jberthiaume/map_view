@@ -117,9 +117,9 @@ class NavCanvas(wx.Panel):
         tb.AddControl(self.XButton)
         self.XButton.Bind(wx.EVT_BUTTON, self.Clear)
         
-#         self.TestButton = wx.Button(tb, label="Run Test", size=(90,30))
-#         tb.AddControl(self.TestButton)
-#         self.TestButton.Bind(wx.EVT_BUTTON, self.Test)
+        self.TestButton = wx.Button(tb, label="Run Test", size=(90,30))
+        tb.AddControl(self.TestButton)
+        self.TestButton.Bind(wx.EVT_BUTTON, self.Test)
         
         self.Layout()
         tb.Layout()
