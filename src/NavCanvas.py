@@ -103,30 +103,6 @@ class NavCanvas(wx.Panel):
         self.AddSpacer(tb)        
         tb.AddSeparator()
         self.AddSpacer(tb)    
-        
-#         lbl_font = self.font
-#         self.lbl = wx.StaticText(tb, label="Find:  ", style=wx.CENTER)  
-#         self.lbl.SetForegroundColour(LABEL_COLOR)
-#         tb.AddControl(self.lbl)
-#         
-#         self.txt = wx.TextCtrl(tb, size=(45,30), style=wx.TE_CENTER)
-#         self.txt.SetMaxLength(3)    #Maximum of 3 characters
-#         self.txt.SetFont(self.font)
-#         self.txt.SetForegroundColour(TXT_FG_COLOR)
-#         self.txt.SetBackgroundColour(TXT_BG_COLOR)
-#         st = ("Usage: write \'n\' or \'e\' followed by a number:\n"
-#               "e.g.: \'n14\' zooms to node 14, \'e23\' zooms to edge 23, etc.")
-#         self.txt.SetToolTip( wx.ToolTip(st) )
-#         tb.AddControl(self.txt)   
-#         
-#         self.GoButton = wx.BitmapButton(tb, -1, Resources.getOrangeArrowRightBitmap(),
-#                                       size=(45,45), style=wx.NO_BORDER)
-#         self.GoButton.SetToolTip( wx.ToolTip("Find a node or edge") )
-#         tb.AddControl(self.GoButton)     
-#         
-#         self.AddSpacer(tb)        
-#         tb.AddSeparator()
-#         self.AddSpacer(tb)
 
         self.ZoomButton = wx.BitmapButton(tb, -1, Resources.getZoomToFitIconBitmap(),
                                          size=(45,45), style=wx.NO_BORDER)                                          
@@ -141,10 +117,14 @@ class NavCanvas(wx.Panel):
         tb.AddControl(self.XButton)
         self.XButton.Bind(wx.EVT_BUTTON, self.Clear)
         
+#         self.TestButton = wx.Button(tb, label="Run Test", size=(90,30))
+#         tb.AddControl(self.TestButton)
+#         self.TestButton.Bind(wx.EVT_BUTTON, self.Test)
+        
         self.Layout()
         tb.Layout()
 #         try:            
-#             self.GetParent().GetParent().buttons.append(self.ZoomButton)
+        self.GetParent().GetParent().buttons.append(self.TestButton)
 #             self.GetParent().GetParent().buttons.append(self.CanvasButton)
 #         except AttributeError:
 #             pass
@@ -199,6 +179,10 @@ class NavCanvas(wx.Panel):
 
     def Clear(self, event):
         self.GetParent().OnClear()
+        self.Canvas.SetFocus()
+        
+    def Test(self, event):
+        self.GetParent().Test()
         self.Canvas.SetFocus()
     
     def ZoomToCanvas(self,event):

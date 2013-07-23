@@ -26,8 +26,9 @@ EDGE_COLOR          = (119,41,83)
 ROBOT_FILL_1        = (100,100,100)
 ROBOT_FILL_2        = (180,0,0)
 ROBOT_BORDER        = (50,0,0)
-HIGHLIGHT_COLOR     = (255,106,54)
-DESTINATION_COLOR   = (50,200,50)
+SELECT_COLOR        = (255,106,54)
+HIGHLIGHT_COLOR     = (220,20,220)
+DESTINATION_COLOR   = (30,165,40)
 OBSTACLE_COLOR      = (240,30,30)
 ROUTE_COLOR         = (20,165,0)
 TEXT_COLOR          = (119,41,83)
@@ -52,7 +53,7 @@ class MapFrame(wx.Frame):
         self.modes = {'export':False, 'auto_erase':True, 'verbose':True, 'redraw':True, 
                        'auto_edges':True, 'spaced_edges':True,  'unknown_edges':True, 
                        'clear_graph':True, 'auto_intersections':True, 'manual_edges':False,
-                       'pose_est':False}
+                       'pose_est':False, 'route_shown':False}
         self.saved_modes = {}
         
         self.resolution = None
@@ -69,11 +70,14 @@ class MapFrame(wx.Frame):
         self.graphics_edges = []
         self.graphics_text = []
         self.graphics_route = []
+#         self.graphics_route_h = []
         
         self.canvas_lock = t.RLock()
         
         self.sel_nodes = []
         self.sel_edges = [] 
+        self.route = []
+#         self.route_collisions = defaultdict(list)
         self.pe_graphic = None
         self.ng_graphic = None
         self.curr_dest = None   
@@ -144,7 +148,7 @@ class MapFrame(wx.Frame):
 #    Hides the window instead of closing it when the X button is pressed                      #
 #---------------------------------------------------------------------------------------------#    
     def OnClose(self, event):
-        self.mp.OnShowHideMap(event)            
+        self.Hide()            
 
 #---------------------------------------------------------------------------------------------#    
 #    Writes the current cursor coordinates to the status bar at the bottom                    #
@@ -328,7 +332,7 @@ class MapFrame(wx.Frame):
             # If no coords are specified, just put the robot at the origin
             if coords == -1:
                 xy = (0,0)
-                zw = (0,1)
+                zw = 0
             else:
                 xy = coords
                 zw = orient            
@@ -343,7 +347,8 @@ class MapFrame(wx.Frame):
             self.robot = r
             r.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
             
-            theta = self.ToDegrees( self.Angle(zw) )                
+#             theta = self.ToDegrees( self.Angle(zw) )
+            theta = zw                
             a = self.Canvas.AddArrowLine( (xy, (xy[0]+diam, xy[1]) ), LineWidth = lw,
                                      LineColor = lc, ArrowHeadSize=10, InForeground = True)
             a.Coords = xy
@@ -610,6 +615,7 @@ class MapFrame(wx.Frame):
 #                    
         with self.canvas_lock:
             if self.curr_dest is not None:
+                print "Heading from %s to %s" % (self.curr_dest, dest)
                 n1 = self.nodelist[self.curr_dest]
                 n2 = self.nodelist[dest]
                 e = int(self.conn_matrix[n1.id][n2.id])
@@ -617,14 +623,16 @@ class MapFrame(wx.Frame):
                 lc = HIGHLIGHT_COLOR    
                 l = self.Canvas.AddLine( (n1.coords,n2.coords), LineWidth=lw, LineColor=lc)
                 self.highlights.append(l)
-                self.curr_edge = e
+                self.curr_edge = e                
+                
+                self.Canvas.RemoveObject(self.graphics_route[0])
+                self.graphics_route.pop(0) 
                 self.Canvas.Draw(True)
             self.curr_dest = dest     
             
 
     def OnReachDestination(self):  
         with self.canvas_lock:
-            print "Reached destination." 
             try:
                 self.Canvas.RemoveObject(self.ng_graphic)
                 self.ng_graphic = None
@@ -639,44 +647,47 @@ class MapFrame(wx.Frame):
                 lw = EDGE_WIDTH
                 lc = DESTINATION_COLOR    
                 l = self.Canvas.AddLine( (coords1,coords2), LineWidth=lw, LineColor=lc)
-                self.highlights.append(l)
-                self.Canvas.Draw(True) 
+                self.highlights.append(l)                
+                
+#                 c = self.route_collisions[edge.id]               
+#                 if c != []:
+#                     c[0].Visible = True
+#                     c.pop(0)
+#                     self.graphics_route_h.pop(0)                   
                 
             self.Canvas.Draw(True)
                     
     def ClearHighlighting(self):
-        print "Tour complete. Reset highlighted edges."
+        if self.modes['verbose']:
+            print "Tour complete. Reset highlighted edges."
         with self.canvas_lock:
             for edge in self.graphics_edges:
                 edge.Visible = True
                 edge.SetFillColor(EDGE_COLOR)
             for obj in self.graphics_route:
                 self.Canvas.RemoveObject(obj)
-            self.Canvas.Draw(True)        
+            self.Canvas.Draw(True)  
         
-    def ShowRoute(self, route):
+    def DrawRoute(self, route, show):
+        self.route = route
+        
         with self.canvas_lock:
-            tmp_edges = []
-            for edge in self.graphics_edges:
-                edge.Visible = False            
+            tmp_edges = []          
             
             color = (240,0,0)
             steps = len(route)
             incr = min(720.0/steps, 30)
             phase = 0
-            for idx,node in enumerate(route):            
+            for idx,node in reversed(list(enumerate(route))):            
                 try:
                     n1_id = int(node)
-                    n2_id = int(route[idx+1])
+                    n2_id = int(route[idx-1])
                     node1 = self.nodelist[n1_id]
                     node2 = self.nodelist[n2_id]
                 except IndexError:
                     break      
          
                 edge_id = int( self.conn_matrix[n1_id][n2_id] )
-    #             if edge_id in tmp_edges:
-    #                 continue            
-                tmp_edges.append(edge_id)
                 
                 x1 = node1.coords[0]
                 y1 = node1.coords[1]
@@ -694,9 +705,16 @@ class MapFrame(wx.Frame):
                 p1 = (x1,y1)
                 p2 = (xD,yD)
                 
-                l = self.Canvas.AddArrowLine( (p1,p2), LineWidth = EDGE_WIDTH,
-                                            LineColor = color, ArrowHeadSize=15)
-                self.graphics_route.append(l)
+                l = self.Canvas.AddArrowLine( (p2,p1), LineWidth = EDGE_WIDTH, LineColor = color,
+                                             ArrowHeadSize=15, InForeground=True)
+                self.graphics_route.insert(0, l) 
+                
+#                 if edge_id in tmp_edges:
+#                     self.route_collisions[edge_id].append(l)
+#                     self.graphics_route_h.append(l)
+#                     l.Visible = False
+                tmp_edges.append(edge_id)
+                
                 if color[1]+incr < 240 and phase == 0:
                     color =  ( color[0], int(color[1]+incr), color[2] )
                     continue
@@ -710,14 +728,37 @@ class MapFrame(wx.Frame):
                     color =  ( color[0], int(color[1]-(2*incr)), color[2] )
                     continue
                 else:
-                    phase = phase+1
-                
-    #             coords = self.Midpoint(node1.coords, node2.coords)            
-    #             fs = FONT_SIZE_3
-    #             t = self.Canvas.AddScaledText(str(idx), coords, Size=fs, Position="cc", 
-    #                                           Color=ROUTE_COLOR, Weight=wx.BOLD, InForeground = True)
-    #             self.graphics_route.append(t)
+                    phase = phase+1                 
+           
+            if not show:
+                for gr in self.graphics_route:
+                    gr.Visible = False
+            self.RefreshNodes('normal')
             self.Canvas.Draw(True)
+            
+    def ShowRoute(self):
+        with self.canvas_lock:            
+#             self.SetModes('ShowRoute', {'route_shown':True})
+            for edge in self.graphics_edges:
+                edge.Visible = False  
+#             for hl in self.highlights:
+#                 hl.Visible = False
+            for gr in self.graphics_route:
+                gr.Visible = True
+#             for gr in self.graphics_route_h:
+#                 gr.Visible = False
+            self.Canvas.Draw(True)
+                
+    def HideRoute(self):
+        with self.canvas_lock:
+            for edge in self.graphics_edges:
+                edge.Visible = True  
+#             for hl in self.highlights:
+#                 hl.Visible = True
+            for gr in self.graphics_route:
+                gr.Visible = False
+            self.Canvas.Draw(True)
+#             self.RestoreModes('ShowRoute')
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -886,36 +927,42 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
 #    -deprecated-                                                                            #
 #--------------------------------------------------------------------------------------------#             
-    def RefreshNodes(self, min_x, max_x, min_y, max_y):
+    def RefreshNodes(self, color_str):
         with self.canvas_lock:
-            for node in self.nodelist:
-                if (node.coords[0] <= max_x and node.coords[0] >= min_x and
-                    node.coords[1] <= max_y and node.coords[1] >= min_y):
-                    
-                    ID = str(node.id)
-                    xy = node.coords[0], node.coords[1]
-                    diam = NODE_DIAM
-                    lw = NODE_BORDER_WIDTH
-                    lc = NODE_BORDER    
-                    fc = NODE_FILL 
-                    if int(ID) < 100:  
-                        fs = FONT_SIZE_1
-                    else:
-                        fs = FONT_SIZE_2          
-                                        
-                    # Draw the node on the canvas
-                    c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc)
-                    c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)
-                    self.Canvas.RemoveObject( self.graphics_nodes[int(ID)] )
-                    self.graphics_nodes[int(ID)] = c                     
-                    c.Name = ID
-                    c.Coords = node.coords                  
-                    
-                    # Make the old text invisible and replace it in the data structure
-                    t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc",Color=TEXT_COLOR, 
-                                                  Weight=wx.BOLD, InForeground = True)
-                    self.Canvas.RemoveObject( self.graphics_text[int(ID)] )
-                    self.graphics_text[int(ID)] = t
+            for node in self.nodelist:                    
+                ID = str(node.id)
+                xy = node.coords[0], node.coords[1]
+                diam = NODE_DIAM
+                lw = NODE_BORDER_WIDTH
+                fc = NODE_FILL 
+                
+                if color_str == 'dest':
+                    lc = DESTINATION_COLOR  
+                else:
+                    lc = NODE_BORDER
+                if int(ID) < 100:  
+                    fs = FONT_SIZE_1
+                else:
+                    fs = FONT_SIZE_2          
+                                    
+                # Draw the node on the canvas
+                c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
+                                          InForeground = True)
+                c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)
+                self.Canvas.RemoveObject( self.graphics_nodes[int(ID)] )
+                self.graphics_nodes[int(ID)] = c                     
+                c.Name = ID
+                c.Coords = node.coords                  
+                
+                t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc",Color=lc, 
+                                              Weight=wx.BOLD, InForeground = True)
+                self.Canvas.RemoveObject( self.graphics_text[int(ID)] )
+                self.graphics_text[int(ID)] = t
+                
+            old_robot, old_arrow = self.robot, self.arrow
+            self.AddRobot(self.robot.Coords, self.arrow.Theta)
+            self.Canvas.RemoveObject(old_robot)
+            self.Canvas.RemoveObject(old_arrow)
                 
 
 #--------------------------------------------------------------------------------------------#
@@ -1726,7 +1773,7 @@ class MapFrame(wx.Frame):
     #             if self.modes['verbose']:
     #                 print "Selected Node #" + obj.Name      
             self.sel_nodes.append(obj)   
-            obj.SetFillColor(HIGHLIGHT_COLOR)
+            obj.SetFillColor(SELECT_COLOR)
             if self.modes['redraw']:
                 self.Canvas.Draw(True)
         
@@ -1740,7 +1787,7 @@ class MapFrame(wx.Frame):
     #             if self.modes['verbose']:
     #                 print "Selected Edge #" + obj.Name     
             self.sel_edges.append(obj)
-            obj.SetLineColor(HIGHLIGHT_COLOR)
+            obj.SetLineColor(SELECT_COLOR)
             if self.modes['redraw']:
                 self.Canvas.Draw(True) 
             
@@ -1753,7 +1800,7 @@ class MapFrame(wx.Frame):
             
             # Set highlighted colour
             for node in self.nodelist:
-                self.graphics_nodes[ node.id ].SetFillColor(HIGHLIGHT_COLOR)
+                self.graphics_nodes[ node.id ].SetFillColor(SELECT_COLOR)
                 self.sel_nodes.append(self.graphics_nodes[node.id])
             if self.modes['verbose']:
                     print "Selected all nodes"
@@ -1769,7 +1816,7 @@ class MapFrame(wx.Frame):
             
             # Set highlighted colour
             for edge in self.edgelist:
-                self.graphics_edges[ edge.id ].SetLineColor(HIGHLIGHT_COLOR)
+                self.graphics_edges[ edge.id ].SetLineColor(SELECT_COLOR)
                 self.sel_edges.append(self.graphics_edges[edge.id])
             if self.modes['verbose']: 
                 print "Selected all edges"
@@ -1814,11 +1861,11 @@ class MapFrame(wx.Frame):
                
             for node in self.nodelist:                
                 if event is not None:   
-                    self.graphics_nodes[ node.id ].SetFillColor(HIGHLIGHT_COLOR)
+                    self.graphics_nodes[ node.id ].SetFillColor(SELECT_COLOR)
                 self.sel_nodes.append(self.graphics_nodes[node.id])
             for edge in self.edgelist:
                 if event is not None:   
-                    self.graphics_edges[ edge.id ].SetLineColor(HIGHLIGHT_COLOR)
+                    self.graphics_edges[ edge.id ].SetLineColor(SELECT_COLOR)
                 self.sel_edges.append(self.graphics_edges[edge.id])
             
             if self.modes['verbose']:            
@@ -1857,7 +1904,7 @@ class MapFrame(wx.Frame):
                     print "\tPixel Location:   (%s, %s)" % (coords[0]  , coords[1]  )
                     print "\tMetric Location:  (%s, %s)" % (m_coords[0], m_coords[1])
                 self.sel_nodes.append(obj)       
-                obj.SetFillColor(HIGHLIGHT_COLOR) 
+                obj.SetFillColor(SELECT_COLOR) 
             self.Canvas.Draw(True)
             
             current_mode = self.Canvas.GetMode()  
@@ -1923,7 +1970,7 @@ class MapFrame(wx.Frame):
                 if self.modes['verbose']:       
                     print "Selected Edge " + obj.Name     
                 self.sel_edges.append(obj)        
-                obj.SetLineColor(HIGHLIGHT_COLOR) 
+                obj.SetLineColor(SELECT_COLOR) 
             self.Canvas.Draw(True) 
 
 #--------------------------------------------------------------------------------------------#    
@@ -2161,11 +2208,20 @@ class MapFrame(wx.Frame):
         self.Canvas.InitAll()  
         
     def OnClear(self):
-        if self.highlights is not []:
+        if self.highlights != []:
             with self.canvas_lock:
                 for obj in self.highlights:
                     self.Canvas.RemoveObject(obj)
                 self.highlights = []
+                for obj in self.graphics_route:
+                    self.Canvas.RemoveObject(obj)
+                self.graphics_route = []
+                for obj in self.graphics_edges:
+                    obj.Visible = True
+                self.RefreshNodes('normal')
+                self.mp.ep.btn_rte.SetLabel('Show Route')
+                self.mp.ep.btn_rte.Enable(False)
+                self.Canvas.Draw(True)
         else:
             self.ClearGraph()
                    
@@ -2209,6 +2265,22 @@ class MapFrame(wx.Frame):
             
             et = datetime.now()
             print "Saved canvas image. Time taken: %s" % (et-st)
+            
+    def Test(self):
+        route = [0,1,2,6,8,9,8,6,5,2,3,4,3,1,5,7,1,0,7]
+        self.DrawRoute(route, False)
+        self.GetParent().ep.btn_rte.Enable(True)
+                
+        with self.canvas_lock:
+            for n in route:
+                self.HighlightDestination(n)
+                self.Canvas.Draw(True)
+                time.sleep(1)
+                self.OnReachDestination()
+                self.OnReachDestination()
+                time.sleep(1)
+                self.Canvas.Draw(True)
+                wx.Yield()
     
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #

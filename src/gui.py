@@ -12,7 +12,7 @@ import Resources
 from datetime import datetime
 from MapFrame import MapFrame
 
-APP_SIZE        = (240,387)
+APP_SIZE        = (240,425)
 APP_SIZE_EXP    = (240,620)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
@@ -27,9 +27,7 @@ SIZER_BORDER    = 10
 
 #BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
 
-#TODO: fix 2d pose estimate angles
-
-#TODO: Locking
+#TODO: stop NT button?
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -197,30 +195,7 @@ class MainPanel(wx.Panel):
         hbox13.Add(self.btn_svas)           
         self.sizer_menu.Add(hbox13,0,
                             wx.TOP|wx.LEFT|wx.RIGHT
-                            ,SIZER_BORDER) 
-
-        # Show/Hide map viewer button
-#         hbox03 = wx.BoxSizer(wx.HORIZONTAL)            
-#         hbox03.AddSpacer(H_SPACER_WIDTH)
-        self.btn_map = wx.Button(self, label="Show Map", size=BUTTON_SIZE)        
-        self.btn_map.Bind(wx.EVT_BUTTON, self.OnShowHideMap)   
-        self.btn_disabled.append(self.btn_map)   
-        self.buttons.append(self.btn_map)   
-#         hbox03.Add(self.btn_map)        
-#         self.sizer_menu.Add(hbox03,0,
-#                             wx.TOP|wx.LEFT|wx.RIGHT
-#                             ,SIZER_BORDER)  
-        self.btn_map.Hide()
-               
-#         # Explore button
-#         hbox06 = wx.BoxSizer(wx.HORIZONTAL)     
-#         hbox06.AddSpacer(H_SPACER_WIDTH)
-#         self.btn_exp = wx.Button(self, label="Explore...", size=BUTTON_SIZE)        
-#         self.btn_exp.Bind(wx.EVT_BUTTON, self.OnExplore)
-#         self.btn_disabled.append(self.btn_exp) 
-#         self.buttons.append(self.btn_exp) 
-#         hbox06.Add(self.btn_exp)        
-#         self.sizer_menu.Add(hbox06,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)
+                            ,SIZER_BORDER)         
         
         self.sizer_menu.AddSpacer(V_SPACER_LARGE)
         
@@ -376,41 +351,8 @@ class MainPanel(wx.Panel):
         self.mframe.Show()   
         self.mframe.KillBusyDialog()
         wx.EndBusyCursor()
-        self.ros.refresh2 = False
-        self.btn_map.SetLabel("Hide Map")         
-        self.Layout()           
-       
-#---------------------------------------------------------------------------------------------#    
-#    Shows or hides the map, depending on the map's current state.                            #
-#---------------------------------------------------------------------------------------------#        
-    def OnShowHideMap(self, event):
-        if self.btn_map.GetLabel()[0]=='S':
-            self.mframe.Show()
-            self.btn_map.SetLabel("Hide Map")
-        else:
-            self.mframe.Hide()
-            self.btn_map.SetLabel("Show Map")
-
-#---------------------------------------------------------------------------------------------#    
-#    Shows the "explore" panel, which allows the user to find specific nodes and edges.       #
-#---------------------------------------------------------------------------------------------#            
-    def OnExplore(self, event):
-        pass
-#         if self.ep.IsShown():
-#             self.ep.Hide()
-#             self.pf.SetSize(APP_SIZE)            
-#             self.bg = self.DrawBG(APP_SIZE)
-#             self.Show()
-#             self.Layout()
-#         else:
-#             self.ep.txt.Clear()            
-#             self.pf.SetSize(APP_SIZE)
-#             self.bg = self.DrawBG(APP_SIZE)
-#             for b in self.buttons:
-#                 b.Show()
-#             self.ep.Show()
-#             self.Layout()
-            
+        self.ros.refresh2 = False        
+        self.Layout()             
 
 #---------------------------------------------------------------------------------------------#    
 #    Shows a file dialog allowing the user to select a map file (.png format)                 #
@@ -468,8 +410,7 @@ class MainPanel(wx.Panel):
                 wx.EndBusyCursor()  
                 self.mframe.KillBusyDialog()  
                 self.EnableButtons(self.btn_disabled, True)              
-                self.SetSaveStatus(True) 
-                self.btn_map.SetLabel("Hide Map")
+                self.SetSaveStatus(True)
                 
                 et = datetime.now()
                 self.mframe.Show()
@@ -572,7 +513,6 @@ class MainPanel(wx.Panel):
         self.mframe.ClearGraph()      
         self.mframe.Clear()
         self.mframe.Hide()
-        self.btn_map.SetLabel("Show Map")
         self.EnableButtons(self.btn_disabled, False)
         self.SetSaveStatus(True)
 
@@ -1001,15 +941,14 @@ class ExplorePanel(wx.Panel):
         vbox10.Add(self.btn_tour)        
         self.sizer.Add(vbox10,1,wx.TOP,10) 
         
-#         # Node/Edge radio buttons
-#         vbox03 = wx.BoxSizer(wx.VERTICAL)
-#         self.radio_node = wx.RadioButton(self, -1, "Node", style=wx.RB_GROUP) 
-#         self.radio_edge = wx.RadioButton(self, -1, "Edge")
-#         vbox03.Add(self.radio_node) 
-#         vbox03.Add(self.radio_edge) 
-#         self.hbox01.Add(vbox03,0,wx.TOP,5)    
-#         self.radio_node.Bind(wx.EVT_RADIOBUTTON, self.OnSelectNode)
-#         self.radio_edge.Bind(wx.EVT_RADIOBUTTON, self.OnSelectEdge)
+        # Show/Hide map viewer button
+        vbox13 = wx.BoxSizer(wx.VERTICAL)  
+        self.btn_rte = wx.Button(self, label="Show Route", size=BUTTON_SIZE)        
+        self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
+        self.btn_rte.Enable(False)
+        self.GetParent().buttons.append(self.btn_rte)   
+        vbox13.Add(self.btn_rte)        
+        self.sizer.Add(vbox13,1, wx.TOP,10)  
 
         vbox03 = wx.BoxSizer(wx.VERTICAL)
         lbl_font = self.pf.font
@@ -1074,16 +1013,14 @@ class ExplorePanel(wx.Panel):
     
     def OnTxtFocus(self, event):
         event.GetEventObject().Clear()
-
-#---------------------------------------------------------------------------------------------#    
-#    Functions for the radio buttons. Determines if we're looking for nodes or edges.         #
-#---------------------------------------------------------------------------------------------#         
-    def OnSelectNode(self, event):
-        self.btn_go.Bind(wx.EVT_BUTTON, None)
-        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoNode)        
-    def OnSelectEdge(self, event):
-        self.btn_go.Bind(wx.EVT_BUTTON, None)
-        self.btn_go.Bind(wx.EVT_BUTTON, self.OnGotoEdge)
+        
+    def OnShowHideRoute(self, event):
+        if self.btn_rte.GetLabel() == 'Show Route':
+            self.mframe.ShowRoute()
+            self.btn_rte.SetLabel('Hide Route')
+        else:
+            self.mframe.HideRoute()
+            self.btn_rte.SetLabel('Show Route')
         
     def OnFind(self, event):
         txt = self.txt.GetValue()

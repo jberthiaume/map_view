@@ -128,8 +128,8 @@ class ROSNode():
 #         pass
 
     def RouteCB(self, data):
-#         self.mframe.ShowRoute(data.data)
-        pass
+        self.mframe.DrawRoute(data.data, False)
+        self.parent.mp.ep.btn_rte.Enable(True)
         
 #     def ObsCB(self, data):
 #         pass

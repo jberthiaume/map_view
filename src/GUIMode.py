@@ -18,7 +18,7 @@ from wx.lib.floatcanvas.Utilities import BBox
 
 LINE_WIDTH        =  3
 LINE_COLOR_POSE   = (225,113,45)
-LINE_COLOR_NAV    = (169,101,143)
+LINE_COLOR_NAV    = (169,81,133)
 LINE_COLOR_DONE   = (20,200,0)
 EDGE_WIDTH        =  4
 EDGE_COLOR_NORMAL = (110,110,105)
