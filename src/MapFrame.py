@@ -2158,7 +2158,16 @@ class MapFrame(wx.Frame):
 #     Clears the entire canvas                                                               #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
-        self.Canvas.InitAll()   
+        self.Canvas.InitAll()  
+        
+    def OnClear(self):
+        if self.highlights is not []:
+            with self.canvas_lock:
+                for obj in self.highlights:
+                    self.Canvas.RemoveObject(obj)
+                self.highlights = []
+        else:
+            self.ClearGraph()
                    
     def ClearGraph(self):
         self.SetModes('ClearGraph', {                        

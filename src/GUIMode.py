@@ -18,7 +18,7 @@ from wx.lib.floatcanvas.Utilities import BBox
 
 LINE_WIDTH        =  3
 LINE_COLOR_POSE   = (225,113,45)
-LINE_COLOR_NAV    = (119,41,83)
+LINE_COLOR_NAV    = (169,101,143)
 LINE_COLOR_DONE   = (20,200,0)
 EDGE_WIDTH        =  4
 EDGE_COLOR_NORMAL = (110,110,105)
@@ -332,7 +332,7 @@ class GUIPoseEst(GUIBase):
             
             # if mouse has moved less that ten pixels, don't use the box.
             if ( abs(StartPoint[0] - EndPoint[0]) > 5
-                    and abs(StartPoint[1] - EndPoint[1]) > 5 ):
+                    or abs(StartPoint[1] - EndPoint[1]) > 5 ):
                 StartPoint = self.Canvas.PixelToWorld(StartPoint)
                 EndPoint = self.Canvas.PixelToWorld(event.GetPosition())
                 
@@ -435,7 +435,7 @@ class GUINavGoal(GUIBase):
             
             # if mouse has moved less that ten pixels, don't use the box.
             if ( abs(StartPoint[0] - EndPoint[0]) > 5
-                    and abs(StartPoint[1] - EndPoint[1]) > 5 ):
+                    or abs(StartPoint[1] - EndPoint[1]) > 5 ):
                 StartPoint = self.Canvas.PixelToWorld(StartPoint)
                 EndPoint = self.Canvas.PixelToWorld(event.GetPosition())
                 
