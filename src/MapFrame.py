@@ -29,7 +29,8 @@ ROBOT_BORDER        = (50,0,0)
 SELECT_COLOR        = (255,106,54)
 HIGHLIGHT_COLOR     = (255,106,54)
 DESTINATION_COLOR   = (30,230,40)
-OBSTACLE_COLOR      = (240,30,30)
+OBSTACLE_COLOR_1    = (240,30,30)
+OBSTACLE_COLOR_2    = (220,180,20)
 ROUTE_COLOR         = (20,165,0)
 TEXT_COLOR          = (119,41,83)
 
@@ -79,6 +80,8 @@ class MapFrame(wx.Frame):
         self.sel_edges = [] 
         self.route = []
 #         self.route_collisions = defaultdict(list)
+        self.obstacles_1 = None
+        self.obstacles_2 = None
         self.pe_graphic = None
         self.ng_graphic = None
         self.curr_dest = None   
@@ -391,7 +394,7 @@ class MapFrame(wx.Frame):
             if distance < 150:
                 self.NumTimeSteps = 12  
             else:
-                self.NumTimeSteps = 48 
+                self.NumTimeSteps = 24 
             
             self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
             self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
@@ -541,21 +544,35 @@ class MapFrame(wx.Frame):
             print "Created 2D nav goal at point (%s, %s)" % (x, y)
         self.ros.Publish2DNavGoal(pose, orient)
         
-    def DrawObstacles(self, points):
+    def DrawObstacles(self, points, mode):        
         with self.canvas_lock:
+            if mode == 'inf': 
+                fc = OBSTACLE_COLOR_2
+                if self.obstacles_2 is not None:
+                    self.Canvas.RemoveObject(self.obstacles_2)
+            else:
+                fc = OBSTACLE_COLOR_1
+                if self.obstacles_1 is not None:
+                    self.Canvas.RemoveObject(self.obstacles_1)            
+            obs = FloatCanvas.Group()
             try:
-                for point in points:
-                    x = int( self.MetersToPixels((point.x,0))[0] )
-                    y = int( self.MetersToPixels((point.y,0))[0] )               
-                     
-                    fc = OBSTACLE_COLOR
-                    d = 5
-                    lw = 1
-    #                 p = self.Canvas.AddRectangle((x-(d/2), y-(d/2)), (d,d), LineWidth = lw, 
-    #                                           LineColor = lc, FillColor = fc)
-                    p = self.Canvas.AddCircle((x,y), d, FillColor=fc, LineColor=fc)
-                    p.Coords = (x,y)
-                    self.graphics_obs.append(p)
+                for point in points:                    
+                    with self.canvas_lock:
+                        x = int( self.MetersToPixels((point.x,0))[0] )
+                        y = int( self.MetersToPixels((point.y,0))[0] )                   
+                        d = 4
+                        lw = 1
+        #                 p = self.Canvas.AddRectangle((x-(d/2), y-(d/2)), (d,d), LineWidth = lw, 
+        #                                           LineColor = lc, FillColor = fc)
+                        p = FloatCanvas.Circle((x,y), d, FillColor=fc, LineColor=fc)
+                        p.Coords = (x,y)
+                        obs.AddObject(p)
+                
+                self.Canvas.AddObject(obs) 
+                if mode == 'inf':
+                    self.obstacles_2 = obs 
+                else:
+                    self.obstacles_1 = obs  
                 self.Canvas.Draw(True)
             except AttributeError:
                 print "exception encountered"
@@ -2225,21 +2242,21 @@ class MapFrame(wx.Frame):
             print "Saved canvas image. Time taken: %s" % (et-st)
             
     def Test(self):        
-        self.DrawObstacles(self.ros.obstacles)
-#         route = [0,1,2,6,8,9,8,6,5,2,3,4,3,1,5,7,1,0,7]
-#         self.DrawRoute(route, False)
-#         self.GetParent().ep.btn_rte.Enable(True)
-#                 
-#         with self.canvas_lock:
-#             for n in route:
-#                 self.HighlightDestination(n)
-#                 self.Canvas.Draw(True)
-#                 time.sleep(1)
-#                 self.OnReachDestination()
-#                 self.OnReachDestination()
-#                 time.sleep(1)
-#                 self.Canvas.Draw(True)
-#                 wx.Yield()
+#         self.DrawObstacles(self.ros.obstacles)
+        route = [0,1,2,6,8,9,8,6,5,2,3,4,3,1,5,7,1,0,7]
+        self.DrawRoute(route, False)
+        self.GetParent().ep.btn_rte.Enable(True)
+                 
+        with self.canvas_lock:
+            for n in route:
+                self.HighlightDestination(n)
+                self.Canvas.Draw(True)
+                time.sleep(1)
+                self.OnReachDestination()
+                self.OnReachDestination()
+                time.sleep(1)
+                self.Canvas.Draw(True)
+                wx.Yield()
     
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #

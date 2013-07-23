@@ -51,7 +51,7 @@ class ROSNode():
         self.filename = FILENAME       
         
         self.parent = parent
-        self.tt = TimerThread(self)
+        self.tt = TimerThread(self, 5)
         self.tt.start()
         self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
@@ -89,6 +89,7 @@ class ROSNode():
         rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
 #         rospy.Subscriber("move_base_node/local_costmap/obstacles", GridCells, self.ObsCB)
+#         rospy.Subscriber("move_base_node/local_costmap/inflated_obstacles", GridCells, self.ObsCB2)
 #         rospy.Subscriber("move_base/goal", MoveBaseActionGoal, self.GoalCB)
         
         if __name__ == '__main__':
@@ -136,8 +137,14 @@ class ROSNode():
         
     def ObsCB(self, data):
         if self.ok:
-            self.obstacles = data.cells
-            self.mframe.DrawObstacles(self.obstacles)
+            self.obstacles_1 = data.cells
+            self.mframe.DrawObstacles(self.obstacles_1, 'obs')
+            self.ok = False
+            
+    def ObsCB2(self, data):
+        if self.ok:
+            self.obstacles_2 = data.cells
+            self.mframe.DrawObstacles(self.obstacles_2, 'inf')
             self.ok = False
         
     def TourCB(self, data):
