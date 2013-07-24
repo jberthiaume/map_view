@@ -51,7 +51,7 @@ class ROSNode():
         self.filename = FILENAME       
         
         self.parent = parent
-        self.tt = TimerThread(self, 5)
+        self.tt = TimerThread(self, 10)
         self.tt.start()
         self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)

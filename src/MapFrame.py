@@ -54,7 +54,7 @@ class MapFrame(wx.Frame):
         self.modes = {'export':False, 'auto_erase':True, 'verbose':True, 'redraw':True, 
                        'auto_edges':True, 'spaced_edges':True,  'unknown_edges':True, 
                        'clear_graph':True, 'auto_intersections':True, 'manual_edges':False,
-                       'pose_est':False, 'route_shown':False}
+                       'pose_est':False, 'load':False}
         self.saved_modes = {}
         
         self.resolution = None
@@ -544,7 +544,7 @@ class MapFrame(wx.Frame):
             print "Created 2D nav goal at point (%s, %s)" % (x, y)
         self.ros.Publish2DNavGoal(pose, orient)
         
-    def DrawObstacles(self, points, mode):        
+    def DrawObstacles(self, points, mode):     
         with self.canvas_lock:
             if mode == 'inf': 
                 fc = OBSTACLE_COLOR_2
@@ -556,12 +556,12 @@ class MapFrame(wx.Frame):
                     self.Canvas.RemoveObject(self.obstacles_1)            
             obs = FloatCanvas.Group()
             try:
-                for point in points:                    
+                for point in points:    
+                    print "Owner: %s" % self.canvas_lock._is_owned()                   
                     with self.canvas_lock:
                         x = int( self.MetersToPixels((point.x,0))[0] )
                         y = int( self.MetersToPixels((point.y,0))[0] )                   
                         d = 4
-                        lw = 1
         #                 p = self.Canvas.AddRectangle((x-(d/2), y-(d/2)), (d,d), LineWidth = lw, 
         #                                           LineColor = lc, FillColor = fc)
                         p = FloatCanvas.Circle((x,y), d, FillColor=fc, LineColor=fc)
@@ -757,7 +757,7 @@ class MapFrame(wx.Frame):
                 fs = FONT_SIZE_2   
             
             collision = self.DetectCollision(node)
-            if collision < 0:  
+            if collision < 0 or self.modes['load']:
                        
                 # Draw the node on the canvas
                 c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
@@ -1990,7 +1990,8 @@ class MapFrame(wx.Frame):
         self.SetModes('LoadNodes', {
                         'auto_erase':False, 
                         'auto_intersections':False, 
-                        'auto_edges':False
+                        'auto_edges':False,
+                        'load':True
                         })
         tmp_nodelist = self.nodelist
         self.nodelist = []           
@@ -2265,7 +2266,7 @@ class MapFrame(wx.Frame):
     def SetImage(self, image_obj):
         with self.canvas_lock:
             self.SetModes('SetImage', {                        
-                            'verbose':False, 
+#                             'verbose':False, 
                             'redraw':False, 
                             'auto_edges':False
                             }) 

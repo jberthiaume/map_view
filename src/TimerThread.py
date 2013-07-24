@@ -14,7 +14,6 @@ class TimerThread(Thread):
         while not self.stopped:
             time.sleep(self.interval)
             self.parent.ok = True
-            print "Set OK True"
 
     def SetInterval(self, interval):
         self.interval = interval
