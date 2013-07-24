@@ -82,6 +82,7 @@ class MapFrame(wx.Frame):
 #         self.route_collisions = defaultdict(list)
         self.obstacles_1 = None
         self.obstacles_2 = None
+        self.arrows = None
         self.pe_graphic = None
         self.ng_graphic = None
         self.curr_dest = None   
@@ -392,9 +393,9 @@ class MapFrame(wx.Frame):
             
             distance = self.Distance(dest, r.XY)
             if distance < 150:
-                self.NumTimeSteps = 12  
+                self.NumTimeSteps = 1  
             else:
-                self.NumTimeSteps = 24 
+                self.NumTimeSteps = 1 
             
             self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
             self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
@@ -713,7 +714,6 @@ class MapFrame(wx.Frame):
             
     def ShowRoute(self):
         with self.canvas_lock:            
-#             self.SetModes('ShowRoute', {'route_shown':True})
             for edge in self.graphics_edges:
                 edge.Visible = False  
 #             for hl in self.highlights:
@@ -733,7 +733,6 @@ class MapFrame(wx.Frame):
             for gr in self.graphics_route:
                 gr.Visible = False
             self.Canvas.Draw(True)
-#             self.RestoreModes('ShowRoute')
 
 #--------------------------------------------------------------------------------------------#    
 #     Creates a single node at the given coordinates                                         #
@@ -2244,10 +2243,18 @@ class MapFrame(wx.Frame):
             
     def Test(self):        
 #         self.DrawObstacles(self.ros.obstacles)
-        route = [0,1,2,6,8,9,8,6,5,2,3,4,3,1,5,7,1,0,7]
-        self.DrawRoute(route, False)
+        route = [29, 19, 20, 26, 22, 11, 1, 46, 47, 44, 45,
+                 11, 47, 45, 47, 1, 0, 6, 28, 6, 0, 46, 44, 
+                 20, 45, 26, 11, 21, 13, 14, 36, 39, 33, 30, 
+                 15, 2, 10, 4, 9, 10, 7, 35, 7, 48, 2, 40, 12, 
+                 9, 12, 27, 23, 17, 23, 27, 12, 9, 4, 34, 24, 5, 
+                 43, 5, 24, 34, 4, 9, 40, 10, 48, 42, 31, 8, 38, 
+                 39, 38, 37, 16, 18, 13, 21, 22, 26, 19, 32, 41, 
+                 3, 25, 3, 41, 32, 19, 26, 29]
+   
+        self.DrawRoute(route, True)
         self.GetParent().ep.btn_rte.Enable(True)
-                 
+                  
         with self.canvas_lock:
             for n in route:
                 self.HighlightDestination(n)
@@ -2266,7 +2273,7 @@ class MapFrame(wx.Frame):
     def SetImage(self, image_obj):
         with self.canvas_lock:
             self.SetModes('SetImage', {                        
-#                             'verbose':False, 
+                            'verbose':False, 
                             'redraw':False, 
                             'auto_edges':False
                             }) 
