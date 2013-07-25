@@ -17,6 +17,7 @@ import threading as t
 import GraphStructs as gs
 import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
+from TimerThread import TimerThread
 from datetime import datetime
 
 #----- Global colors -----#
@@ -93,7 +94,7 @@ class MapFrame(wx.Frame):
         # See GenerateConnectionMatrix()
         self.conn_matrix = np.empty(shape=(150,150))
         self.conn_matrix[:] = -1   
-        self.tt = datetime(1000,1,1,0,0,0)       
+        self.ttime = datetime(1000,1,1,0,0,0)       
        
         self.mp = self.GetParent()
         self.ros = self.mp.ros
@@ -272,60 +273,62 @@ class MapFrame(wx.Frame):
         
         step = 5
         ew = EDGE_WIDTH
-        with self.canvas_lock:
-            for item in selection:
-                ID = item.Name
-                node = self.nodelist[int(ID)]            
-                
-                if event.GetKeyCode() == wx.WXK_UP:
-                    xy = node.coords[0], node.coords[1]+step
-                    dxy = 0,step
-                elif event.GetKeyCode() == wx.WXK_DOWN:
-                    xy = node.coords[0], node.coords[1]-step
-                    dxy = 0,-step
-                elif event.GetKeyCode() == wx.WXK_LEFT:
-                    xy = node.coords[0]-step, node.coords[1]
-                    dxy = -step,0
-                elif event.GetKeyCode() == wx.WXK_RIGHT:
-                    xy = node.coords[0]+step, node.coords[1]
-                    dxy = step,0
-                else:
-                    self.RestoreModes('KeyPress')
+        for item in selection:
+            ID = item.Name
+            node = self.nodelist[int(ID)]            
+            
+            if event.GetKeyCode() == wx.WXK_UP:
+                xy = node.coords[0], node.coords[1]+step
+                dxy = 0,step
+            elif event.GetKeyCode() == wx.WXK_DOWN:
+                xy = node.coords[0], node.coords[1]-step
+                dxy = 0,-step
+            elif event.GetKeyCode() == wx.WXK_LEFT:
+                xy = node.coords[0]-step, node.coords[1]
+                dxy = -step,0
+            elif event.GetKeyCode() == wx.WXK_RIGHT:
+                xy = node.coords[0]+step, node.coords[1]
+                dxy = step,0
+            else:
+                self.RestoreModes('KeyPress')                
+                with self.canvas_lock:
                     self.Canvas.Draw(True)
-                    return    
-                     
-                node.coords = xy
-                node.m_coords = self.PixelsToMeters(xy)
-                
-                # Flag edges for redrawing if they are connected to a node which will move
-                for idx,edge_id in enumerate(self.conn_matrix[int(ID)]):
-                    if idx > len(self.nodelist):
-                        break
-                    if edge_id != -1 and idx != int(ID):
-                        edges_to_redraw.append( int(edge_id) )                    
-                
+                return    
+                 
+            node.coords = xy
+            node.m_coords = self.PixelsToMeters(xy)
+            
+            # Flag edges for redrawing if they are connected to a node which will move
+            for idx,edge_id in enumerate(self.conn_matrix[int(ID)]):
+                if idx > len(self.nodelist):
+                    break
+                if edge_id != -1 and idx != int(ID):
+                    edges_to_redraw.append( int(edge_id) )                    
+            
+            with self.canvas_lock:
                 self.graphics_nodes[int(ID)].Move(dxy)
                 self.graphics_text[ int(ID)].Move(dxy)
-                
-                if self.modes['verbose']:
-                    print "Moved node %s to location %s" % ( str(node.id), str(xy) )
-                self.SelectOneNode(self.graphics_nodes[int(ID)],False)
-        
-            # Redraw edges to correspond to the new coordinates of their endpoints
-            for edge_id in edges_to_redraw: 
-                n1 = self.nodelist[ int(self.edgelist[edge_id].node1) ]  
-                n2 = self.nodelist[ int(self.edgelist[edge_id].node2) ]    
-                self.Canvas.RemoveObject(self.graphics_edges[edge_id])
-                
+            
+            if self.modes['verbose']:
+                print "Moved node %s to location %s" % ( str(node.id), str(xy) )
+            self.SelectOneNode(self.graphics_nodes[int(ID)],False)
+    
+        # Redraw edges to correspond to the new coordinates of their endpoints            
+        for edge_id in edges_to_redraw: 
+            n1 = self.nodelist[ int(self.edgelist[edge_id].node1) ]  
+            n2 = self.nodelist[ int(self.edgelist[edge_id].node2) ]
+            with self.canvas_lock:
+                self.Canvas.RemoveObject(self.graphics_edges[edge_id])            
                 e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
                 e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
                 e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
                 e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
-                self.graphics_edges[edge_id] = e           
                 e.Name = str(edge_id)
+                self.graphics_edges[edge_id] = e 
         
-        self.RestoreModes('KeyPress')  
-        self.Canvas.Draw(True)            
+        with self.canvas_lock:        
+            self.Canvas.Draw(True)       
+        self.RestoreModes('KeyPress')       
         
               
 #---------------------------------------------------------------------------------------------#    
@@ -333,87 +336,87 @@ class MapFrame(wx.Frame):
 #    is not accurate. When accurate pose info is received, the robot graphic turns red.       #
 #---------------------------------------------------------------------------------------------#    
     def AddRobot(self, coords, orient):
+        # If no coords are specified, just put the robot at the origin
+        if coords == -1:
+            xy = (0,0)
+            zw = 0   
+            fc = ROBOT_FILL_1
+        else:
+            xy = coords
+            zw = orient     
+            fc = ROBOT_FILL_2          
+        diam = ROBOT_DIAM
+        lw = ROBOT_BORDER_WIDTH
+        lc = ROBOT_BORDER   
+        
         with self.canvas_lock:
-            # If no coords are specified, just put the robot at the origin
-            if coords == -1:
-                xy = (0,0)
-                zw = 0
-            else:
-                xy = coords
-                zw = orient            
-            diam = ROBOT_DIAM
-            lw = ROBOT_BORDER_WIDTH
-            lc = ROBOT_BORDER    
-            fc = ROBOT_FILL_1  
-            
             r = self.Canvas.AddCircle(xy, diam, LineWidth = lw,
-                                      LineColor = lc, FillColor = fc, InForeground = True)
-            r.Coords = xy
-            self.robot = r
+                LineColor = lc, FillColor = fc, InForeground = True)
             r.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-            
+        r.Coords = xy
+        self.robot = r
+        
 #             theta = self.ToDegrees( self.Angle(zw) )
-            theta = zw                
+        theta = zw    
+        with self.canvas_lock:            
             a = self.Canvas.AddArrowLine( (xy, (xy[0]+diam, xy[1]) ), LineWidth = lw,
-                                     LineColor = lc, ArrowHeadSize=10, InForeground = True)
-            a.Coords = xy
-            a.Theta  = theta
-            self.arrow = a
-            a.Visible = False
-            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-            
-            self.Timer = wx.PyTimer(self.ShowFrame)
-            self.FrameDelay = 16        ## 16ms per frame = framerate of 60 FPS
+                LineColor = lc, ArrowHeadSize=10, InForeground = True)   
+            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)         
             self.Canvas.Draw(True)
+        a.Coords = xy
+        a.Theta  = theta
+        self.arrow = a
+        
+        self.Timer = wx.PyTimer(self.ShowFrame)
+        self.FrameDelay = 16        ## 16ms per frame = framerate of 60 FPS
 
 
 #---------------------------------------------------------------------------------------------#    
 #    Sets a destination for the robot graphic and starts the animation timer                  #
 #---------------------------------------------------------------------------------------------#  
     def MoveRobotTo(self, dest, orient, metric):
-        with self.canvas_lock:   
-            if self.robot is None:
-                return
-             
-            try:    
-                if metric:
-                    self.destination = self.MetersToPixels(dest)
-                    dest = self.destination
-                else:
-                    self.destination = dest 
-            except AttributeError:
-                print "Could not move robot graphic (initialization error)"   
-                return    
-            self.dest_theta = self.ToDegrees( self.Angle(orient) )         
-            
-            r = self.robot
-            r.Coords = ( int(dest[0]), int(dest[1]) )
-            a = self.arrow
-            a.Coords = r.Coords         
-            
-            distance = self.Distance(dest, r.XY)
-            if distance < 150:
-                self.NumTimeSteps = 1  
+        if self.robot is None:
+            return
+         
+        try:    
+            if metric:
+                self.destination = self.MetersToPixels(dest)
+                dest = self.destination
             else:
-                self.NumTimeSteps = 1 
-            
-            self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
-            self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
-            self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps  
-            
-    #         print "Current t: %s  |  Destination t: %s  |  dt: %s" % (a.Theta, self.dest_theta, self.dt)
-    #         print "Total diff t: %s" % (self.dest_theta - a.Theta)
-    #         print "dt = %s" % (self.dt)
-            
-            self.arrow_drawn = False
-            if (self.dest_theta-a.Theta > 180 or self.dest_theta-a.Theta <-180):
-                self.workaround = True
-            else:
-                self.workaround = False
-            
-            self.arrow_drawn = False
-            self.TimeStep = 1
-            self.Timer.Start(self.FrameDelay)         
+                self.destination = dest 
+        except AttributeError:
+            print "Could not move robot graphic (initialization error)"   
+            return    
+        self.dest_theta = self.ToDegrees( self.Angle(orient) )         
+        
+        r = self.robot
+        r.Coords = ( int(dest[0]), int(dest[1]) )
+        a = self.arrow
+        a.Coords = r.Coords         
+        
+        distance = self.Distance(dest, r.XY)
+        if distance < 150:
+            self.NumTimeSteps = 1  
+        else:
+            self.NumTimeSteps = 1 
+        
+        self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
+        self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
+        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps  
+        
+#         print "Current t: %s  |  Destination t: %s  |  dt: %s" % (a.Theta, self.dest_theta, self.dt)
+#         print "Total diff t: %s" % (self.dest_theta - a.Theta)
+#         print "dt = %s" % (self.dt)
+        
+        self.arrow_drawn = False
+        if (self.dest_theta-a.Theta > 180 or self.dest_theta-a.Theta <-180):
+            self.workaround = True
+        else:
+            self.workaround = False
+        
+        self.arrow_drawn = False
+        self.TimeStep = 1
+        self.Timer.Start(self.FrameDelay)         
              
 #---------------------------------------------------------------------------------------------#    
 #    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
@@ -446,10 +449,10 @@ class MapFrame(wx.Frame):
                 with self.canvas_lock:  
                     a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                             LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
+                    a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 a.Coords = r.XY
                 a.Theta  = new_theta
                 self.arrow = a
-                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 self.arrow_drawn = True
              
             elif not self.workaround:    
@@ -460,9 +463,9 @@ class MapFrame(wx.Frame):
                 with self.canvas_lock:                  
                     a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                             LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
+                    a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 a.Coords = r.XY
                 a.Theta  = new_theta
-                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 self.arrow = a
             
             with self.canvas_lock:    
@@ -489,10 +492,10 @@ class MapFrame(wx.Frame):
             with self.canvas_lock:          
                 a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                                  LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
+                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
             a.Coords = r.XY
             a.Theta  = new_theta
-            self.arrow = a
-            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)            
+            self.arrow = a            
                       
             try:
                 with self.canvas_lock:
@@ -553,6 +556,7 @@ class MapFrame(wx.Frame):
             y = self.Truncate(pose[1], 4)
             print "Created 2D nav goal at point (%s, %s)" % (x, y)
         self.ros.Publish2DNavGoal(pose, orient)
+        
         
     def DrawObstacles(self, points, mode):
             if mode == 'inf': 
@@ -644,87 +648,70 @@ class MapFrame(wx.Frame):
           
         with self.canvas_lock:   
             self.Canvas.Draw(True)
-                    
-    def ClearHighlighting(self):
-        if self.modes['verbose']:
-            print "Tour complete. Reset highlighted edges."
-        with self.canvas_lock:
-            for edge in self.graphics_edges:
-                edge.Visible = True
-                edge.SetFillColor(EDGE_COLOR)
-            for obj in self.graphics_route:
-                self.Canvas.RemoveObject(obj)
-            self.Canvas.Draw(True)  
         
     def DrawRoute(self, route, show):
         self.route = route
+        tmp_edges = []          
         
-        with self.canvas_lock:
-            tmp_edges = []          
+        color = (0,0,255)
+        steps = len(route)
+        incr = min(480.0/steps, 30)
+        phase = 0
+        for idx,node in reversed(list(enumerate(route))):            
+            if (idx-1) >= 0:
+                n1_id = int(node)
+                n2_id = int(route[idx-1])
+                node1 = self.nodelist[n1_id]
+                node2 = self.nodelist[n2_id]
+            else:
+                break      
+     
+            edge_id = int( self.conn_matrix[n1_id][n2_id] )
             
-            color = (0,0,255)
-            steps = len(route)
-            incr = min(480.0/steps, 30)
-            phase = 0
-            for idx,node in reversed(list(enumerate(route))):            
-                if (idx-1) >= 0:
-                    n1_id = int(node)
-                    n2_id = int(route[idx-1])
-                    node1 = self.nodelist[n1_id]
-                    node2 = self.nodelist[n2_id]
-                else:
-                    break      
-         
-                edge_id = int( self.conn_matrix[n1_id][n2_id] )
-                
-                x1 = node1.coords[0]
-                y1 = node1.coords[1]
-                x2 = node2.coords[0]
-                y2 = node2.coords[1]       
-                
-                dx    = x2-x1
-                dy    = y2-y1
-                theta = math.atan2(dy,dx)
-                kx    = math.cos(theta)
-                ky    = math.sin(theta)
-                
-                xS = self.Round( x1+(( (NODE_DIAM+3)/2.0) *kx) )
-                yS = self.Round( y1+(( (NODE_DIAM+3)/2.0) *ky) )
-                xD = self.Round( x2-(( (NODE_DIAM+3)/2.0) *kx) )
-                yD = self.Round( y2-(( (NODE_DIAM+3)/2.0) *ky) )            
-                pS = (xS,yS)
-                pD = (xD,yD)
-                
+            x1 = node1.coords[0]
+            y1 = node1.coords[1]
+            x2 = node2.coords[0]
+            y2 = node2.coords[1]       
+            
+            dx    = x2-x1
+            dy    = y2-y1
+            theta = math.atan2(dy,dx)
+            kx    = math.cos(theta)
+            ky    = math.sin(theta)
+            
+            xS = self.Round( x1+(( (NODE_DIAM+3)/2.0) *kx) )
+            yS = self.Round( y1+(( (NODE_DIAM+3)/2.0) *ky) )
+            xD = self.Round( x2-(( (NODE_DIAM+3)/2.0) *kx) )
+            yD = self.Round( y2-(( (NODE_DIAM+3)/2.0) *ky) )            
+            pS = (xS,yS)
+            pD = (xD,yD)
+            
+            with self.canvas_lock:
                 l = self.Canvas.AddArrowLine( (pD,pS), LineWidth = EDGE_WIDTH, LineColor = color,
-                                             ArrowHeadSize=10, InForeground=True)
-                self.graphics_route.insert(0,l) 
-                
-#                 if edge_id in tmp_edges:
-#                     self.route_collisions[edge_id].append(l)
-#                     self.graphics_route_h.append(l)
-#                     l.Visible = False
-                tmp_edges.append(edge_id)
-                
-                if color[0]+incr < 255 and phase == 0:
-                    color =  ( int(color[0]+incr), color[1], color[2] )
-                    continue
-                elif color[2]-incr > 0 and phase == 1:
-                    color =  ( color[0], color[1], int(color[2]-incr) )
-                    continue
+                                         ArrowHeadSize=10, InForeground=True)
+            self.graphics_route.insert(0,l)             
+            tmp_edges.append(edge_id)
+            
+            if color[0]+incr < 255 and phase == 0:
+                color =  ( int(color[0]+incr), color[1], color[2] )
+                continue
+            elif color[2]-incr > 0 and phase == 1:
+                color =  ( color[0], color[1], int(color[2]-incr) )
+                continue
 #                 elif color[2]+(2*incr) < 240 and phase == 2:
 #                     color =  ( color[0], color[1], int(color[2]+(2*incr)) )
 #                     continue
 #                 elif color[1]-(2*incr) > 0 and phase == 3:
 #                     color =  ( color[0], int(color[1]-(2*incr)), color[2] )
 #                     continue
-                else:
-                    phase = phase+1                 
-           
+            else:
+                phase = phase+1                 
+        with self.canvas_lock:
             if not show:
                 for gr in self.graphics_route:
                     gr.Visible = True
-            self.RefreshNodes('normal')
             self.Canvas.Draw(True)
+        self.RefreshNodes('normal')
             
     def ShowRoute(self):
         with self.canvas_lock:            
@@ -754,27 +741,27 @@ class MapFrame(wx.Frame):
 #     Creates a single node at the given coordinates                                         #
 #--------------------------------------------------------------------------------------------#    
     def CreateNode(self, coords): 
-        with self.canvas_lock:
-            # coords are in float, but we need int values for pixels
-            node_coords = [int(coords[0]), int(coords[1])]   
-            node = gs.Node(len(self.nodelist), node_coords)
-            node.m_coords = self.PixelsToMeters(node.coords)
-            
-            ID = str(len(self.nodelist))
-            xy = node_coords[0], node_coords[1]
-            diam = NODE_DIAM
-            lw = NODE_BORDER_WIDTH
-            lc = NODE_BORDER    
-            fc = NODE_FILL
-            if int(ID) < 100:  
-                fs = FONT_SIZE_1
-            else:
-                fs = FONT_SIZE_2   
-            
-            collision = self.DetectCollision(node)
-            if collision < 0 or self.modes['load']:
-                       
-                # Draw the node on the canvas
+        # coords are in float, but we need int values for pixels
+        node_coords = [int(coords[0]), int(coords[1])]   
+        node = gs.Node(len(self.nodelist), node_coords)
+        node.m_coords = self.PixelsToMeters(node.coords)
+        
+        ID = str(len(self.nodelist))
+        xy = node_coords[0], node_coords[1]
+        diam = NODE_DIAM
+        lw = NODE_BORDER_WIDTH
+        lc = NODE_BORDER    
+        fc = NODE_FILL
+        if int(ID) < 100:  
+            fs = FONT_SIZE_1
+        else:
+            fs = FONT_SIZE_2   
+        
+        collision = self.DetectCollision(node)
+        if collision < 0 or self.modes['load']:
+                   
+            # Draw the node on the canvas
+            with self.canvas_lock:
                 c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
                                           InForeground = True)
                 c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'
@@ -783,62 +770,63 @@ class MapFrame(wx.Frame):
                 self.graphics_nodes.append(c)
                 c.Name = ID
                 c.Coords = node_coords    
-                
+            
                 t = self.Canvas.AddScaledText(ID, xy, Size=fs, Position="cc", 
                                         Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = True)
                 self.graphics_text.append(t)               
                 self.nodelist.append(node)
-    #             lock = t.RLock()
-    #             self.node_locks.append(lock)
-                
-                try:
-                    # Tell the connection matrix that this node now exists
-                    self.conn_matrix[int(ID)][int(ID)] = 0  
-                    if self.modes['verbose']:
-                        print "Created node %s at (%s, %s) / metric: (%s, %s)" % \
-                        (ID, node_coords[0], node_coords[1],
-                         node.m_coords[0], node.m_coords[1])                      
-                    
-                    if self.modes['auto_erase']:    
-                        self.DeselectAll(None)
-                        md = self.MinDistanceToEdge(node)   
-                        for entry in md:
-                            edge = self.edgelist[ entry[0] ]
-                            if self.modes['verbose']:
-                                st = ("Auto-deleted edge %s between nodes "
-                                      "%s and %s (too close to node %s)")
-                                print st % (edge.id, edge.node1, edge.node2, node.id)
-                            self.SelectOneEdge(self.graphics_edges[entry[0]], False)
-                        self.DeleteSelection(None)                 
-                    
-                    if self.modes['auto_edges']:                    
-                        self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
-                         
-                    
-                except IndexError:
-                    # Out of space in the connection matrix - expand it by 50 nodes
-                    curr_len = len(self.conn_matrix[0])
-                    self.conn_matrix.resize((curr_len+50, curr_len+50))
-                    
-                    # Tell the connection matrix that this node now exists
-                    self.conn_matrix[int(ID)][int(ID)] = 0 
-                    if self.modes['verbose']:
-                        print "Created node %s at (%s, %s) / Metric = (%s, %s)" % (ID, 
-                                                               node_coords[0], node_coords[1],
-                                                               node.m_coords[0], node.m_coords[1])
-                    if self.modes['auto_edges']:
-                        self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
-                
-                if self.modes['redraw']:
-                    self.Canvas.Draw(True)
-                self.mp.SetSaveStatus(False) 
-                return 1 
-                      
-            else:
+#             lock = t.RLock()
+#             self.node_locks.append(lock)
+            
+            try:
+                # Tell the connection matrix that this node now exists
+                self.conn_matrix[int(ID)][int(ID)] = 0  
                 if self.modes['verbose']:
-                    print "Could not create node at (%s, %s). (Too close to node %s)" \
-                            % (node_coords[0], node_coords[1], str(collision))
-                return -collision
+                    print "Created node %s at (%s, %s) / metric: (%s, %s)" % \
+                    (ID, node_coords[0], node_coords[1],
+                     node.m_coords[0], node.m_coords[1])                      
+                
+                if self.modes['auto_erase']:    
+                    self.DeselectAll(None)
+                    md = self.MinDistanceToEdge(node)   
+                    for entry in md:
+                        edge = self.edgelist[ entry[0] ]
+                        if self.modes['verbose']:
+                            st = ("Auto-deleted edge %s between nodes "
+                                  "%s and %s (too close to node %s)")
+                            print st % (edge.id, edge.node1, edge.node2, node.id)
+                        self.SelectOneEdge(self.graphics_edges[entry[0]], False)
+                    self.DeleteSelection(None)                 
+                
+                if self.modes['auto_edges']:                    
+                    self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
+                     
+                
+            except IndexError:
+                # Out of space in the connection matrix - expand it by 50 nodes
+                curr_len = len(self.conn_matrix[0])
+                self.conn_matrix.resize((curr_len+50, curr_len+50))
+                
+                # Tell the connection matrix that this node now exists
+                self.conn_matrix[int(ID)][int(ID)] = 0 
+                if self.modes['verbose']:
+                    print "Created node %s at (%s, %s) / Metric = (%s, %s)" % (ID, 
+                                                           node_coords[0], node_coords[1],
+                                                           node.m_coords[0], node.m_coords[1])
+                if self.modes['auto_edges']:
+                    self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
+            
+            if self.modes['redraw']:
+                with self.canvas_lock:
+                    self.Canvas.Draw(True)
+            self.mp.SetSaveStatus(False) 
+            return 1 
+                  
+        else:
+            if self.modes['verbose']:
+                print "Could not create node at (%s, %s). (Too close to node %s)" \
+                        % (node_coords[0], node_coords[1], str(collision))
+            return -collision
         
 
 #--------------------------------------------------------------------------------------------#    
@@ -846,33 +834,33 @@ class MapFrame(wx.Frame):
 #    nodes were selected.                                                                    #
 #--------------------------------------------------------------------------------------------#         
     def CreateEdges(self, event):
-        with self.canvas_lock:
-            if len(self.sel_nodes) >= 2:
+        if len(self.sel_nodes) >= 2:
+            
+            # Add the coordinates of the nodes to be connected to a list of points
+            points = []
+            for i in range(len(self.sel_nodes)): 
+                points.append( self.nodelist[ int(self.sel_nodes[i].Name) ].coords)  
                 
-                # Add the coordinates of the nodes to be connected to a list of points
-                points = []
-                for i in range(len(self.sel_nodes)): 
-                    points.append( self.nodelist[ int(self.sel_nodes[i].Name) ].coords)  
-                    
-                # Create the edges 
-                lw = EDGE_WIDTH          
-                cl = EDGE_COLOR 
-                if self.conn_matrix[0][0] == -1:
-                    self.GenerateConnectionMatrix() 
-                            
-                for j in range(len(points)-1): 
-                    
-                    try:
-                        node1 = self.sel_nodes[j]
-                        node2 = self.sel_nodes[j+1]
+            # Create the edges 
+            lw = EDGE_WIDTH          
+            cl = EDGE_COLOR 
+            if self.conn_matrix[0][0] == -1:
+                self.GenerateConnectionMatrix() 
                         
-                        # Only create the edge if no edge exists between the selected points
-                        if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
-                            edge = gs.Edge(len(self.edgelist), node1.Name, node2.Name, 
-                                          self.Distance(node1.Coords, node2.Coords))
-                            edge.m_length = edge.length*self.resolution
-                            self.edgelist.append(edge)
-                                   
+            for j in range(len(points)-1): 
+                
+                try:
+                    node1 = self.sel_nodes[j]
+                    node2 = self.sel_nodes[j+1]
+                    
+                    # Only create the edge if no edge exists between the selected points
+                    if int(self.conn_matrix[int(node1.Name)][int(node2.Name)]) < 0:
+                        edge = gs.Edge(len(self.edgelist), node1.Name, node2.Name, 
+                                      self.Distance(node1.Coords, node2.Coords))
+                        edge.m_length = edge.length*self.resolution
+                        self.edgelist.append(edge)
+                        
+                        with self.canvas_lock:       
                             e = self.Canvas.AddLine([points[j], points[j+1]], 
                                                     LineWidth = lw, LineColor = cl)
                             e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
@@ -880,39 +868,40 @@ class MapFrame(wx.Frame):
                             e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
                             self.graphics_edges.append(e)                        
                             e.Name = str(edge.id)
-                            
-                            if self.modes['auto_erase']:
-                                md = self.MinDistanceToNode(edge) 
-                            else:
-                                md = None
-                                  
-                            if md is not None:
-                                if self.modes['verbose']:
-                                    st = ("Did not create edge between nodes "
-                                          "%s and %s (too close to node %s)")
-                                    print st % (node1.Name, node2.Name, md[0])
-                                self.SelectOneEdge(self.graphics_edges[edge.id], True)
-                                self.DeleteSelection(None)
-                            else:
-                                self.AddConnectionEntry(edge)                          
-                                if self.modes['auto_intersections']:
-                                    self.ConvertIntersections(edge)                                                        
-                                if self.modes['verbose']:
-                                    print "Created edge %s between nodes %s and %s" % (str(edge.id), 
-                                                                                    str(edge.node1),
-                                                                                    str(edge.node2))                             
+                        
+                        if self.modes['auto_erase']:
+                            md = self.MinDistanceToNode(edge) 
                         else:
+                            md = None
+                              
+                        if md is not None:
                             if self.modes['verbose']:
-                                print "Did not create edge between nodes %s and %s (already exists)" \
-                                % (node1.Name,node2.Name)
-                                
-                    except IndexError:
-                        pass
-    
-                if self.modes['redraw']:
+                                st = ("Did not create edge between nodes "
+                                      "%s and %s (too close to node %s)")
+                                print st % (node1.Name, node2.Name, md[0])
+                            self.SelectOneEdge(self.graphics_edges[edge.id], True)
+                            self.DeleteSelection(None)
+                        else:
+                            self.AddConnectionEntry(edge)                          
+                            if self.modes['auto_intersections']:
+                                self.ConvertIntersections(edge)                                                        
+                            if self.modes['verbose']:
+                                print "Created edge %s between nodes %s and %s" % (str(edge.id), 
+                                                                                str(edge.node1),
+                                                                                str(edge.node2))                             
+                    else:
+                        if self.modes['verbose']:
+                            print "Did not create edge between nodes %s and %s (already exists)" \
+                            % (node1.Name,node2.Name)
+                            
+                except IndexError:
+                    pass
+
+            if self.modes['redraw']:
+                with self.canvas_lock:
                     self.Canvas.Draw(True)
-                self.DeselectAll(event)
-                self.mp.SetSaveStatus(False)
+            self.DeselectAll(event)
+            self.mp.SetSaveStatus(False)
 
 #--------------------------------------------------------------------------------------------#    
 #    -deprecated-                                                                            #
@@ -987,10 +976,9 @@ class MapFrame(wx.Frame):
                     return False
                 if image_data[ (iw*(y+i)) + (x+w) ] != chr(230):
                     return False
-        with self.canvas_lock:    
-            for node2 in self.nodelist:
-                if self.Distance(coords, node2.coords) < d:
-                    return False        
+        for node2 in self.nodelist:
+            if self.Distance(coords, node2.coords) < d:
+                return False        
         return True
         
 #--------------------------------------------------------------------------------------------#
@@ -1143,154 +1131,151 @@ class MapFrame(wx.Frame):
 #      Converts edge intersections into new nodes, if possible                               #
 #--------------------------------------------------------------------------------------------#     
     def ConvertIntersections(self, e1):
-        with self.canvas_lock:
-            self.SetModes('ConvertIntersections', {
-                            'redraw':False, 
-    #                         'verbose':False, 
-                            'auto_edges':False
-    #                         'auto_intersections':False
-                            })
-            
-            nodes = []
-            nodes.append( int(e1.node1) )
-            nodes.append( int(e1.node2) )     
-            intersections = self.FindIntersections(e1)
-            
-            ok_to_proceed = False
-            while not ok_to_proceed:
-                if len(intersections) > 0:
-                    for key,val in intersections.iteritems():
-                        e2 = self.edgelist[key]
-                        nodes.append( int(e2.node1) )
-                        nodes.append( int(e2.node2) )
-                        x = int(val[0])
-                        y = int(val[1])           
+        self.SetModes('ConvertIntersections', {
+                        'redraw':False, 
+#                         'verbose':False, 
+                        'auto_edges':False
+#                         'auto_intersections':False
+                        })
+        
+        nodes = []
+        nodes.append( int(e1.node1) )
+        nodes.append( int(e1.node2) )     
+        intersections = self.FindIntersections(e1)
+        
+        ok_to_proceed = False
+        while not ok_to_proceed:
+            if len(intersections) > 0:
+                for key,val in intersections.iteritems():
+                    e2 = self.edgelist[key]
+                    nodes.append( int(e2.node1) )
+                    nodes.append( int(e2.node2) )
+                    x = int(val[0])
+                    y = int(val[1])           
+                    
+                    self.SetModes('ConvertIntersections2', {
+                                    'auto_erase':False, 
+                                    })
+                    result = self.CreateNode((x,y))
+                    self.RestoreModes('ConvertIntersections2')
+                    if result <= 0:
+                        # if the edge intersection is too close to a node, get rid of the edge.
+                        if int(e1.node1) == -result or int(e1.node2) == -result:
+                            self.SelectOneEdge(self.graphics_edges[e2.id], True)
+                            self.DeleteSelection(None)
+                            if self.modes['verbose']:
+                                st = ("Auto-deleted edge %s between nodes %s and %s "
+                                      "(too close to node %s)")
+                                print  st % (e2.id, e2.node1, e2.node2, -result)
+                            intersections = self.FindIntersections(e1)
+                        else:
+                            self.SelectOneEdge(self.graphics_edges[e1.id], True)
+                            self.DeleteSelection(None)
+                            ok_to_proceed = True
+                        break
+                    
+                    new_node = len(self.nodelist)-1   # the new node
+                    self.SelectOneEdge(self.graphics_edges[e1.id], True)
+                    self.SelectOneEdge(self.graphics_edges[e2.id], False)
+                    self.DeleteSelection(None)
+                    
+                    for existing_node in nodes:
+                        self.SelectOneNode(self.graphics_nodes[new_node], True)
+                        self.SelectOneNode(self.graphics_nodes[existing_node], False)
+                        self.CreateEdges(None)
                         
-                        self.SetModes('ConvertIntersections2', {
-                                        'auto_erase':False, 
-                                        })
-                        result = self.CreateNode((x,y))
-                        self.RestoreModes('ConvertIntersections2')
-                        if result <= 0:
-                            # if the edge intersection is too close to a node, get rid of the edge.
-                            if int(e1.node1) == -result or int(e1.node2) == -result:
-                                self.SelectOneEdge(self.graphics_edges[e2.id], True)
-                                self.DeleteSelection(None)
-                                if self.modes['verbose']:
-                                    st = ("Auto-deleted edge %s between nodes %s and %s "
-                                          "(too close to node %s)")
-                                    print  st % (e2.id, e2.node1, e2.node2, -result)
-                                intersections = self.FindIntersections(e1)
-                            else:
-                                self.SelectOneEdge(self.graphics_edges[e1.id], True)
-                                self.DeleteSelection(None)
-                                ok_to_proceed = True
-                            break
-                        
-                        new_node = len(self.nodelist)-1   # the new node
-                        self.SelectOneEdge(self.graphics_edges[e1.id], True)
-                        self.SelectOneEdge(self.graphics_edges[e2.id], False)
-                        self.DeleteSelection(None)
-                        
-                        for existing_node in nodes:
-                            self.SelectOneNode(self.graphics_nodes[new_node], True)
-                            self.SelectOneNode(self.graphics_nodes[existing_node], False)
-                            self.CreateEdges(None)
-                            
-    #                     self.ConnectNeighbors(new_node, self.gg_const['k'], self.gg_const['e'], True)
-                        ok_to_proceed = True
-                else:
+#                     self.ConnectNeighbors(new_node, self.gg_const['k'], self.gg_const['e'], True)
                     ok_to_proceed = True
-            
-            # Restore saved states        
-            self.DeselectAll(None) 
-            self.RestoreModes('ConvertIntersections')
+            else:
+                ok_to_proceed = True
+        
+        # Restore saved states        
+        self.DeselectAll(None) 
+        self.RestoreModes('ConvertIntersections')
         
 #--------------------------------------------------------------------------------------------#    
 #      Given an edge, returns None if it is not too close to any nodes. If it is too close   #
 #      to a node, the Node ID and distance to the node are returned.                         #
 #--------------------------------------------------------------------------------------------#     
     def MinDistanceToNode(self, edge):
-        with self.canvas_lock:
-            min_distance = -1, max(self.gg_const['d']/2.0, 5)
-            ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
-            ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
-            ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
-            ey2 = float(self.nodelist[ int(edge.node2) ].coords[1])        
-            ln = self.Distance2((ex1, ey1), (ex2,ey2))   
+        min_distance = -1, max(self.gg_const['d']/2.0, 5)
+        ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
+        ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
+        ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
+        ey2 = float(self.nodelist[ int(edge.node2) ].coords[1])        
+        ln = self.Distance2((ex1, ey1), (ex2,ey2))   
+        
+        for node in self.nodelist:
+            if node.id == int(edge.node1) or node.id == int(edge.node2):
+                continue
             
-            for node in self.nodelist:
-                if node.id == int(edge.node1) or node.id == int(edge.node2):
-                    continue
-                
-                nx = float(node.coords[0])
-                ny = float(node.coords[1])
-                t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
-                if t<0:
-                    dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
-    #                 print "edge %s distance to node %s: %s (t0 = %s)" % (edge.id, node.id, dist, t)
-                    if dist < min_distance[1]:
-                        min_distance = node.id, dist
-                        break
-                elif t>1:
-                    dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
-    #                 print "edge %s distance to node %s: %s (t1 = %s)" % (edge.id, node.id, dist, t)
-                    if dist < min_distance[1]:
-                        min_distance = node.id, dist
-                        break
-                else:
-                    dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
-    #                 print "edge %s distance to node %s: %s (t2 = %s)" % (edge.id, node.id, dist, t)
-                    if dist < min_distance[1]:
-                        min_distance = node.id, dist
-                        break
-    #         print "edge %s min distance is %s to node %s" % (edge.id, min_distance[1], min_distance[0])
-            if min_distance[0] != -1:
-                return min_distance
+            nx = float(node.coords[0])
+            ny = float(node.coords[1])
+            t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
+            if t<0:
+                dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
+#                 print "edge %s distance to node %s: %s (t0 = %s)" % (edge.id, node.id, dist, t)
+                if dist < min_distance[1]:
+                    min_distance = node.id, dist
+                    break
+            elif t>1:
+                dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
+#                 print "edge %s distance to node %s: %s (t1 = %s)" % (edge.id, node.id, dist, t)
+                if dist < min_distance[1]:
+                    min_distance = node.id, dist
+                    break
             else:
-                return None
+                dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
+#                 print "edge %s distance to node %s: %s (t2 = %s)" % (edge.id, node.id, dist, t)
+                if dist < min_distance[1]:
+                    min_distance = node.id, dist
+                    break
+#         print "edge %s min distance is %s to node %s" % (edge.id, min_distance[1], min_distance[0])
+        if min_distance[0] != -1:
+            return min_distance
+        else:
+            return None
         
 #--------------------------------------------------------------------------------------------#    
 #      Given a node, returns any edges which are too close                                   #
 #--------------------------------------------------------------------------------------------#    
     def MinDistanceToEdge(self, node):
-        with self.canvas_lock:
-            thresh = max(self.gg_const['d']/2.0, 5)
-            min_distance = []
-            nx = float(node.coords[0])
-            ny = float(node.coords[1])           
+        thresh = max(self.gg_const['d']/2.0, 5)
+        min_distance = []
+        nx = float(node.coords[0])
+        ny = float(node.coords[1])           
+        
+        for edge in self.edgelist:
+            if node.id == int(edge.node1) or node.id == int(edge.node2):
+                continue
             
-            for edge in self.edgelist:
-                if node.id == int(edge.node1) or node.id == int(edge.node2):
-                    continue
-                
-                ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
-                ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
-                ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
-                ey2 = float(self.nodelist[ int(edge.node2) ].coords[1])
-                ln = self.Distance2((ex1, ey1), (ex2,ey2))
-                
-                t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
-                if t<0:
-                    dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
-    #                 print "node %s distance to edge %s: %s (t0 = %s)" % (node.id, edge.id, dist, t)
-                    if dist < thresh:
-                        min_distance.append( (edge.id, dist) )
-                    continue
-                elif t>1:
-                    dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
-    #                 print "node %s distance to edge %s: %s (t1 = %s)" % (node.id, edge.id, dist, t)
-                    if dist < thresh:
-                        min_distance.append( (edge.id, dist) )
-                    continue
-                else:
-                    dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
-    #                 print "node %s distance to edge %s: %s (t2 = %s)" % (node.id, edge.id, dist, t)
-                    if dist < thresh:
-                        min_distance.append( (edge.id, dist) )
-                    continue
-    #         print "node %s min distance is %s to edge %s" % (node.id, min_distance[1], min_distance[0])
-            return min_distance
+            ex1 = float(self.nodelist[ int(edge.node1) ].coords[0])   
+            ey1 = float(self.nodelist[ int(edge.node1) ].coords[1]) 
+            ex2 = float(self.nodelist[ int(edge.node2) ].coords[0]) 
+            ey2 = float(self.nodelist[ int(edge.node2) ].coords[1])
+            ln = self.Distance2((ex1, ey1), (ex2,ey2))
+            
+            t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
+            if t<0:
+                dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
+#                 print "node %s distance to edge %s: %s (t0 = %s)" % (node.id, edge.id, dist, t)
+                if dist < thresh:
+                    min_distance.append( (edge.id, dist) )
+                continue
+            elif t>1:
+                dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
+#                 print "node %s distance to edge %s: %s (t1 = %s)" % (node.id, edge.id, dist, t)
+                if dist < thresh:
+                    min_distance.append( (edge.id, dist) )
+                continue
+            else:
+                dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
+#                 print "node %s distance to edge %s: %s (t2 = %s)" % (node.id, edge.id, dist, t)
+                if dist < thresh:
+                    min_distance.append( (edge.id, dist) )
+                continue
+#         print "node %s min distance is %s to edge %s" % (node.id, min_distance[1], min_distance[0])
+        return min_distance
             
 
 #--------------------------------------------------------------------------------------------#    
@@ -1303,44 +1288,44 @@ class MapFrame(wx.Frame):
 #     e: maximum edge length                                                                 #
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
-        with self.canvas_lock:
-            wx.BeginBusyCursor()
-            st = datetime.now() 
-            self.tt = datetime(100,1,1,0,0,0) 
-            self.SetModes('GenerateGraph', {
-                            'auto_edges':False, 
-                            'redraw':False, 
-    #                         'verbose':False
-                            })
-            
-            if self.modes['clear_graph']:
-                self.SelectAll(None)
-                self.DeleteSelection(None)        
-            
-            data = self.image_data
-            lim = self.FindImageLimit(data,4)        
-            b = lim[0]
-            t = lim[1]
-            l = lim[2]
-            r = lim[3]
-                    
-            while len(self.nodelist) < n:
-                x = int( l + ((r-l)*rand.random()) )
-                y = int( b + ((t-b)*rand.random()) )
+        wx.BeginBusyCursor()
+        st = datetime.now() 
+        self.ttime = datetime(100,1,1,0,0,0) 
+        self.SetModes('GenerateGraph', {
+                        'auto_edges':False, 
+                        'redraw':False, 
+#                         'verbose':False
+                        })
+        
+        if self.modes['clear_graph']:
+            self.SelectAll(None)
+            self.DeleteSelection(None)        
+        
+        data = self.image_data
+        lim = self.FindImageLimit(data,4)        
+        b = lim[0]
+        t = lim[1]
+        l = lim[2]
+        r = lim[3]
                 
-                if self.CheckNodeLocation(data, (x,y), w, d):
-                    if int(self.CreateNode( (x,y) )) == 1: # Node successfully created                  
-                        self.ConnectNeighbors(len(self.nodelist)-1, k, e, False)
-                             
-            self.Canvas.Draw(True) 
+        while len(self.nodelist) < n:
+            x = int( l + ((r-l)*rand.random()) )
+            y = int( b + ((t-b)*rand.random()) )
             
-            # Restore saved states
-            wx.EndBusyCursor()
-            et = datetime.now()
-            self.RestoreModes('GenerateGraph')
-            if self.modes['verbose']:
-                print "Total time to generate graph: %s" % str(et-st)
-            print "Total gcm time: %s" % self.tt
+            if self.CheckNodeLocation(data, (x,y), w, d):
+                if int(self.CreateNode( (x,y) )) == 1: # Node successfully created                  
+                    self.ConnectNeighbors(len(self.nodelist)-1, k, e, False)
+        
+        with self.canvas_lock:                 
+            self.Canvas.Draw(True) 
+        
+        # Restore saved states
+        wx.EndBusyCursor()
+        et = datetime.now()
+        self.RestoreModes('GenerateGraph')
+        if self.modes['verbose']:
+            print "Total time to generate graph: %s" % str(et-st)
+        print "Total gcm time: %s" % self.ttime
 
 #--------------------------------------------------------------------------------------------#
 #     Find the distances from a given node 'node1' to all other nodes in the graph.          # 
@@ -1349,15 +1334,14 @@ class MapFrame(wx.Frame):
 #     e: Maximum search radius                                                               #                                                               #
 #--------------------------------------------------------------------------------------------#     
     def GetNodeDistances(self, node1, k, e):
-        with self.canvas_lock:
-            distances = []
-            for node2 in self.nodelist:
-                d = self.Distance(node1.coords, node2.coords)
-                if d < e:
-                    distances.append((d, node2.id))
-            
-            distances.sort(key=lambda tup: tup[0])
-            return distances[0:k+1]
+        distances = []
+        for node2 in self.nodelist:
+            d = self.Distance(node1.coords, node2.coords)
+            if d < e:
+                distances.append((d, node2.id))
+        
+        distances.sort(key=lambda tup: tup[0])
+        return distances[0:k+1]
 
 #--------------------------------------------------------------------------------------------#
 #     Event handler for Connect Nodes command. Passes arguments to ConnectNeighbors(..)      #
@@ -1373,71 +1357,71 @@ class MapFrame(wx.Frame):
 #     k: The number of neighbors to analyze                                                  #
 #     e: Maximum edge length (furthest distance to search for neighbors)                     #
 #--------------------------------------------------------------------------------------------#    
-    def ConnectNeighbors(self, input_node, k, e, refresh):  
-        with self.canvas_lock:
-            if self.modes['verbose']:
-                print "Connecting neighbors for node %s" % input_node
-            self.SetModes('ConnectNeighbors', {
-                            'redraw':False,
-                            'auto_edges':False
-                            })
+    def ConnectNeighbors(self, input_node, k, e, refresh): 
+        if self.modes['verbose']:
+            print "Connecting neighbors for node %s" % input_node
+        self.SetModes('ConnectNeighbors', {
+                        'redraw':False,
+                        'auto_edges':False
+                        })
+        
+        data = self.image_data
+        node1 = self.nodelist[ input_node ]
+        distances = self.GetNodeDistances(node1, k, e)
+        
+        for entry in distances:                      
             
-            data = self.image_data
-            node1 = self.nodelist[ input_node ]
-            distances = self.GetNodeDistances(node1, k, e)
+            if entry[1] == input_node:
+                continue    # Skip the node if it's the same one we're at
             
-            for entry in distances:                      
+            if entry[0] > e:
+                break       # Stop if the remaining edges are too far away
+            
+            node2 = self.nodelist[ entry[1] ]
+            if self.CheckEdgeLocation(data,node1.coords, 
+                                      node2.coords,1):    
+                self.DeselectAll(None)                     
+                self.SelectOneNode(self.graphics_nodes[node1.id], False)
+                self.SelectOneNode(self.graphics_nodes[node2.id], False)
+                self.CreateEdges(None)
                 
-                if entry[1] == input_node:
-                    continue    # Skip the node if it's the same one we're at
-                
-                if entry[0] > e:
-                    break       # Stop if the remaining edges are too far away
-                
-                node2 = self.nodelist[ entry[1] ]
-                if self.CheckEdgeLocation(data,node1.coords, 
-                                          node2.coords,1):    
-                    self.DeselectAll(None)                     
-                    self.SelectOneNode(self.graphics_nodes[node1.id], False)
-                    self.SelectOneNode(self.graphics_nodes[node2.id], False)
-                    self.CreateEdges(None)
-                    
-            self.RestoreModes('ConnectNeighbors')
+        self.RestoreModes('ConnectNeighbors')
 
 #--------------------------------------------------------------------------------------------#    
 #      Deletes all selected nodes and edges                                                  #
 #--------------------------------------------------------------------------------------------#           
     def DeleteSelection(self, event):
-        with self.canvas_lock:
-            self.SetModes('DeleteSelection', {
-                            'redraw':False, 
-                            'verbose':False
-                            })
-            
-            #Mode check to prevent errors if we're in the edge creation tool
-            current_mode = self.Canvas.GetMode()
-            if current_mode == 'GUIEdges':
-                if self.Canvas.GUIMode.start_node is not None:
-                    self.started_edge = False
+        self.SetModes('DeleteSelection', {
+                        'redraw':False, 
+                        'verbose':False
+                        })
+        
+        #Mode check to prevent errors if we're in the edge creation tool
+        current_mode = self.Canvas.GetMode()
+        if current_mode == 'GUIEdges':
+            if self.Canvas.GUIMode.start_node is not None:
+                self.started_edge = False
+                with self.canvas_lock:
                     self.Canvas.GUIMode.start_node = None
                     self.Canvas.GUIMode.start_coords = None
                     self.Canvas.GUIMode.EraseCurrentEdge()
                     self.Canvas.Draw(True)
-                  
-            for node in self.sel_nodes:
-                self.RemoveNode(node)
-            for edge in self.sel_edges:
-                self.RemoveEdge(edge)
-            
-            self.RenumberNodes()  
-            self.RenumberEdges()
-            self.GenerateConnectionMatrix()        
-            
-            self.DeselectAll(event=None)
-            self.mp.SetSaveStatus(False)
-            self.RestoreModes('DeleteSelection')
-            
-            if self.modes['redraw']:
+              
+        for node in self.sel_nodes:
+            self.RemoveNode(node)
+        for edge in self.sel_edges:
+            self.RemoveEdge(edge)
+        
+        self.RenumberNodes()  
+        self.RenumberEdges()
+        self.GenerateConnectionMatrix()        
+        
+        self.DeselectAll(event=None)
+        self.mp.SetSaveStatus(False)
+        self.RestoreModes('DeleteSelection')
+        
+        if self.modes['redraw']:
+            with self.canvas_lock:
                 self.Canvas.Draw(True)
 
 #--------------------------------------------------------------------------------------------#    
@@ -1445,25 +1429,26 @@ class MapFrame(wx.Frame):
 #     This function should not be called directly -> use DeleteSelection() instead           #
 #--------------------------------------------------------------------------------------------#        
     def RemoveNode(self, node):
+        ID = int(node.Name)
+        
         with self.canvas_lock:
-            ID = int(node.Name)
-    
             self.Canvas.RemoveObject(self.graphics_nodes[ ID ])
             self.graphics_text [ ID ].Visible = False
             self.Canvas.RemoveObject( self.graphics_text[ ID ] )
-            
-            for i in range(len(self.conn_matrix[ID])):
-                e = int(self.conn_matrix[ID][i])
-                if e >= 0 and i != ID:
-                    self.RemoveEdge( self.graphics_edges[e] )
-            
-            self.nodelist[ID] = None
-            self.graphics_nodes[ID] = None
-            self.graphics_text[ID] = None
-            
-            if self.modes['verbose']:
-                print "Removed node #" + str(ID)
-            if self.modes['redraw']:
+        
+        for i in range(len(self.conn_matrix[ID])):
+            e = int(self.conn_matrix[ID][i])
+            if e >= 0 and i != ID:
+                self.RemoveEdge( self.graphics_edges[e] )
+        
+        self.nodelist[ID] = None
+        self.graphics_nodes[ID] = None
+        self.graphics_text[ID] = None
+        
+        if self.modes['verbose']:
+            print "Removed node #" + str(ID)
+        if self.modes['redraw']:
+            with self.canvas_lock:
                 self.Canvas.Draw(True)
                 
 #--------------------------------------------------------------------------------------------#    
@@ -1471,89 +1456,87 @@ class MapFrame(wx.Frame):
 #     This function should not be called directly -> use DeleteSelection() instead           #
 #--------------------------------------------------------------------------------------------#           
     def RemoveEdge(self, edge):  
-        with self.canvas_lock: 
-            try:     
-                ID = int(edge.Name)
+        try:     
+            ID = int(edge.Name)
+            with self.canvas_lock:
                 self.Canvas.RemoveObject(self.graphics_edges[ID])                   
                 self.edgelist[ID] = None
-                self.graphics_edges[ID] = None            
-                
-                if self.modes['verbose']:
-                    print "Removed edge #" + str(ID)
+                self.graphics_edges[ID] = None  
                 if self.modes['redraw']:
-                    self.Canvas.Draw(True)
-                
-            except AttributeError:
-                # Case where the edge has already been removed: do nothing
-                pass
+                    self.Canvas.Draw(True)          
+            
+            if self.modes['verbose']:
+                print "Removed edge #" + str(ID)
+            
+        except AttributeError:
+            # Case where the edge has already been removed: do nothing
+            pass
         
 #--------------------------------------------------------------------------------------------#    
 #     Renumbers the nodes after a deletion                                                   #
 #     This function should not be called directly -> use DeleteSelection() instead           #
 #--------------------------------------------------------------------------------------------#            
     def RenumberNodes(self):
-        with self.canvas_lock:
-            nodes = []  # temporary variables
-            graphics = []
-            text = []
-            
-            for i in range(len(self.nodelist)):             
-                if self.nodelist[i] is not None:
-                    self.nodelist[i].prev_id = i        # Save the old id for later use
-                    nodes.append(self.nodelist[i])
-                    graphics.append(self.graphics_nodes[i])
-                    text.append(self.graphics_text[i])
-                    
-            for j in range(len(nodes)):
-                if nodes[j].id != j:
-                     
-                    nodes[j].id = j
-                    graphics[j].Name = str(j)
-                    if j < 100:  
-                        fs = FONT_SIZE_1
-                    else:
-                        fs = FONT_SIZE_2
-                    
-                    # Make the old text invisible and replace it in the data structure                
-                    text[j].Visible = False
-                    xy = (nodes[j].coords[0], nodes[j].coords[1])
+        nodes = []  # temporary variables
+        graphics = []
+        text = []
+        
+        for i in range(len(self.nodelist)):             
+            if self.nodelist[i] is not None:
+                self.nodelist[i].prev_id = i        # Save the old id for later use
+                nodes.append(self.nodelist[i])
+                graphics.append(self.graphics_nodes[i])
+                text.append(self.graphics_text[i])
+                
+        for j in range(len(nodes)):
+            if nodes[j].id != j:
+                 
+                nodes[j].id = j
+                graphics[j].Name = str(j)
+                if j < 100:  
+                    fs = FONT_SIZE_1
+                else:
+                    fs = FONT_SIZE_2
+                
+                # Make the old text invisible and replace it in the data structure
+                xy = (nodes[j].coords[0], nodes[j].coords[1])
+                with self.canvas_lock:                
+                    self.Canvas.RemoveObject(text[j])                
                     t = self.Canvas.AddScaledText(str(j), xy, Size=fs, Position="cc", 
-                                                  Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = True)
+                            Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = True)
                     text[j] = t
-                    
-                    for edge in self.edgelist:
-                        if edge is not None:
-                            if int(edge.node1) == nodes[j].prev_id:
-                                edge.node1 = j
-                            elif int(edge.node2) == nodes[j].prev_id:
-                                edge.node2 = j
-                        
-                    
-            self.nodelist = nodes
-            self.graphics_nodes= graphics
-            self.graphics_text = text
+                
+                for edge in self.edgelist:
+                    if edge is not None:
+                        if int(edge.node1) == nodes[j].prev_id:
+                            edge.node1 = j
+                        elif int(edge.node2) == nodes[j].prev_id:
+                            edge.node2 = j                    
+                
+        self.nodelist = nodes
+        self.graphics_nodes= graphics
+        self.graphics_text = text
         
 #--------------------------------------------------------------------------------------------#    
 #     Renumbers the edges after a deletion                                                   #
 #     This function should not be called directly -> use DeleteSelection() instead           #
 #--------------------------------------------------------------------------------------------#        
     def RenumberEdges(self):
-        with self.canvas_lock:
-            edges = [] # temporary variables
-            graphics = []
-            
-            for i in range(len(self.edgelist)):             
-                if self.edgelist[i] is not None:
-                    edges.append(self.edgelist[i])
-                    graphics.append(self.graphics_edges[i])
-                     
-            for j in range(len(edges)):
-                if edges[j].id != j:                
-                    edges[j].id = j                          
-                    graphics[j].Name = str(j) 
-                    
-            self.edgelist = edges
-            self.graphics_edges = graphics
+        edges = [] # temporary variables
+        graphics = []
+        
+        for i in range(len(self.edgelist)):             
+            if self.edgelist[i] is not None:
+                edges.append(self.edgelist[i])
+                graphics.append(self.graphics_edges[i])
+                 
+        for j in range(len(edges)):
+            if edges[j].id != j:                
+                edges[j].id = j                          
+                graphics[j].Name = str(j) 
+                
+        self.edgelist = edges
+        self.graphics_edges = graphics
     
 
 #--------------------------------------------------------------------------------------------#    
@@ -1572,33 +1555,32 @@ class MapFrame(wx.Frame):
 #                                                                                            #
 #--------------------------------------------------------------------------------------------#       
     def GenerateConnectionMatrix(self): 
-        with self.canvas_lock:
-            st = datetime.now()
-            Shape = self.conn_matrix.shape
-            conn_mtx = np.empty(shape=Shape)        
-            conn_mtx[:] = -1 
+        st = datetime.now()
+        Shape = self.conn_matrix.shape
+        conn_mtx = np.empty(shape=Shape)        
+        conn_mtx[:] = -1 
+        
+        # put the edge data into the matrix
+        for edge in self.edgelist:
+            conn_mtx[ int(edge.node1) ][ int(edge.node2) ] = edge.id
+            conn_mtx[ int(edge.node2) ][ int(edge.node1) ] = edge.id
+        
+        # put zeros on the diagonal at locations where nodes exist
+        for i in range(len(self.nodelist)):
+            conn_mtx[i][i] = 0
             
-            # put the edge data into the matrix
-            for edge in self.edgelist:
-                conn_mtx[ int(edge.node1) ][ int(edge.node2) ] = edge.id
-                conn_mtx[ int(edge.node2) ][ int(edge.node1) ] = edge.id
-            
-            # put zeros on the diagonal at locations where nodes exist
-            for i in range(len(self.nodelist)):
-                conn_mtx[i][i] = 0
-                
-            self.conn_matrix = conn_mtx
-            et = datetime.now()
-            self.tt = self.tt + (et-st)
-    #         print "Generated connection matrix. Time taken: %s" % (et-st)
-    #         return conn_mtx     
+        self.conn_matrix = conn_mtx
+        et = datetime.now()
+        self.ttime = self.ttime + (et-st)
+#         print "Generated connection matrix. Time taken: %s" % (et-st)
+#         return conn_mtx     
 
     def AddConnectionEntry(self, edge):
         st = datetime.now()
         self.conn_matrix[ int(edge.node1) ][ int(edge.node2) ] = edge.id
         self.conn_matrix[ int(edge.node2) ][ int(edge.node1) ] = edge.id
         et = datetime.now()
-        self.tt = self.tt + (et-st)
+        self.ttime = self.ttime + (et-st)
         
 #--------------------------------------------------------------------------------------------#    
 #     For debugging purposes. Writes the connection matrix to a text file.                   #
@@ -1626,25 +1608,24 @@ class MapFrame(wx.Frame):
 #     returns the ID of the closest node there was a collision with.                         #
 #--------------------------------------------------------------------------------------------#    
     def DetectCollision(self, new_node):
-        with self.canvas_lock:
-            if self.modes['manual_edges']:
-                min_dist = max(self.gg_const['d']/2.0, 5)
-            else:
-                min_dist = max(self.gg_const['d'], 5)
-            
-            collisions = {} 
-            for existing_node in self.nodelist:
-                try:
-                    dist = self.Distance(new_node.coords, existing_node.coords)
-                    if dist <= min_dist:
-                        collisions[existing_node.id] = dist
-                except AttributeError:
-                    pass
-            if len(collisions) == 0:
-                return -1  
-            else:
-                closest = min(collisions, key=collisions.get)
-                return closest
+        if self.modes['manual_edges']:
+            min_dist = max(self.gg_const['d']/2.0, 5)
+        else:
+            min_dist = max(self.gg_const['d'], 5)
+        
+        collisions = {} 
+        for existing_node in self.nodelist:
+            try:
+                dist = self.Distance(new_node.coords, existing_node.coords)
+                if dist <= min_dist:
+                    collisions[existing_node.id] = dist
+            except AttributeError:
+                pass
+        if len(collisions) == 0:
+            return -1  
+        else:
+            closest = min(collisions, key=collisions.get)
+            return closest
         
 #--------------------------------------------------------------------------------------------#    
 #     Basic distance formula. Returns the distance between two points.                       #
@@ -1757,12 +1738,10 @@ class MapFrame(wx.Frame):
 #     Selects a single node. If desel is True, deselects everything else.                    #
 #--------------------------------------------------------------------------------------------#   
     def SelectOneNode(self, obj, desel):
-        with self.canvas_lock:
-            if desel:      
-                self.DeselectAll(event=None)
-    #             if self.modes['verbose']:
-    #                 print "Selected Node #" + obj.Name      
-            self.sel_nodes.append(obj)   
+        if desel:      
+            self.DeselectAll(event=None)      
+        self.sel_nodes.append(obj) 
+        with self.canvas_lock:  
             obj.SetFillColor(SELECT_COLOR)
             if self.modes['redraw']:
                 self.Canvas.Draw(True)
@@ -1771,12 +1750,10 @@ class MapFrame(wx.Frame):
 #     Selects a single edge. If desel is True, deselects everything else.                    #
 #--------------------------------------------------------------------------------------------#   
     def SelectOneEdge(self, obj, desel):
+        if desel:     
+            self.DeselectAll(event=None)    
+        self.sel_edges.append(obj)
         with self.canvas_lock:
-            if desel:     
-                self.DeselectAll(event=None)
-    #             if self.modes['verbose']:
-    #                 print "Selected Edge #" + obj.Name     
-            self.sel_edges.append(obj)
             obj.SetLineColor(SELECT_COLOR)
             if self.modes['redraw']:
                 self.Canvas.Draw(True) 
@@ -1785,120 +1762,129 @@ class MapFrame(wx.Frame):
 #     Selects all nodes and deselects everything else.                                       #
 #--------------------------------------------------------------------------------------------#        
     def SelectNodes(self, event):
+        self.DeselectAll(event)
+        
+        # Set highlighted colour
         with self.canvas_lock:
-            self.DeselectAll(event)
-            
-            # Set highlighted colour
             for node in self.nodelist:
                 self.graphics_nodes[ node.id ].SetFillColor(SELECT_COLOR)
-                self.sel_nodes.append(self.graphics_nodes[node.id])
-            if self.modes['verbose']:
-                    print "Selected all nodes"
+                self.sel_nodes.append(self.graphics_nodes[node.id])                
             if self.modes['redraw']:    
                 self.Canvas.Draw(True) 
+                
+        if self.modes['verbose']:
+                print "Selected all nodes"
         
 #--------------------------------------------------------------------------------------------#    
 #     Selects all edges and deselects everything else.                                       #
 #--------------------------------------------------------------------------------------------#    
     def SelectEdges(self, event):
-        with self.canvas_lock:
-            self.DeselectAll(event)
+        self.DeselectAll(event)
             
-            # Set highlighted colour
+        # Set highlighted colour
+        with self.canvas_lock:
             for edge in self.edgelist:
                 self.graphics_edges[ edge.id ].SetLineColor(SELECT_COLOR)
                 self.sel_edges.append(self.graphics_edges[edge.id])
-            if self.modes['verbose']: 
-                print "Selected all edges"
             if self.modes['redraw']:    
                 self.Canvas.Draw(True)
+                
+        if self.modes['verbose']: 
+            print "Selected all edges"
+
 
 #--------------------------------------------------------------------------------------------#
 #     Selects all nodes/edges located within a given X and Y range. This is used with the    #
 #     'box selection' tool on the NavCanvas.                                                   #
 #--------------------------------------------------------------------------------------------#           
     def SelectBox(self, x_range, y_range):
+        self.SetModes('SelectBox', {
+                        'redraw':False
+                        })
+        self.DeselectAll(None)
+        
+        for node in self.nodelist:
+            if( (x_range[0] <= node.coords[0] <= x_range[1] or
+                 x_range[1] <= node.coords[0] <= x_range[0]) and
+                (y_range[0] <= node.coords[1] <= y_range[1] or
+                 y_range[1] <= node.coords[1] <= y_range[0]) ):
+                self.SelectOneNode(self.graphics_nodes[node.id], False)
+        for edge in self.edgelist:
+            n1 = self.nodelist[ int(edge.node1) ]
+            n2 = self.nodelist[ int(edge.node2) ]
+            mp = self.Midpoint(n1.coords, n2.coords)
+            if( (x_range[0] <= mp[0] <= x_range[1] or
+                 x_range[1] <= mp[0] <= x_range[0]) and
+                (y_range[0] <= mp[1] <= y_range[1] or
+                 y_range[1] <= mp[1] <= y_range[0]) ):
+                self.SelectOneEdge(self.graphics_edges[edge.id], False)
+        
+        self.RestoreModes('SelectBox')
         with self.canvas_lock:
-            self.SetModes('SelectBox', {
-                            'redraw':False
-                            })
-            self.DeselectAll(None)
-            
-            for node in self.nodelist:
-                if( (x_range[0] <= node.coords[0] <= x_range[1] or
-                     x_range[1] <= node.coords[0] <= x_range[0]) and
-                    (y_range[0] <= node.coords[1] <= y_range[1] or
-                     y_range[1] <= node.coords[1] <= y_range[0]) ):
-                    self.SelectOneNode(self.graphics_nodes[node.id], False)
-            for edge in self.edgelist:
-                n1 = self.nodelist[ int(edge.node1) ]
-                n2 = self.nodelist[ int(edge.node2) ]
-                mp = self.Midpoint(n1.coords, n2.coords)
-                if( (x_range[0] <= mp[0] <= x_range[1] or
-                     x_range[1] <= mp[0] <= x_range[0]) and
-                    (y_range[0] <= mp[1] <= y_range[1] or
-                     y_range[1] <= mp[1] <= y_range[0]) ):
-                    self.SelectOneEdge(self.graphics_edges[edge.id], False)
             self.Canvas.Draw(True)
-            self.RestoreModes('SelectBox')
         
 #--------------------------------------------------------------------------------------------#    
 #     Select/deselect everything                                                             #
 #--------------------------------------------------------------------------------------------#             
-    def SelectAll(self, event):  
-        with self.canvas_lock:                     
-            self.DeselectAll(event)   
-               
+    def SelectAll(self, event):                    
+        self.DeselectAll(event)   
+          
+        with self.canvas_lock: 
             for node in self.nodelist:                
                 if event is not None:   
                     self.graphics_nodes[ node.id ].SetFillColor(SELECT_COLOR)
                 self.sel_nodes.append(self.graphics_nodes[node.id])
+        with self.canvas_lock:
             for edge in self.edgelist:
                 if event is not None:   
                     self.graphics_edges[ edge.id ].SetLineColor(SELECT_COLOR)
-                self.sel_edges.append(self.graphics_edges[edge.id])
-            
-            if self.modes['verbose']:            
-                print "Selected all nodes and edges"
+                self.sel_edges.append(self.graphics_edges[edge.id])            
             if self.modes['redraw']:    
                 self.Canvas.Draw(True) 
+        
+        if self.modes['verbose']:            
+            print "Selected all nodes and edges"
             
     def DeselectAll(self, event):
         with self.canvas_lock:
             for obj in self.sel_nodes:
                 obj.SetFillColor(NODE_FILL)
+        with self.canvas_lock:
             for obj in self.sel_edges:
                 obj.SetLineColor(EDGE_COLOR) 
             if self.modes['redraw']:            
                 self.Canvas.Draw(True)                
-            self.sel_nodes = []
-            self.sel_edges = []  
+        self.sel_nodes = []
+        self.sel_edges = []  
 
 #--------------------------------------------------------------------------------------------#    
 #     Event when a node is left-clicked.                                                     #
 #     Adds the node to the selection list and highlights it on the canvas                    #
 #--------------------------------------------------------------------------------------------# 
     def OnClickNode(self, obj):
-        with self.canvas_lock:
-            if obj in self.sel_nodes:
-                coords = self.nodelist[int(obj.Name)].coords  
-                if self.modes['verbose']:        
-                    print "Deselected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])
-                self.sel_nodes.remove(obj)
+        if obj in self.sel_nodes:
+            coords = self.nodelist[int(obj.Name)].coords  
+            if self.modes['verbose']:        
+                print "Deselected Node %s  (%s, %s)" % (obj.Name, coords[0], coords[1])
+            self.sel_nodes.remove(obj)
+            with self.canvas_lock:
                 obj.SetFillColor(NODE_FILL)
-            else:  
-                coords = self.nodelist[int(obj.Name)].coords   
-                m_coords = self.nodelist[int(obj.Name)].m_coords 
-                if self.modes['verbose']:        
-                    print "Selected Node %s" % (obj.Name)   
-                    print "\tPixel Location:   (%s, %s)" % (coords[0]  , coords[1]  )
-                    print "\tMetric Location:  (%s, %s)" % (m_coords[0], m_coords[1])
-                self.sel_nodes.append(obj)       
+                self.Canvas.Draw(True)
+        else:  
+            coords = self.nodelist[int(obj.Name)].coords   
+            m_coords = self.nodelist[int(obj.Name)].m_coords 
+            if self.modes['verbose']:        
+                print "Selected Node %s" % (obj.Name)   
+                print "\tPixel Location:   (%s, %s)" % (coords[0]  , coords[1]  )
+                print "\tMetric Location:  (%s, %s)" % (m_coords[0], m_coords[1])
+            self.sel_nodes.append(obj)  
+            with self.canvas_lock:     
                 obj.SetFillColor(SELECT_COLOR) 
-            self.Canvas.Draw(True)
-            
-            current_mode = self.Canvas.GetMode()  
-            if current_mode == 'GUIEdges':
+                self.Canvas.Draw(True)
+        
+        current_mode = self.Canvas.GetMode()  
+        if current_mode == 'GUIEdges':
+            with self.canvas_lock:
                 if not self.started_edge:
                     self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
                     self.started_edge = True
@@ -1914,8 +1900,6 @@ class MapFrame(wx.Frame):
             current_mode = self.Canvas.GetMode() 
             if current_mode == 'GUIEdges':
                 self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
-    #             print "enter node"          
-    #         else:
             self.Canvas.GUIMode.SwitchCursor('enter')  
             
     def OnMouseLeaveNode(self, obj):  
@@ -1923,8 +1907,6 @@ class MapFrame(wx.Frame):
             current_mode = self.Canvas.GetMode() 
             if current_mode == 'GUIEdges':
                 self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
-    #             print "leave node"           
-    #         else:
             self.Canvas.GUIMode.SwitchCursor('leave')  
                
     def OnMouseEnterEdge(self, obj):
@@ -1932,8 +1914,6 @@ class MapFrame(wx.Frame):
             current_mode = self.Canvas.GetMode() 
             if current_mode == 'GUIEdges':
                 self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
-    #             print "enter edge"
-    #         else:
             self.Canvas.GUIMode.SwitchCursor('enter')  
                   
     def OnMouseLeaveEdge(self, obj):
@@ -1941,8 +1921,6 @@ class MapFrame(wx.Frame):
             current_mode = self.Canvas.GetMode() 
             if current_mode == 'GUIEdges':
                 self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
-    #             print "leave edge"
-    #         else:
             self.Canvas.GUIMode.SwitchCursor('leave') 
         
 #--------------------------------------------------------------------------------------------#    
@@ -1950,18 +1928,20 @@ class MapFrame(wx.Frame):
 #     Adds the node to the selection list and highlights it on the canvas                    #
 #--------------------------------------------------------------------------------------------#            
     def OnClickEdge(self, obj): 
-        with self.canvas_lock:
-            if obj in self.sel_edges:  
-                if self.modes['verbose']:        
-                    print "Deselected Edge " + obj.Name
-                self.sel_edges.remove(obj)
+        if obj in self.sel_edges:  
+            if self.modes['verbose']:        
+                print "Deselected Edge " + obj.Name
+            self.sel_edges.remove(obj)
+            with self.canvas_lock:
                 obj.SetLineColor(EDGE_COLOR)
-            else: 
-                if self.modes['verbose']:       
-                    print "Selected Edge " + obj.Name     
-                self.sel_edges.append(obj)        
+                self.Canvas.Draw(True) 
+        else: 
+            if self.modes['verbose']:       
+                print "Selected Edge " + obj.Name     
+            self.sel_edges.append(obj) 
+            with self.canvas_lock:       
                 obj.SetLineColor(SELECT_COLOR) 
-            self.Canvas.Draw(True) 
+                self.Canvas.Draw(True) 
 
 #--------------------------------------------------------------------------------------------#    
 #     "Setter" functions for file paths and data structures                                  #
@@ -2135,35 +2115,34 @@ class MapFrame(wx.Frame):
 #     Zooms to a given location with a given floating-point magnification.                   #
 #--------------------------------------------------------------------------------------------#        
     def Zoom(self, location, magnification): 
-        with self.canvas_lock:
-            iw = self.image_width/2
-            x = location[0]
-            y = location[1]
-            m = magnification
-            
-            tl = ( x-(iw/m), y+(iw/m) )
-            br = ( x+(iw/m), y-(iw/m) )
-                   
+        iw = self.image_width/2
+        x = location[0]
+        y = location[1]
+        m = magnification
+        
+        tl = ( x-(iw/m), y+(iw/m) )
+        br = ( x+(iw/m), y-(iw/m) )        
+        with self.canvas_lock:       
             self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))
         
 #--------------------------------------------------------------------------------------------#    
 #     Zooms to the edges of the currently displayed map                                      #
 #--------------------------------------------------------------------------------------------#        
     def ZoomToFit(self):
-        with self.canvas_lock:
-            if self.update_imglimits:
-                data_ready = False
-                while not data_ready: 
-                    try:
-                        self.img_limits = self.FindImageLimit(self.image_data, 10) 
-                        self.update_imglimits = False
-                        data_ready = True
-                    except AttributeError:
-                        # Sleep until the image data can be obtained
-                        time.sleep(0.5)
-                
-            tl = (self.img_limits[2],self.img_limits[1])
-            br = (self.img_limits[3],self.img_limits[0])              
+        if self.update_imglimits:
+            data_ready = False
+            while not data_ready: 
+                try:
+                    self.img_limits = self.FindImageLimit(self.image_data, 10) 
+                    self.update_imglimits = False
+                    data_ready = True
+                except AttributeError:
+                    # Sleep until the image data can be obtained
+                    time.sleep(0.5)
+            
+        tl = (self.img_limits[2],self.img_limits[1])
+        br = (self.img_limits[3],self.img_limits[0])    
+        with self.canvas_lock:          
             self.Canvas.ZoomToBB(BBox.fromPoints(np.r_[tl,br]))        
             
 
@@ -2196,23 +2175,28 @@ class MapFrame(wx.Frame):
 #     Clears the entire canvas                                                               #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
-        self.Canvas.InitAll()  
+        with self.canvas_lock:
+            self.Canvas.InitAll()  
         
     def OnClear(self):
         if self.highlights != [] or self.graphics_route != []:
             with self.canvas_lock:
                 for obj in self.highlights:
                     self.Canvas.RemoveObject(obj)
-                self.highlights = []
+            self.highlights = []
+            
+            with self.canvas_lock:
                 for obj in self.graphics_route:
                     self.Canvas.RemoveObject(obj)
-                self.graphics_route = []
+            self.graphics_route = []
+            
+            with self.canvas_lock:
                 for obj in self.graphics_edges:
-                    obj.Visible = True
-#                 self.RefreshNodes('normal')
-                self.mp.ep.btn_rte.SetLabel('Show Route')
-                self.mp.ep.btn_rte.Enable(False)
+                    obj.Visible = True                
                 self.Canvas.Draw(True)
+#                 self.RefreshNodes('normal')
+            self.mp.ep.btn_rte.SetLabel('Show Route')
+            self.mp.ep.btn_rte.Enable(False)
         else:
             self.ClearGraph()
                    
@@ -2225,12 +2209,12 @@ class MapFrame(wx.Frame):
         self.RestoreModes('ClearGraph')    
     
     def SaveCanvasImage(self, filename):
+        # For some reason FloatCanvas doesn't save foreground objects
+        # So, we need to draw some temporary nodes on the background
+        st = datetime.now()
+        temp_obj = []
+        
         with self.canvas_lock:
-            # For some reason FloatCanvas doesn't save foreground objects
-            # So, we need to draw some temporary nodes on the background
-            st = datetime.now()
-            temp_obj = []
-            
             for node in self.nodelist:
                 xy = node.coords[0], node.coords[1]
                 diam = NODE_DIAM
@@ -2248,91 +2232,95 @@ class MapFrame(wx.Frame):
                                         Color=TEXT_COLOR, Weight=wx.BOLD, InForeground = False)
                 temp_obj.append(c)    
                 temp_obj.append(t)
-    
+        
+        with self.canvas_lock:
             self.Canvas.Draw(True)
             self.Canvas.SaveAsImage(filename)
             self.Canvas.RemoveObjects(temp_obj) # Get rid of the temporary nodes
             self.Canvas.Draw(True)
-            
-            et = datetime.now()
-            print "Saved canvas image. Time taken: %s" % (et-st)
+        
+        et = datetime.now()
+        print "Saved canvas image. Time taken: %s" % (et-st)
             
     def Test(self):        
 #         self.DrawObstacles(self.ros.obstacles)
-        route = [16,9,10,23,25,0,1,4,26,24,14,16]
+        route = [9,2,14,13,5,12,10,16,6,15,17,0,3,11,3,0,1,18,4,7,8,10,12,5]
+        tt = TimerThread(self, 0.5)
+        tt.start()
    
         self.DrawRoute(route, True)
         self.GetParent().ep.btn_rte.Enable(True)
                   
-        with self.canvas_lock:
-            for n in route:
-                self.HighlightDestination(n)
-                self.Canvas.Draw(True)
-                time.sleep(1)
-                self.OnReachDestination()
-                self.OnReachDestination()
-                time.sleep(1)
-                self.Canvas.Draw(True)
-                wx.Yield()
+        for n in route:
+            self.HighlightDestination(n)
+            time.sleep(1)
+            self.OnReachDestination()
+            self.OnReachDestination()
+            time.sleep(1)
+            wx.Yield()
+        
+        tt.stopped = True
+        tt.join()
     
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #
 #     the corresponding nodes and edges are loaded and drawn onto the canvas.                #
 #--------------------------------------------------------------------------------------------#
     def SetImage(self, image_obj):
-        with self.canvas_lock:
-            self.SetModes('SetImage', {                        
-                            'verbose':False, 
-                            'redraw':False, 
-                            'auto_edges':False
-                            }) 
-            self.Clear()
-            st = datetime.now()    
-                     
-            try:
-                # Creates the image from a file (used when loading a .png map file)
-                self.image_data = []
-                image_file = image_obj
-                
-                # Load as a PIL image so that we can "flip" the data (otherwise it's wrong)
-                pil_img = Image.open(image_obj)
-                pil_img_flip = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
-                
-                image = self.PilImageToWxImage(pil_img)
-                image_flip = self.PilImageToWxImage(pil_img_flip)            
-                image_file = image_obj
-                self.image_data = image_flip.GetData()[0::3]
-                self.image_data_format = "byte"
-                
-            except AttributeError:
-                # Creates the image directly from a wx.Image object (used when refreshing a live map)
-                image = image_obj
-                image_file = self.ros.GetDefaultFilename()
-                self.image_data = self.ros.image_data
-                self.image_data_format = "int"    
-            
-            self.image_width = image.GetHeight() # Case where metadata was not set
-            self.update_imglimits = True
-            self.img = self.Canvas.AddScaledBitmap( image, 
-                                          (0,0), 
-                                          Height=image.GetHeight(), 
-                                          Position = 'bl')    
-            self.LoadNodes()
-            self.LoadEdges()
-            self.GenerateConnectionMatrix()
-             
-            if self.robot is None:        
-                self.AddRobot(-1,-1) 
-            else:
-                self.AddRobot(self.robot.Coords, self.arrow.Theta)  
+        self.SetModes('SetImage', {                        
+                        'verbose':False, 
+                        'redraw':False, 
+                        'auto_edges':False
+                        }) 
+        self.Clear()
+        st = datetime.now()    
                  
-            self.SetCurrentMapPath(image_file)
-            self.Show() 
-            self.Layout()        
-            self.ZoomToFit()
+        try:
+            # Creates the image from a file (used when loading a .png map file)
+            self.image_data = []
+            image_file = image_obj
             
-            et = datetime.now()
-            self.RestoreModes('SetImage')
-    
-            if self.modes['verbose']:
-                print "Set map image. Time taken: %s" % str(et-st)
+            # Load as a PIL image so that we can "flip" the data (otherwise it's wrong)
+            pil_img = Image.open(image_obj)
+            pil_img_flip = pil_img.transpose(Image.FLIP_TOP_BOTTOM)
+            
+            image = self.PilImageToWxImage(pil_img)
+            image_flip = self.PilImageToWxImage(pil_img_flip)            
+            image_file = image_obj
+            self.image_data = image_flip.GetData()[0::3]
+            self.image_data_format = "byte"
+            
+        except AttributeError:
+            # Creates the image directly from a wx.Image object (used when refreshing a live map)
+            image = image_obj
+            image_file = self.ros.GetDefaultFilename()
+            self.image_data = self.ros.image_data
+            self.image_data_format = "int"    
+        
+        self.image_width = image.GetHeight() # Case where metadata was not set
+        self.update_imglimits = True
+        
+        with self.canvas_lock:
+            self.img = self.Canvas.AddScaledBitmap( image, 
+                                      (0,0), 
+                                      Height=image.GetHeight(), 
+                                      Position = 'bl')    
+        self.LoadNodes()
+        self.LoadEdges()
+        self.GenerateConnectionMatrix()
+         
+        if self.robot is None:        
+            self.AddRobot(-1,-1) 
+        else:
+            self.AddRobot(self.robot.Coords, self.arrow.Theta)  
+             
+        self.SetCurrentMapPath(image_file)
+        self.Show() 
+        self.Layout()        
+        self.ZoomToFit()
+        
+        et = datetime.now()
+        self.RestoreModes('SetImage')
+
+        if self.modes['verbose']:
+            print "Set map image. Time taken: %s" % str(et-st)

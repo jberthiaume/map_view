@@ -25,11 +25,11 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#BUG 9/12/13 : edge creation tool sometimes corrupts maps (indexerror on open) 
-
 #TODO: stop travel button?
 
 #TODO: streamline canvas_lock and canvas events
+
+#TODO: data locks (if necessary)
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
