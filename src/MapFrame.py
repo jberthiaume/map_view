@@ -419,82 +419,91 @@ class MapFrame(wx.Frame):
 #    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
 #---------------------------------------------------------------------------------------------#        
     def ShowFrame(self):
-        with self.canvas_lock:
-            r = self.robot
-            a = self.arrow
-            dest = self.destination
-            dest_theta = self.dest_theta       
-            
-            
-            if  self.TimeStep < self.NumTimeSteps: 
+        r = self.robot
+        a = self.arrow
+        dest = self.destination
+        dest_theta = self.dest_theta       
+        
+        
+        if  self.TimeStep < self.NumTimeSteps: 
+            with self.canvas_lock:
                 r.Move( (self.dx,self.dy) ) 
-                x,y = r.XY
-                theta = a.Theta           
-                try:
+            x,y = r.XY
+            theta = a.Theta           
+            try:                  
+                with self.canvas_lock:
                     self.Canvas.RemoveObject(self.arrow)
-                except ValueError:
-                    pass
-                
-                if self.workaround:
-                    new_theta = theta
-                    new_theta_rad = self.ToRadians(new_theta)
-                    xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
-                            y + (ROBOT_DIAM * math.sin(new_theta_rad)) )                
-    #                 print "Drew arrow from %s to %s. Angle: %s" % (r.XY, str(xy2), new_theta)
-                      
-                    a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
-                                         LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
-                    a.Coords = r.XY
-                    a.Theta  = new_theta
-                    self.arrow = a
-                    a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-                    self.arrow_drawn = True
-                 
-                elif not self.workaround:    
-                    new_theta = theta + self.dt             
-                    new_theta_rad = self.ToRadians(new_theta)
-                    xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
-                                      
-                    a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
-                                            LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
-                    a.Coords = r.XY
-                    a.Theta  = new_theta
-                    a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
-                    self.arrow = a
-                    
-                self.Canvas.Draw(True)
-                wx.GetApp().Yield(True)
-                self.TimeStep += 1
+            except ValueError:
+                pass
             
-            else: 
-                # Last TimeStep: adjust position for rounding errors along the way
-                error_xy = dest - r.XY               
-                r.Move( (error_xy[0], error_xy[1]) )
-                
-                try:
-                    self.Canvas.RemoveObject(self.arrow)
-                except ValueError:
-                    pass
-                x,y = r.XY
-                new_theta = dest_theta
+            if self.workaround:
+                new_theta = theta
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
-                        y + (ROBOT_DIAM * math.sin(new_theta_rad)) )               
-                a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
-                                     LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
+                        y + (ROBOT_DIAM * math.sin(new_theta_rad)) )                
+#                 print "Drew arrow from %s to %s. Angle: %s" % (r.XY, str(xy2), new_theta)
+                
+                with self.canvas_lock:  
+                    a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                            LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
                 a.Coords = r.XY
                 a.Theta  = new_theta
                 self.arrow = a
-                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)            
-                          
-                try:
-                    self.Canvas.RemoveObject(self.pe_graphic)
-                    self.pe_graphic = None
-                except (ValueError, AttributeError):
-                    pass        
-                self.robot.SetFillColor(ROBOT_FILL_2)
+                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+                self.arrow_drawn = True
+             
+            elif not self.workaround:    
+                new_theta = theta + self.dt             
+                new_theta_rad = self.ToRadians(new_theta)
+                xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
                 
-                self.Timer.Stop()
+                with self.canvas_lock:                  
+                    a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                            LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
+                a.Coords = r.XY
+                a.Theta  = new_theta
+                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+                self.arrow = a
+            
+            with self.canvas_lock:    
+                self.Canvas.Draw(True)
+            wx.GetApp().Yield(True)
+            self.TimeStep += 1
+        
+        else: 
+            # Last TimeStep: adjust position for rounding errors along the way
+            error_xy = dest - r.XY
+            with self.canvas_lock:               
+                r.Move( (error_xy[0], error_xy[1]) )
+            
+            try:
+                with self.canvas_lock:
+                    self.Canvas.RemoveObject(self.arrow)
+            except ValueError:
+                pass
+            x,y = r.XY
+            new_theta = dest_theta
+            new_theta_rad = self.ToRadians(new_theta)
+            xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
+                    y + (ROBOT_DIAM * math.sin(new_theta_rad)) )     
+            with self.canvas_lock:          
+                a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
+                                 LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
+            a.Coords = r.XY
+            a.Theta  = new_theta
+            self.arrow = a
+            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)            
+                      
+            try:
+                with self.canvas_lock:
+                    self.Canvas.RemoveObject(self.pe_graphic)
+                self.pe_graphic = None
+            except (ValueError, AttributeError):
+                pass        
+            self.robot.SetFillColor(ROBOT_FILL_2)
+            
+            self.Timer.Stop()
+            with self.canvas_lock:
                 self.Canvas.Draw(True)           
 
             
@@ -545,21 +554,21 @@ class MapFrame(wx.Frame):
             print "Created 2D nav goal at point (%s, %s)" % (x, y)
         self.ros.Publish2DNavGoal(pose, orient)
         
-    def DrawObstacles(self, points, mode):     
-        with self.canvas_lock:
+    def DrawObstacles(self, points, mode):
             if mode == 'inf': 
                 fc = OBSTACLE_COLOR_2
-                if self.obstacles_2 is not None:
-                    self.Canvas.RemoveObject(self.obstacles_2)
+                if self.obstacles_2 is not None:                         
+                    with self.canvas_lock:
+                        self.Canvas.RemoveObject(self.obstacles_2)
             else:
                 fc = OBSTACLE_COLOR_1
-                if self.obstacles_1 is not None:
-                    self.Canvas.RemoveObject(self.obstacles_1)            
+                if self.obstacles_1 is not None:                         
+                    with self.canvas_lock:
+                        self.Canvas.RemoveObject(self.obstacles_1)    
+                                
             obs = FloatCanvas.Group()
             try:
-                for point in points:    
-                    print "Owner: %s" % self.canvas_lock._is_owned()                   
-                    with self.canvas_lock:
+                for point in points:      
                         x = int( self.MetersToPixels((point.x,0))[0] )
                         y = int( self.MetersToPixels((point.y,0))[0] )                   
                         d = 4
@@ -569,12 +578,14 @@ class MapFrame(wx.Frame):
                         p.Coords = (x,y)
                         obs.AddObject(p)
                 
-                self.Canvas.AddObject(obs) 
+                     
+                with self.canvas_lock:
+                    self.Canvas.AddObject(obs)  
+                    self.Canvas.Draw(True)
                 if mode == 'inf':
                     self.obstacles_2 = obs 
                 else:
-                    self.obstacles_1 = obs  
-                self.Canvas.Draw(True)
+                    self.obstacles_1 = obs 
             except AttributeError:
                 print "exception encountered"
             
@@ -591,44 +602,47 @@ class MapFrame(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Marks the robot's current goal node                                                      #
 #---------------------------------------------------------------------------------------------#             
-    def HighlightDestination(self, dest):                    
-        with self.canvas_lock:
-            if self.curr_dest is not None and dest != self.curr_dest: 
+    def HighlightDestination(self, dest):     
+        if self.curr_dest is not None and dest != self.curr_dest: 
+            with self.canvas_lock:
                 self.Canvas.RemoveObject(self.graphics_route[0])
-                self.graphics_route.pop(0) 
-                
-                n1 = self.nodelist[self.curr_dest]
-                n2 = self.nodelist[dest]
-                e = int(self.conn_matrix[n1.id][n2.id])
-                lw = EDGE_WIDTH
-                lc = HIGHLIGHT_COLOR   
-                l = self.Canvas.AddLine( (n1.coords,n2.coords), LineWidth=lw, LineColor=lc)
-                self.highlights.append(l)
-                self.curr_edge = e 
-                if self.modes['verbose']: 
-                    print "Heading from %s to %s (edge %s)" % (self.curr_dest, dest, e)      
+            self.graphics_route.pop(0) 
+            
+            n1 = self.nodelist[self.curr_dest]
+            n2 = self.nodelist[dest]
+            e = int(self.conn_matrix[n1.id][n2.id])
+            lw = EDGE_WIDTH
+            lc = HIGHLIGHT_COLOR   
+            with self.canvas_lock:
+                l = self.Canvas.AddLine( (n1.coords,n2.coords), LineWidth=lw, LineColor=lc)    
                 self.Canvas.Draw(True)
-            self.curr_dest = dest     
+            self.highlights.append(l)
+            self.curr_edge = e 
+            if self.modes['verbose']: 
+                print "Heading from %s to %s (edge %s)" % (self.curr_dest, dest, e)  
+        self.curr_dest = dest     
             
 
-    def OnReachDestination(self):  
-        with self.canvas_lock:
-            try:
+    def OnReachDestination(self): 
+        try:                  
+            with self.canvas_lock:
                 self.Canvas.RemoveObject(self.ng_graphic)
-                self.ng_graphic = None
-            except (ValueError, AttributeError):
-                pass         
-                  
-        with self.canvas_lock:    
-            if self.curr_edge is not None:
-                edge = self.edgelist[self.curr_edge]
-                coords1 = self.nodelist[int(edge.node1)].coords
-                coords2 = self.nodelist[int(edge.node2)].coords
-                lw = EDGE_WIDTH
-                lc = DESTINATION_COLOR    
+            self.ng_graphic = None
+        except (ValueError, AttributeError):
+            pass         
+                    
+        if self.curr_edge is not None:
+            edge = self.edgelist[self.curr_edge]
+            coords1 = self.nodelist[int(edge.node1)].coords
+            coords2 = self.nodelist[int(edge.node2)].coords
+            lw = EDGE_WIDTH
+            lc = DESTINATION_COLOR 
+              
+            with self.canvas_lock:   
                 l = self.Canvas.AddLine( (coords1,coords2), LineWidth=lw, LineColor=lc)
-                self.highlights.append(l)                         
-                
+                self.highlights.append(l)               
+          
+        with self.canvas_lock:   
             self.Canvas.Draw(True)
                     
     def ClearHighlighting(self):
@@ -716,20 +730,22 @@ class MapFrame(wx.Frame):
         with self.canvas_lock:            
             for edge in self.graphics_edges:
                 edge.Visible = False  
-#             for hl in self.highlights:
-#                 hl.Visible = False
+
+        time.sleep(0.5)
+        
+        with self.canvas_lock:
             for gr in self.graphics_route:
                 gr.Visible = True
-#             for gr in self.graphics_route_h:
-#                 gr.Visible = False
             self.Canvas.Draw(True)
                 
     def HideRoute(self):
         with self.canvas_lock:
             for edge in self.graphics_edges:
                 edge.Visible = True  
-#             for hl in self.highlights:
-#                 hl.Visible = True
+
+        time.sleep(0.5)
+        
+        with self.canvas_lock:
             for gr in self.graphics_route:
                 gr.Visible = False
             self.Canvas.Draw(True)
@@ -2243,14 +2259,7 @@ class MapFrame(wx.Frame):
             
     def Test(self):        
 #         self.DrawObstacles(self.ros.obstacles)
-        route = [29, 19, 20, 26, 22, 11, 1, 46, 47, 44, 45,
-                 11, 47, 45, 47, 1, 0, 6, 28, 6, 0, 46, 44, 
-                 20, 45, 26, 11, 21, 13, 14, 36, 39, 33, 30, 
-                 15, 2, 10, 4, 9, 10, 7, 35, 7, 48, 2, 40, 12, 
-                 9, 12, 27, 23, 17, 23, 27, 12, 9, 4, 34, 24, 5, 
-                 43, 5, 24, 34, 4, 9, 40, 10, 48, 42, 31, 8, 38, 
-                 39, 38, 37, 16, 18, 13, 21, 22, 26, 19, 32, 41, 
-                 3, 25, 3, 41, 32, 19, 26, 29]
+        route = [16,9,10,23,25,0,1,4,26,24,14,16]
    
         self.DrawRoute(route, True)
         self.GetParent().ep.btn_rte.Enable(True)

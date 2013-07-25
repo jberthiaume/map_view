@@ -9,7 +9,6 @@ import os, time, shutil
 import math
 import ROSNode
 import Resources
-import subprocess
 from datetime import datetime
 from MapFrame import MapFrame
 
@@ -30,7 +29,7 @@ SIZER_BORDER    = 10
 
 #TODO: stop travel button?
 
-#TODO: FC.Group
+#TODO: streamline canvas_lock and canvas events
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
