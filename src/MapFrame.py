@@ -15,10 +15,12 @@ import numpy as np
 import random as rand
 import threading as t
 import GraphStructs as gs
+import QueueThread as qt
 import NavCanvas, FloatCanvas
 from wx.lib.floatcanvas.Utilities import BBox
 from TimerThread import TimerThread
 from datetime import datetime
+from Queue import Queue
 
 #----- Global colors -----#
 NODE_FILL           = (240,240,240)
@@ -73,14 +75,13 @@ class MapFrame(wx.Frame):
         self.graphics_edges = []
         self.graphics_text = []
         self.graphics_route = []
-#         self.graphics_route_h = []
         
         self.canvas_lock = t.RLock()
+        self.data_lock = t.RLock()
         
         self.sel_nodes = []
         self.sel_edges = [] 
         self.route = []
-#         self.route_collisions = defaultdict(list)
         self.obstacles_1 = None
         self.obstacles_2 = None
         self.arrows = None
@@ -98,6 +99,10 @@ class MapFrame(wx.Frame):
        
         self.mp = self.GetParent()
         self.ros = self.mp.ros
+        self.q = Queue()
+        self.qt = qt.QueueThread(self)
+        self.qt.daemon = True
+        self.qt.start()
             
         # Add the Canvas
         self.NavCanvas = NavCanvas.NavCanvas(self, 
@@ -181,7 +186,7 @@ class MapFrame(wx.Frame):
         self.mp.OnCloseMap(event)       
         
     def OnExit(self, event):
-        self.mp.OnExit(event)        
+        self.mp.OnExit(event) 
     
 #---------------------------------------------------------------------------------------------#    
 #    Mouse click handler: left button                                                         #
@@ -2242,25 +2247,28 @@ class MapFrame(wx.Frame):
         et = datetime.now()
         print "Saved canvas image. Time taken: %s" % (et-st)
             
-    def Test(self):        
+    def Test(self):  
+        item = self.ros.q.get()
+        print item   
 #         self.DrawObstacles(self.ros.obstacles)
-        route = [9,2,14,13,5,12,10,16,6,15,17,0,3,11,3,0,1,18,4,7,8,10,12,5]
-        tt = TimerThread(self, 0.5)
-        tt.start()
-   
-        self.DrawRoute(route, True)
-        self.GetParent().ep.btn_rte.Enable(True)
-                  
-        for n in route:
-            self.HighlightDestination(n)
-            time.sleep(1)
-            self.OnReachDestination()
-            self.OnReachDestination()
-            time.sleep(1)
-            wx.Yield()
-        
-        tt.stopped = True
-        tt.join()
+#         route = [9,2,14,13,5,12,10,16,6,15,17,0,3,11,3,0,1,18,4,7,8,10,12,5]
+#         tt = TimerThread(self, 0.5)
+#         tt.start()
+#    
+#         self.DrawRoute(route, True)
+#         self.GetParent().ep.btn_rte.Enable(True)
+#                   
+#         for n in route:
+#             self.HighlightDestination(n)
+#             time.sleep(1)
+#             self.OnReachDestination()
+#             self.OnReachDestination()
+#             time.sleep(1)
+#             wx.Yield()
+#         
+#         tt.stopped = True
+#         tt.join()
+
     
 #--------------------------------------------------------------------------------------------#    
 #     Sets the image to display on the canvas. If the map has an associated graph file,      #

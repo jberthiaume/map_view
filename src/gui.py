@@ -532,8 +532,10 @@ class MainPanel(wx.Panel):
                 self.OnSaveAs(event)
             dlg.Destroy()        
         
-        self.ros.tt.stopped = True
-        self.ros.tt.join()    
+#         self.ros.tt.stopped = True
+#         self.ros.tt.join()  
+#         self.mframe.qt.stopped = True
+        self.mframe.qt.join(0)  
         self.mframe.Close()
         self.pf.Close()
                 

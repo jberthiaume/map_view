@@ -4,6 +4,7 @@ import wx
 import os, time
 import rospy                                                #@UnresolvedImport
 import numpy as np
+import Queue
 from datetime import datetime
 from TimerThread import TimerThread
 from std_msgs.msg import String                             #@UnresolvedImport
@@ -48,11 +49,12 @@ class ROSNode():
         self.refresh = False
         self.ok = True
         self.image = None
-        self.filename = FILENAME       
+        self.filename = FILENAME  
+        self.q = Queue.Queue()     
         
         self.parent = parent
-        self.tt = TimerThread(self, 10)
-        self.tt.start()
+#         self.tt = TimerThread(self, 10)
+#         self.tt.start()
         self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
         self.goal_pub = rospy.Publisher('move_base/goal', MoveBaseActionGoal)
@@ -84,7 +86,6 @@ class ROSNode():
         rospy.Subscriber("map", OccupancyGrid, self.MapCB)
         rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, self.PoseCB)
         rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
-        rospy.Subscriber("tour", String, self.TourCB)
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
         rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
@@ -99,12 +100,9 @@ class ROSNode():
 #    Callback function for the "/node_traveller/dest" topic                                   #
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
-        dest = int(data.data)         
-#         if dest == -1:
-#             self.mframe.ClearHighlighting()
-#         else:
-#         print "Heading to node %s" % dest
-        self.mframe.HighlightDestination(dest)             
+        dest = int(data.data) 
+        self.mframe.q.put( (self.mframe.HighlightDestination, dest) )        
+#         self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic                                             #
@@ -114,8 +112,9 @@ class ROSNode():
         self.pose_orient = data.pose.pose.orientation                
         destination = (self.pose_pos.x, self.pose_pos.y)
         orient = self.pose_orient
+        self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
                
-        self.mframe.MoveRobotTo(destination, orient, True)
+#         self.mframe.MoveRobotTo(destination, orient, True)
         
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/cmd_vel" topic                                               #
@@ -127,18 +126,20 @@ class ROSNode():
     def StatusCB(self, data):
         status = int(data.status.status)
         if status == 3:
-            self.mframe.OnReachDestination()
-#         pass
+            self.mframe.q.put( (self.mframe.OnReachDestination) )
+#             self.mframe.OnReachDestination()
 
     def RouteCB(self, data):
-        self.mframe.DrawRoute(data.data, False)
+        self.mframe.q.put( (self.mframe.DrawRoute, data.data, False) )
+#         self.mframe.DrawRoute(data.data, False)
         self.parent.mp.ep.btn_rte.Enable(True)
         wx.Yield()
         
     def ObsCB(self, data):
         if self.ok:
             self.obstacles_1 = data.cells
-            self.mframe.DrawObstacles(self.obstacles_1, 'obs')
+            self.mframe.q.put( (self.mframe.DrawObstacles, self.obstacles_1, 'obs') )
+#             self.mframe.DrawObstacles(self.obstacles_1, 'obs')
             self.ok = False
             
     def ObsCB2(self, data):
@@ -146,10 +147,6 @@ class ROSNode():
             self.obstacles_2 = data.cells
             self.mframe.DrawObstacles(self.obstacles_2, 'inf')
             self.ok = False
-        
-    def TourCB(self, data):
-        print "Received tour message"
-        print data
             
 #---------------------------------------------------------------------------------------------#    
 #    Turns the OccupancyGrid data received from "/map" into an image file.                    #
@@ -183,7 +180,8 @@ class ROSNode():
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)
         self.image_data = data.data
-        self.mframe.SetMapMetadata(self.image_width,self.resolution,self.origin_pos) 
+        self.mframe.q.put( (self.mframe.SetMapMetadata, self.image_width,
+                     self.resolution,self.origin_pos) )
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #
