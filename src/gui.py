@@ -29,7 +29,9 @@ SIZER_BORDER    = 10
 
 #TODO: streamline canvas_lock and canvas events
 
-#TODO: data locks (if necessary)
+#TODO: lock mouseEnter/Leave events
+
+#TODO: showframe breaks everything WTF
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):

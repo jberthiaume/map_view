@@ -12,7 +12,15 @@ class QueueThread(Thread):
     def run(self):
         while not self.stopped:
             item = self.parent.q.get()
-            fn = item[0]
-            args = item[1:]
-            print str(fn)[13:].split()[0]
-            fn(*args)
+            print item
+            
+            try:
+                fn = item[0]
+                args = item[1:]
+                print str(fn)[13:].split()[0]
+                fn(*args)
+                
+            except TypeError:
+                fn = item
+                print str(fn)[13:].split()[0]
+                fn()

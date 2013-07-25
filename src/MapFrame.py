@@ -57,7 +57,7 @@ class MapFrame(wx.Frame):
         self.modes = {'export':False, 'auto_erase':True, 'verbose':True, 'redraw':True, 
                        'auto_edges':True, 'spaced_edges':True,  'unknown_edges':True, 
                        'clear_graph':True, 'auto_intersections':True, 'manual_edges':False,
-                       'pose_est':False, 'load':False}
+                       'pose_est':False, 'load':False, 'running':False}
         self.saved_modes = {}
         
         self.resolution = None
@@ -421,7 +421,10 @@ class MapFrame(wx.Frame):
         
         self.arrow_drawn = False
         self.TimeStep = 1
-        self.Timer.Start(self.FrameDelay)         
+        self.Timer.Start(self.FrameDelay)
+        
+    def DoFrame(self):
+        self.q.put( (self.ShowFrame) )
              
 #---------------------------------------------------------------------------------------------#    
 #    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
@@ -655,6 +658,14 @@ class MapFrame(wx.Frame):
             self.Canvas.Draw(True)
         
     def DrawRoute(self, route, show):
+        if route == []:
+            print "End of tour."
+            try:
+                self.RestoreModes('Route')
+            except IndexError:
+                pass
+            return
+        
         self.route = route
         tmp_edges = []          
         
@@ -670,13 +681,13 @@ class MapFrame(wx.Frame):
                 node2 = self.nodelist[n2_id]
             else:
                 break      
-     
+            
             edge_id = int( self.conn_matrix[n1_id][n2_id] )
             
             x1 = node1.coords[0]
             y1 = node1.coords[1]
             x2 = node2.coords[0]
-            y2 = node2.coords[1]       
+            y2 = node2.coords[1]  
             
             dx    = x2-x1
             dy    = y2-y1
@@ -694,7 +705,7 @@ class MapFrame(wx.Frame):
             with self.canvas_lock:
                 l = self.Canvas.AddArrowLine( (pD,pS), LineWidth = EDGE_WIDTH, LineColor = color,
                                          ArrowHeadSize=10, InForeground=True)
-            self.graphics_route.insert(0,l)             
+            self.graphics_route.insert(0,l)  
             tmp_edges.append(edge_id)
             
             if color[0]+incr < 255 and phase == 0:
@@ -710,13 +721,14 @@ class MapFrame(wx.Frame):
 #                     color =  ( color[0], int(color[1]-(2*incr)), color[2] )
 #                     continue
             else:
-                phase = phase+1                 
+                phase = phase+1     
         with self.canvas_lock:
             if not show:
                 for gr in self.graphics_route:
                     gr.Visible = True
             self.Canvas.Draw(True)
-        self.RefreshNodes('normal')
+#         self.RefreshNodes('normal')
+        self.SetModes('Route', {'running':True})
             
     def ShowRoute(self):
         with self.canvas_lock:            
@@ -911,7 +923,7 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
 #    -deprecated-                                                                            #
 #--------------------------------------------------------------------------------------------#             
-    def RefreshNodes(self, color_str):                   
+    def RefreshNodes(self):                   
         with self.canvas_lock: 
             old_robot, old_arrow = self.robot, self.arrow
             self.AddRobot(self.robot.Coords, self.arrow.Theta)
@@ -1901,32 +1913,52 @@ class MapFrame(wx.Frame):
 #     Event handlers to change the mouse cursor when hovering over objects                   #
 #--------------------------------------------------------------------------------------------#    
     def OnMouseEnterNode(self, obj):
-        with self.canvas_lock:
-            current_mode = self.Canvas.GetMode() 
-            if current_mode == 'GUIEdges':
-                self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
-            self.Canvas.GUIMode.SwitchCursor('enter')  
+        if self.modes['running']:
+            return
+        
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.q.put( (self.Canvas.GUIMode.LockEdge,
+                         'e_node', obj.Name, self.nodelist[int(obj.Name)].coords) )
+#             self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
+#         self.Canvas.GUIMode.SwitchCursor('enter')  
+        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'enter') )
             
     def OnMouseLeaveNode(self, obj):  
-        with self.canvas_lock:      
-            current_mode = self.Canvas.GetMode() 
-            if current_mode == 'GUIEdges':
-                self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
-            self.Canvas.GUIMode.SwitchCursor('leave')  
+        if self.modes['running']:
+            return
+        
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.q.put( (self.Canvas.GUIMode.LockEdge,
+                         'l_node', obj.Name, self.nodelist[int(obj.Name)].coords) )
+#             self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
+#         self.Canvas.GUIMode.SwitchCursor('leave')  
+        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'leave') )
                
     def OnMouseEnterEdge(self, obj):
-        with self.canvas_lock:
-            current_mode = self.Canvas.GetMode() 
-            if current_mode == 'GUIEdges':
-                self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
-            self.Canvas.GUIMode.SwitchCursor('enter')  
+        if self.modes['running']:
+            return
+        
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.q.put( (self.Canvas.GUIMode.LockEdge,
+                         'e_edge', obj.Name, self.nodelist[int(obj.Name)].coords) )
+#             self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
+#         self.Canvas.GUIMode.SwitchCursor('enter')  
+        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'enter') )
                   
     def OnMouseLeaveEdge(self, obj):
-        with self.canvas_lock:
-            current_mode = self.Canvas.GetMode() 
-            if current_mode == 'GUIEdges':
-                self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
-            self.Canvas.GUIMode.SwitchCursor('leave') 
+        if self.modes['running']:
+            return
+        
+        current_mode = self.Canvas.GetMode() 
+        if current_mode == 'GUIEdges':
+            self.q.put( (self.Canvas.GUIMode.LockEdge,
+                         'l_edge', obj.Name, self.nodelist[int(obj.Name)].coords) )
+#             self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
+#         self.Canvas.GUIMode.SwitchCursor('leave') 
+        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'leave') )
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
