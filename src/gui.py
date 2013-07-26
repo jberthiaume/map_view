@@ -9,6 +9,7 @@ import os, time, shutil
 import math
 import ROSNode
 import Resources
+import subprocess
 from datetime import datetime
 from MapFrame import MapFrame
 
@@ -29,9 +30,9 @@ SIZER_BORDER    = 10
 
 #TODO: streamline canvas_lock and canvas events
 
-#TODO: lock mouseEnter/Leave events
-
 #TODO: showframe breaks everything WTF
+
+#TODO: integrate 'tour end' signal (empty route)
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -536,8 +537,8 @@ class MainPanel(wx.Panel):
         
 #         self.ros.tt.stopped = True
 #         self.ros.tt.join()  
-#         self.mframe.qt.stopped = True
-        self.mframe.qt.join(0)  
+#         self.mframe.qt.stopped = True 
+        self.mframe.qt.join(0) 
         self.mframe.Close()
         self.pf.Close()
                 
@@ -949,12 +950,20 @@ class ExplorePanel(wx.Panel):
         
         # Show/Hide map viewer button
         vbox13 = wx.BoxSizer(wx.VERTICAL)  
-        self.btn_rte = wx.Button(self, label="Show Route", size=BUTTON_SIZE)        
+        self.btn_rte = wx.Button(self, label="Hide Route", size=BUTTON_SIZE)        
         self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
         self.btn_rte.Enable(False)
         self.GetParent().buttons.append(self.btn_rte)   
         vbox13.Add(self.btn_rte)        
         self.sizer.Add(vbox13,1, wx.TOP,10)  
+        
+#         # Show/Hide map viewer button  
+#         self.btn_stop = wx.Button(self, label="Abort Travel", size=BUTTON_SIZE)        
+#         self.btn_stop.Bind(wx.EVT_BUTTON, self.OnAbort) 
+#         self.btn_stop.Enable(False)
+#         self.GetParent().buttons.append(self.btn_stop)   
+#         vbox13.Add(self.btn_stop)        
+#         self.sizer.Add(vbox13,1, wx.TOP,10) 
 
         vbox03 = wx.BoxSizer(wx.VERTICAL)
         lbl_font = self.pf.font
@@ -1027,6 +1036,12 @@ class ExplorePanel(wx.Panel):
         else:
             self.mframe.HideRoute()
             self.btn_rte.SetLabel('Show Route')
+            
+    def OnAbort(self, event):
+        try:
+            os.kill(self.travel_pid, 9)
+        except AttributeError:
+            pass
         
     def OnFind(self, event):
         txt = self.txt.GetValue()
@@ -1127,7 +1142,12 @@ class ExplorePanel(wx.Panel):
             dlg.ShowModal() 
             dlg.Destroy()
             return
-        os.system("gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'")
+        
+        term = "gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'"
+        proc = subprocess.Popen(term, shell=True)
+        self.travel_pid = proc.pid
+        
+#         os.system("gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'")
         
     
 if __name__ == '__main__':

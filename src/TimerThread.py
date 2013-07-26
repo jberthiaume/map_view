@@ -14,12 +14,10 @@ class TimerThread(Thread):
     def run(self):
         while not self.stopped:
             time.sleep(self.interval)
-            self.parent.ok = True
             try:
-                self.parent.MoveRobotTo( (random.randrange(1950,2050,1),
-                                          random.randrange(1950,2050,1)), 
-                                         (0,1), False)
-                print "moved robot"
+                self.parent.q.put( (self.parent.MoveRobotTo, self.parent.ros.r_destination, 
+                                         self.parent.ros.r_orient, True) )
+#                 print "moved robot"
             except AttributeError:
                 pass
 

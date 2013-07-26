@@ -108,11 +108,16 @@ class ROSNode():
 #    Callback function for the "/amcl_pose" topic                                             #
 #---------------------------------------------------------------------------------------------#    
     def PoseCB(self, data):
-        self.pose_pos = data.pose.pose.position
-        self.pose_orient = data.pose.pose.orientation                
-        destination = (self.pose_pos.x, self.pose_pos.y)
-        orient = self.pose_orient
-        self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
+        try:
+            self.pose_pos = data.pose.pose.position
+            self.pose_orient = data.pose.pose.orientation                
+            destination = (self.pose_pos.x, self.pose_pos.y)
+            orient = self.pose_orient
+            
+            if not self.mframe.modes['running']:
+                self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
+        except wx.PyDeadObjectError:
+            print "EXIT"
                
 #         self.mframe.MoveRobotTo(destination, orient, True)
         
@@ -130,9 +135,14 @@ class ROSNode():
 #             self.mframe.OnReachDestination()
 
     def RouteCB(self, data):
-        self.mframe.q.put( (self.mframe.DrawRoute, data.data, False) )
-#         self.mframe.DrawRoute(data.data, False)
-        self.parent.mp.ep.btn_rte.Enable(True)
+        route = data.data
+        print "Route CB"
+        self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
+#         self.mframe.DrawRoute(route, False)
+        if route != []:
+            self.parent.mp.ep.btn_rte.Enable(True)
+        else:
+            self.parent.mp.ep.btn_rte.Enable(False)
         wx.Yield()
         
     def ObsCB(self, data):

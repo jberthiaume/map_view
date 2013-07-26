@@ -76,8 +76,8 @@ class MapFrame(wx.Frame):
         self.graphics_text = []
         self.graphics_route = []
         
-        self.canvas_lock = t.RLock()
-        self.data_lock = t.RLock()
+        self.canvas_lock = t.Lock()
+        self.canvas_lock2 = t.Lock()
         
         self.sel_nodes = []
         self.sel_edges = [] 
@@ -373,7 +373,7 @@ class MapFrame(wx.Frame):
         self.arrow = a
         
         self.Timer = wx.PyTimer(self.ShowFrame)
-        self.FrameDelay = 16        ## 16ms per frame = framerate of 60 FPS
+        self.FrameDelay = 16        
 
 
 #---------------------------------------------------------------------------------------------#    
@@ -401,9 +401,9 @@ class MapFrame(wx.Frame):
         
         distance = self.Distance(dest, r.XY)
         if distance < 150:
-            self.NumTimeSteps = 1  
+            self.NumTimeSteps = 4  
         else:
-            self.NumTimeSteps = 1 
+            self.NumTimeSteps = 4 
         
         self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
@@ -429,7 +429,7 @@ class MapFrame(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
 #---------------------------------------------------------------------------------------------#        
-    def ShowFrame(self):
+    def ShowFrame(self):  
         r = self.robot
         a = self.arrow
         dest = self.destination
@@ -437,13 +437,11 @@ class MapFrame(wx.Frame):
         
         
         if  self.TimeStep < self.NumTimeSteps: 
-            with self.canvas_lock:
-                r.Move( (self.dx,self.dy) ) 
+            r.Move( (self.dx,self.dy) ) 
             x,y = r.XY
             theta = a.Theta           
             try:                  
-                with self.canvas_lock:
-                    self.Canvas.RemoveObject(self.arrow)
+                self.Canvas.RemoveObject(self.arrow)
             except ValueError:
                 pass
             
@@ -452,12 +450,12 @@ class MapFrame(wx.Frame):
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
                         y + (ROBOT_DIAM * math.sin(new_theta_rad)) )                
-#                 print "Drew arrow from %s to %s. Angle: %s" % (r.XY, str(xy2), new_theta)
+        #                 print "Drew arrow from %s to %s. Angle: %s" % (r.XY, str(xy2), new_theta)
                 
-                with self.canvas_lock:  
+                
+                with self.canvas_lock:
                     a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                             LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
-                    a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 a.Coords = r.XY
                 a.Theta  = new_theta
                 self.arrow = a
@@ -468,55 +466,49 @@ class MapFrame(wx.Frame):
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x+(ROBOT_DIAM * math.cos(new_theta_rad)), y+(ROBOT_DIAM * math.sin(new_theta_rad)) )
                 
-                with self.canvas_lock:                  
+                with self.canvas_lock:
                     a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                             LineColor = ROBOT_BORDER, ArrowHeadSize=10, InForeground = True)
-                    a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
                 a.Coords = r.XY
                 a.Theta  = new_theta
                 self.arrow = a
             
-            with self.canvas_lock:    
-                self.Canvas.Draw(True)
+        
+            self.Canvas.Draw(True)
             wx.GetApp().Yield(True)
             self.TimeStep += 1
         
         else: 
             # Last TimeStep: adjust position for rounding errors along the way
-            error_xy = dest - r.XY
-            with self.canvas_lock:               
-                r.Move( (error_xy[0], error_xy[1]) )
+            error_xy = dest - r.XY 
+            r.Move( (error_xy[0], error_xy[1]) )
             
             try:
-                with self.canvas_lock:
-                    self.Canvas.RemoveObject(self.arrow)
+                self.Canvas.RemoveObject(self.arrow)
             except ValueError:
                 pass
             x,y = r.XY
             new_theta = dest_theta
             new_theta_rad = self.ToRadians(new_theta)
             xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
-                    y + (ROBOT_DIAM * math.sin(new_theta_rad)) )     
-            with self.canvas_lock:          
+                    y + (ROBOT_DIAM * math.sin(new_theta_rad)) )  
+            with self.canvas_lock:
                 a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
                                  LineColor = ROBOT_BORDER, ArrowHeadSize=15, InForeground = True)
-                a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
             a.Coords = r.XY
             a.Theta  = new_theta
             self.arrow = a            
-                      
-            try:
-                with self.canvas_lock:
-                    self.Canvas.RemoveObject(self.pe_graphic)
-                self.pe_graphic = None
-            except (ValueError, AttributeError):
-                pass        
+                   
+#             try:
+#                 with self.canvas_lock:
+#                     self.Canvas.RemoveObject(self.pe_graphic)
+#                 self.pe_graphic = None
+#             except (ValueError, AttributeError):
+#                 pass        
             self.robot.SetFillColor(ROBOT_FILL_2)
-            
+        
             self.Timer.Stop()
-            with self.canvas_lock:
-                self.Canvas.Draw(True)           
-
+            self.Canvas.Draw(True) 
             
 #---------------------------------------------------------------------------------------------#    
 #    Sends 2D Pose Estimate data to the ROS node to be published                              #
@@ -614,7 +606,7 @@ class MapFrame(wx.Frame):
 #---------------------------------------------------------------------------------------------#    
 #    Marks the robot's current goal node                                                      #
 #---------------------------------------------------------------------------------------------#             
-    def HighlightDestination(self, dest):     
+    def HighlightDestination(self, dest):    
         if self.curr_dest is not None and dest != self.curr_dest: 
             with self.canvas_lock:
                 self.Canvas.RemoveObject(self.graphics_route[0])
@@ -631,7 +623,14 @@ class MapFrame(wx.Frame):
             self.highlights.append(l)
             self.curr_edge = e 
             if self.modes['verbose']: 
-                print "Heading from %s to %s (edge %s)" % (self.curr_dest, dest, e)  
+                print "Heading from %s to %s (edge %s)" % (self.curr_dest, dest, e)
+        else:
+            try:
+                with self.canvas_lock:
+                    self.Canvas.RemoveObject(self.pe_graphic)
+                self.pe_graphic = None
+            except (ValueError, AttributeError):
+                pass   
         self.curr_dest = dest     
             
 
@@ -661,24 +660,33 @@ class MapFrame(wx.Frame):
         if route == []:
             print "End of tour."
             try:
-                self.RestoreModes('Route')
+                with self.canvas_lock:
+                    self.robot.Visible = True
+                    self.arrow.Visible = True
+                self.RestoreModes('Route')                
+                self.Enable(True)
             except IndexError:
                 pass
             return
-        
+                
         self.route = route
-        tmp_edges = []          
-        
+        tmp_edges = []        
         color = (0,0,255)
         steps = len(route)
         incr = min(480.0/steps, 30)
         phase = 0
+        
+        self.Enable(False)
+        
         for idx,node in reversed(list(enumerate(route))):            
             if (idx-1) >= 0:
-                n1_id = int(node)
-                n2_id = int(route[idx-1])
-                node1 = self.nodelist[n1_id]
-                node2 = self.nodelist[n2_id]
+                try:
+                    n1_id = int(node)
+                    n2_id = int(route[idx-1])
+                    node1 = self.nodelist[n1_id]
+                    node2 = self.nodelist[n2_id]
+                except IndexError:
+                    print n1_id, n2_id
             else:
                 break      
             
@@ -708,11 +716,13 @@ class MapFrame(wx.Frame):
             self.graphics_route.insert(0,l)  
             tmp_edges.append(edge_id)
             
+#             print color    
             if color[0]+incr < 255 and phase == 0:
-                color =  ( int(color[0]+incr), color[1], color[2] )
+                #TODO: flt
+                color =  ( self.Round(color[0]+incr), color[1], color[2] )
                 continue
             elif color[2]-incr > 0 and phase == 1:
-                color =  ( color[0], color[1], int(color[2]-incr) )
+                color =  ( color[0], color[1], self.Round(color[2]-incr) )
                 continue
 #                 elif color[2]+(2*incr) < 240 and phase == 2:
 #                     color =  ( color[0], color[1], int(color[2]+(2*incr)) )
@@ -721,11 +731,14 @@ class MapFrame(wx.Frame):
 #                     color =  ( color[0], int(color[1]-(2*incr)), color[2] )
 #                     continue
             else:
-                phase = phase+1     
+                phase = phase+1 
         with self.canvas_lock:
             if not show:
                 for gr in self.graphics_route:
                     gr.Visible = True
+            
+            self.robot.Visible = False
+            self.arrow.Visible = False
             self.Canvas.Draw(True)
 #         self.RefreshNodes('normal')
         self.SetModes('Route', {'running':True})
@@ -1342,7 +1355,6 @@ class MapFrame(wx.Frame):
         self.RestoreModes('GenerateGraph')
         if self.modes['verbose']:
             print "Total time to generate graph: %s" % str(et-st)
-        print "Total gcm time: %s" % self.ttime
 
 #--------------------------------------------------------------------------------------------#
 #     Find the distances from a given node 'node1' to all other nodes in the graph.          # 
@@ -2234,6 +2246,7 @@ class MapFrame(wx.Frame):
 #                 self.RefreshNodes('normal')
             self.mp.ep.btn_rte.SetLabel('Show Route')
             self.mp.ep.btn_rte.Enable(False)
+#             self.mp.ep.btn_stop.Enable(False)
         else:
             self.ClearGraph()
                    
@@ -2280,24 +2293,23 @@ class MapFrame(wx.Frame):
         print "Saved canvas image. Time taken: %s" % (et-st)
             
     def Test(self):  
-        item = self.ros.q.get()
-        print item   
 #         self.DrawObstacles(self.ros.obstacles)
-#         route = [9,2,14,13,5,12,10,16,6,15,17,0,3,11,3,0,1,18,4,7,8,10,12,5]
+        route = [9,2,14,13,5,12,10,16,6,15,17,0,3,11,3,0,1,18,4,7,8,10,12,5]
 #         tt = TimerThread(self, 0.5)
 #         tt.start()
-#    
-#         self.DrawRoute(route, True)
-#         self.GetParent().ep.btn_rte.Enable(True)
-#                   
-#         for n in route:
-#             self.HighlightDestination(n)
-#             time.sleep(1)
-#             self.OnReachDestination()
-#             self.OnReachDestination()
-#             time.sleep(1)
-#             wx.Yield()
-#         
+    
+        self.DrawRoute(route, True)
+        self.GetParent().ep.btn_rte.Enable(True)
+#         self.GetParent().ep.btn_stop.Enable(True)
+                   
+        for n in route:
+            self.q.put( (self.HighlightDestination,n) )
+            time.sleep(1)
+            self.q.put( (self.OnReachDestination) )
+            self.q.put( (self.OnReachDestination) )
+            time.sleep(1)
+            wx.Yield()
+         
 #         tt.stopped = True
 #         tt.join()
 
@@ -2338,6 +2350,7 @@ class MapFrame(wx.Frame):
             self.image_data_format = "int"    
         
         self.image_width = image.GetHeight() # Case where metadata was not set
+        print self.image_width
         self.update_imglimits = True
         
         with self.canvas_lock:

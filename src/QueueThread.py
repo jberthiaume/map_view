@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import time
+import threading
 from threading import Thread
 
 class QueueThread(Thread):
@@ -11,9 +12,7 @@ class QueueThread(Thread):
 
     def run(self):
         while not self.stopped:
-            item = self.parent.q.get()
-            print item
-            
+            item = self.parent.q.get()            
             try:
                 fn = item[0]
                 args = item[1:]
