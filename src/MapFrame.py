@@ -657,7 +657,7 @@ class MapFrame(wx.Frame):
             self.Canvas.Draw(True)
         
     def DrawRoute(self, route, show):
-        if route == []:
+        if route[0] == -1:
             print "End of tour."
             try:
                 with self.canvas_lock:
@@ -670,12 +670,16 @@ class MapFrame(wx.Frame):
             return
                 
         self.route = route
-        tmp_edges = []        
-        color = (0,0,255)
-        steps = len(route)
-        incr = min(480.0/steps, 30)
-        phase = 0
+        tmp_edges = []   
         
+        sat = 255
+        desat = 0     
+        color = (desat, sat/2, sat)
+        color_flt = (desat, sat/2, sat)
+        
+        steps = len(route)-2
+        incr = min((2.25*sat)/steps, 30)
+        phase = 0        
         self.Enable(False)
         
         for idx,node in reversed(list(enumerate(route))):            
@@ -715,23 +719,35 @@ class MapFrame(wx.Frame):
                                          ArrowHeadSize=10, InForeground=True)
             self.graphics_route.insert(0,l)  
             tmp_edges.append(edge_id)
+                        
+            if phase == 0:
+                color_flt =  ( color_flt[0], color_flt[1]-(2*incr), color_flt[2] )
+                color =  ( color_flt[0], self.Round(color_flt[1]), color_flt[2] )
+                
+                if color[1] <= desat:
+                    color_flt = (color_flt[0], desat, color_flt[2])
+                    color = (color[0], desat, color[2])
+                    phase = phase+1
+                      
+            if phase == 1:
+                color_flt =  ( (color_flt[0]+incr), color_flt[1], color_flt[2] )
+                color = ( self.Round(color_flt[0]), color_flt[1], color_flt[2] )
+                
+                if color[0] >= sat:
+                    color_flt = (sat, color_flt[1], color_flt[2])
+                    color = (sat, color[1], color[2])
+                    phase = phase+1
             
-#             print color    
-            if color[0]+incr < 255 and phase == 0:
-                #TODO: flt
-                color =  ( self.Round(color[0]+incr), color[1], color[2] )
-                continue
-            elif color[2]-incr > 0 and phase == 1:
-                color =  ( color[0], color[1], self.Round(color[2]-incr) )
-                continue
-#                 elif color[2]+(2*incr) < 240 and phase == 2:
-#                     color =  ( color[0], color[1], int(color[2]+(2*incr)) )
-#                     continue
-#                 elif color[1]-(2*incr) > 0 and phase == 3:
-#                     color =  ( color[0], int(color[1]-(2*incr)), color[2] )
-#                     continue
-            else:
-                phase = phase+1 
+            if phase == 2:        
+                color_flt =  ( color_flt[0], color_flt[1], (color_flt[2]-incr) )
+                color =  ( color_flt[0], color_flt[1], self.Round(color_flt[2]) )
+                
+                if color[2] <= desat:
+                    color_flt = (color_flt[0], color_flt[1], desat)
+                    color = (color[0], color[1], desat)
+                    phase = phase+1
+                    
+
         with self.canvas_lock:
             if not show:
                 for gr in self.graphics_route:
@@ -2294,7 +2310,8 @@ class MapFrame(wx.Frame):
             
     def Test(self):  
 #         self.DrawObstacles(self.ros.obstacles)
-        route = [9,2,14,13,5,12,10,16,6,15,17,0,3,11,3,0,1,18,4,7,8,10,12,5]
+        route = [29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,
+                 62,56,1,55,56,62,30,3,48,50,25,35,11,27,59,2,47,37,28,57,5,40,24]
 #         tt = TimerThread(self, 0.5)
 #         tt.start()
     
@@ -2304,11 +2321,13 @@ class MapFrame(wx.Frame):
                    
         for n in route:
             self.q.put( (self.HighlightDestination,n) )
-            time.sleep(1)
+            time.sleep(0.1)
             self.q.put( (self.OnReachDestination) )
             self.q.put( (self.OnReachDestination) )
-            time.sleep(1)
+            time.sleep(0.1)
             wx.Yield()
+        
+        self.DrawRoute([-1], True)
          
 #         tt.stopped = True
 #         tt.join()
@@ -2350,7 +2369,6 @@ class MapFrame(wx.Frame):
             self.image_data_format = "int"    
         
         self.image_width = image.GetHeight() # Case where metadata was not set
-        print self.image_width
         self.update_imglimits = True
         
         with self.canvas_lock:

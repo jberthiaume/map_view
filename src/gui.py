@@ -28,9 +28,7 @@ SIZER_BORDER    = 10
 
 #TODO: stop travel button?
 
-#TODO: streamline canvas_lock and canvas events
-
-#TODO: showframe breaks everything WTF
+#TODO: Find a way to re-integrate ShowFrame() while tour is running (hard)
 
 #TODO: integrate 'tour end' signal (empty route)
 

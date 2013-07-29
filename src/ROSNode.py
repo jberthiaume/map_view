@@ -136,7 +136,6 @@ class ROSNode():
 
     def RouteCB(self, data):
         route = data.data
-        print "Route CB"
         self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
 #         self.mframe.DrawRoute(route, False)
         if route != []:

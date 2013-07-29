@@ -16,10 +16,12 @@ class QueueThread(Thread):
             try:
                 fn = item[0]
                 args = item[1:]
-                print str(fn)[13:].split()[0]
+                if self.parent.modes['verbose']:
+                    print str(fn)[23:].split()[0] + "()"
                 fn(*args)
                 
             except TypeError:
                 fn = item
-                print str(fn)[13:].split()[0]
+                if self.parent.modes['verbose']:
+                    print str(fn)[23:].split()[0] + "()"
                 fn()
