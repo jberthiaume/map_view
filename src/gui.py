@@ -30,7 +30,11 @@ SIZER_BORDER    = 10
 
 #TODO: Find a way to re-integrate ShowFrame() while tour is running (hard)
 
-#TODO: integrate 'tour end' signal (empty route)
+#TODO: Generate graph without GUI
+
+#TODO: switch cursor causes sync errors?
+
+#TODO: graphical cues when obj creation fails
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -139,8 +143,8 @@ class MainPanel(wx.Panel):
         
         # Set parent frame value
         self.pf = parent 
-        while self.pf.GetParent() is not None: 
-            self.pf = self.pf.GetParent()
+        while self.pf.Parent is not None: 
+            self.pf = self.pf.Parent
         
         self.ros = self.pf.ros
         self.verbose = self.pf.verbose
@@ -573,8 +577,8 @@ class SettingsPanel(wx.Panel):
         
         self.leftDown = False     
         self.pf = parent 
-        while self.pf.GetParent() is not None: 
-            self.pf = self.pf.GetParent()
+        while self.pf.Parent is not None: 
+            self.pf = self.pf.Parent
         
         self.lbl_titles = []
         self.lbl_text = []
@@ -602,7 +606,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_n.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_n.SetFont(self.pf.font)  
-        self.txt_n.SetValue( str(self.GetParent().mp.gg_const['n']) )
+        self.txt_n.SetValue( str(self.Parent.mp.gg_const['n']) )
         self.txt_n.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
         
 
@@ -620,7 +624,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_d.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_d.SetFont(self.pf.font)  
-        self.txt_d.SetValue( str(self.GetParent().mp.gg_const['d']) )
+        self.txt_d.SetValue( str(self.Parent.mp.gg_const['d']) )
         self.txt_d.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_d2 = wx.StaticText(self, label="px",
@@ -641,7 +645,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_w.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_w.SetFont(self.pf.font)  
-        self.txt_w.SetValue( str(self.GetParent().mp.gg_const['w']) )   
+        self.txt_w.SetValue( str(self.Parent.mp.gg_const['w']) )   
         self.txt_w.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_w2 = wx.StaticText(self, label="px",
@@ -662,7 +666,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_k.SetMaxLength(2)    #Maximum of 2 characters
         self.txt_k.SetFont(self.pf.font)  
-        self.txt_k.SetValue( str(self.GetParent().mp.gg_const['k']) )
+        self.txt_k.SetValue( str(self.Parent.mp.gg_const['k']) )
         self.txt_k.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_k2 = wx.StaticText(self, label="neighbors per node",
@@ -679,7 +683,7 @@ class SettingsPanel(wx.Panel):
                                  style=wx.NO_BORDER|wx.TE_CENTER)
         self.txt_e.SetMaxLength(3)    #Maximum of 3 characters
         self.txt_e.SetFont(self.pf.font)  
-        self.txt_e.SetValue( str(self.GetParent().mp.gg_const['e']) )
+        self.txt_e.SetValue( str(self.Parent.mp.gg_const['e']) )
         self.txt_e.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
 
         self.lbl_e2 = wx.StaticText(self, label="px",
@@ -819,10 +823,10 @@ class SettingsPanel(wx.Panel):
     def GetDefaultValue(self, txt):
         for key,item in self.txtbxs.iteritems():
             if item == txt:
-                return str(self.GetParent().mp.gg_const[key])
+                return str(self.Parent.mp.gg_const[key])
                 
 #         for i in [i for i,x in enumerate(self.txtbxs) if x == txt]:  
-#             return str(self.GetParent().mp.gg_const[i])   
+#             return str(self.Parent.mp.gg_const[i])   
 
 #---------------------------------------------------------------------------------------------#    
 #    Saves the settings                                                                       #
@@ -908,7 +912,7 @@ class SettingsPanel(wx.Panel):
 class ExplorePanel(wx.Panel):
     def __init__(self, parent):        
         wx.Panel.__init__(self, parent=parent)
-        self.mframe = self.GetParent().mframe     
+        self.mframe = self.Parent.mframe     
         
         # Set the background colour
         bmp = wx.EmptyBitmap(500, 500)
@@ -921,8 +925,8 @@ class ExplorePanel(wx.Panel):
         
         # Set parent frame value
         self.pf = parent 
-        while self.pf.GetParent() is not None: 
-            self.pf = self.pf.GetParent()
+        while self.pf.Parent is not None: 
+            self.pf = self.pf.Parent
         
         self.sizer = wx.BoxSizer(wx.VERTICAL)
         self.hbox00 = wx.BoxSizer(wx.HORIZONTAL)
@@ -932,8 +936,8 @@ class ExplorePanel(wx.Panel):
         vbox00 = wx.BoxSizer(wx.VERTICAL)   
         self.btn_gg = wx.Button(self, label="Generate Graph", size=BUTTON_SIZE)        
         self.btn_gg.Bind(wx.EVT_BUTTON, self.OnGenerateGraph)
-        self.GetParent().btn_disabled.append(self.btn_gg)
-        self.GetParent().buttons.append(self.btn_gg) 
+        self.Parent.btn_disabled.append(self.btn_gg)
+        self.Parent.buttons.append(self.btn_gg) 
         vbox00.Add(self.btn_gg)        
         self.sizer.Add(vbox00,1,wx.TOP,10)
         
@@ -941,8 +945,8 @@ class ExplorePanel(wx.Panel):
         vbox10 = wx.BoxSizer(wx.VERTICAL)   
         self.btn_tour = wx.Button(self, label="Tour All Edges", size=BUTTON_SIZE)        
         self.btn_tour.Bind(wx.EVT_BUTTON, self.OnTour)
-        self.GetParent().btn_disabled.append(self.btn_tour)
-        self.GetParent().buttons.append(self.btn_tour) 
+        self.Parent.btn_disabled.append(self.btn_tour)
+        self.Parent.buttons.append(self.btn_tour) 
         vbox10.Add(self.btn_tour)        
         self.sizer.Add(vbox10,1,wx.TOP,10) 
         
@@ -951,7 +955,7 @@ class ExplorePanel(wx.Panel):
         self.btn_rte = wx.Button(self, label="Hide Route", size=BUTTON_SIZE)        
         self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
         self.btn_rte.Enable(False)
-        self.GetParent().buttons.append(self.btn_rte)   
+        self.Parent.buttons.append(self.btn_rte)   
         vbox13.Add(self.btn_rte)        
         self.sizer.Add(vbox13,1, wx.TOP,10)  
         
@@ -959,7 +963,7 @@ class ExplorePanel(wx.Panel):
 #         self.btn_stop = wx.Button(self, label="Abort Travel", size=BUTTON_SIZE)        
 #         self.btn_stop.Bind(wx.EVT_BUTTON, self.OnAbort) 
 #         self.btn_stop.Enable(False)
-#         self.GetParent().buttons.append(self.btn_stop)   
+#         self.Parent.buttons.append(self.btn_stop)   
 #         vbox13.Add(self.btn_stop)        
 #         self.sizer.Add(vbox13,1, wx.TOP,10) 
 
@@ -995,8 +999,8 @@ class ExplorePanel(wx.Panel):
         self.btn_go.SetToolTip( wx.ToolTip("Find a node or edge") )
 #         self.btn_go = wx.Button(self, label="Find", size=(53,32))        
         self.btn_go.Bind(wx.EVT_BUTTON, self.OnFind)
-        self.GetParent().btn_disabled.append(self.btn_go)
-#         self.GetParent().buttons.append(self.btn_go) 
+        self.Parent.btn_disabled.append(self.btn_go)
+#         self.Parent.buttons.append(self.btn_go) 
         vbox09.Add(self.btn_go)        
         self.hbox01.Add(vbox09,1,wx.TOP|wx.BOTTOM,2)        
         
@@ -1117,11 +1121,11 @@ class ExplorePanel(wx.Panel):
 #                                                                                             #
 #---------------------------------------------------------------------------------------------#             
     def OnGenerateGraph(self, event): 
-        n=self.GetParent().gg_const['n']
-        k=self.GetParent().gg_const['k']
-        d=self.GetParent().gg_const['d']
-        w=self.GetParent().gg_const['w']
-        e=self.GetParent().gg_const['e']
+        n=self.Parent.gg_const['n']
+        k=self.Parent.gg_const['k']
+        d=self.Parent.gg_const['d']
+        w=self.Parent.gg_const['w']
+        e=self.Parent.gg_const['e']
         
         self.mframe.GenerateGraph(n,k,d,w,e)        
                    
@@ -1132,21 +1136,32 @@ class ExplorePanel(wx.Panel):
 #         self.pf.ros.PublishTour()
 #         self.pf.mp.mframe.SaveCanvasImage("canvas.png")
 
-    def OnTour(self, event):
+    def OnTour(self, event):       
         if not self.mframe.modes['pose_est']:
             dlg = wx.MessageDialog(self,
                 "Create a 2D pose estimate before\n launching node traveller.",
                 "Error", wx.ICON_ERROR)
             dlg.ShowModal() 
             dlg.Destroy()
-            return
+            return    
         
-        term = "gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'"
-        proc = subprocess.Popen(term, shell=True)
-        self.travel_pid = proc.pid
+        if not self.Parent.saved:
+            dlg = wx.MessageDialog(self,
+                "Map must be saved to proceed.\n Would you like to save now?",
+                "Warning", wx.ICON_EXCLAMATION|wx.YES_NO)
+            if dlg.ShowModal() == wx.ID_YES:
+                self.Parent.OnSave(None)
+            else:
+                dlg.Destroy()
+                return                
+            dlg.Destroy()   
         
-#         os.system("gnome-terminal -e 'bash -c \"rosrun node_traveller travel.py; exec bash\"'")
-        
+        map_file = self.mframe.current_map 
+        graph_file = "%sgraph" % map_file.rstrip("png")        
+        term = """gnome-terminal -e 'bash -c \
+        "rosrun node_traveller travel.py _graph:=%s; exec bash\"'"""
+        proc = subprocess.Popen(term % graph_file, shell=True)
+        self.travel_pid = proc.pid        
     
 if __name__ == '__main__':
     app = wx.App(False)

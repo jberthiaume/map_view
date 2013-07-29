@@ -326,8 +326,8 @@ class MapFrame(wx.Frame):
                 self.Canvas.RemoveObject(self.graphics_edges[edge_id])            
                 e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
                 e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-                e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
-                e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
+#                 e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
+#                 e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
                 e.Name = str(edge_id)
                 self.graphics_edges[edge_id] = e 
         
@@ -663,8 +663,13 @@ class MapFrame(wx.Frame):
                 with self.canvas_lock:
                     self.robot.Visible = True
                     self.arrow.Visible = True
-                self.RestoreModes('Route')                
+                   
                 self.Enable(True)
+                try:
+                    self.RestoreModes('Route') 
+                except KeyError:
+                    pass      
+                      
             except IndexError:
                 pass
             return
@@ -811,8 +816,8 @@ class MapFrame(wx.Frame):
                 c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
                                           InForeground = True)
                 c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'
-                c.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
-                c.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
+#                 c.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
+#                 c.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
                 self.graphics_nodes.append(c)
                 c.Name = ID
                 c.Coords = node_coords    
@@ -910,8 +915,8 @@ class MapFrame(wx.Frame):
                             e = self.Canvas.AddLine([points[j], points[j+1]], 
                                                     LineWidth = lw, LineColor = cl)
                             e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-                            e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
-                            e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
+#                             e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
+#                             e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
                             self.graphics_edges.append(e)                        
                             e.Name = str(edge.id)
                         
@@ -1929,13 +1934,12 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode()  
         if current_mode == 'GUIEdges':
-            with self.canvas_lock:
-                if not self.started_edge:
-                    self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
-                    self.started_edge = True
-                else:
-                    self.Canvas.GUIMode.SetEndNode(obj.Name)
-                    self.started_edge = False
+            if not self.started_edge:
+                self.Canvas.GUIMode.SetStartNode(obj.Name, self.nodelist[int(obj.Name)].coords)
+                self.started_edge = True
+            else:
+                self.Canvas.GUIMode.SetEndNode(obj.Name)
+                self.started_edge = False
 
 #--------------------------------------------------------------------------------------------#    
 #     Event handlers to change the mouse cursor when hovering over objects                   #
@@ -1946,11 +1950,11 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.q.put( (self.Canvas.GUIMode.LockEdge,
-                         'e_node', obj.Name, self.nodelist[int(obj.Name)].coords) )
-#             self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
-#         self.Canvas.GUIMode.SwitchCursor('enter')  
-        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'enter') )
+#             self.q.put( (self.Canvas.GUIMode.LockEdge,
+#                          'e_node', obj.Name, self.nodelist[int(obj.Name)].coords) )
+            self.Canvas.GUIMode.LockEdge('e_node', obj.Name, self.nodelist[int(obj.Name)].coords)  
+        self.Canvas.GUIMode.SwitchCursor('enter')  
+#         self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'enter') )
             
     def OnMouseLeaveNode(self, obj):  
         if self.modes['running']:
@@ -1958,11 +1962,11 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.q.put( (self.Canvas.GUIMode.LockEdge,
-                         'l_node', obj.Name, self.nodelist[int(obj.Name)].coords) )
-#             self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
-#         self.Canvas.GUIMode.SwitchCursor('leave')  
-        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'leave') )
+#             self.q.put( (self.Canvas.GUIMode.LockEdge,
+#                          'l_node', obj.Name, self.nodelist[int(obj.Name)].coords) )
+            self.Canvas.GUIMode.LockEdge('l_node', obj.Name, self.nodelist[int(obj.Name)].coords) 
+        self.Canvas.GUIMode.SwitchCursor('leave')  
+#         self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'leave') )
                
     def OnMouseEnterEdge(self, obj):
         if self.modes['running']:
@@ -1970,11 +1974,11 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.q.put( (self.Canvas.GUIMode.LockEdge,
-                         'e_edge', obj.Name, self.nodelist[int(obj.Name)].coords) )
-#             self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
-#         self.Canvas.GUIMode.SwitchCursor('enter')  
-        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'enter') )
+#             self.q.put( (self.Canvas.GUIMode.LockEdge,
+#                          'e_edge', obj.Name, self.nodelist[int(obj.Name)].coords) )
+            self.Canvas.GUIMode.LockEdge('e_edge', -1, -1)
+        self.Canvas.GUIMode.SwitchCursor('enter')  
+#         self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'enter') )
                   
     def OnMouseLeaveEdge(self, obj):
         if self.modes['running']:
@@ -1982,11 +1986,11 @@ class MapFrame(wx.Frame):
         
         current_mode = self.Canvas.GetMode() 
         if current_mode == 'GUIEdges':
-            self.q.put( (self.Canvas.GUIMode.LockEdge,
-                         'l_edge', obj.Name, self.nodelist[int(obj.Name)].coords) )
-#             self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
-#         self.Canvas.GUIMode.SwitchCursor('leave') 
-        self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'leave') )
+#             self.q.put( (self.Canvas.GUIMode.LockEdge,
+#                          'l_edge', obj.Name, self.nodelist[int(obj.Name)].coords) )
+            self.Canvas.GUIMode.LockEdge('l_edge', -1, -1) 
+        self.Canvas.GUIMode.SwitchCursor('leave') 
+#         self.q.put( (self.Canvas.GUIMode.SwitchCursor, 'leave') )
         
 #--------------------------------------------------------------------------------------------#    
 #     Event when an edge is left-clicked.                                                    #
