@@ -29,6 +29,7 @@ EDGE_COLOR          = (119,41,83)
 ROBOT_FILL_1        = (100,100,100)
 ROBOT_FILL_2        = (180,0,0)
 ROBOT_BORDER        = (50,0,0)
+ERROR_COLOR         = (255,45,45)
 SELECT_COLOR        = (255,106,54)
 HIGHLIGHT_COLOR     = (255,106,54)
 DESTINATION_COLOR   = (30,230,40)
@@ -877,6 +878,21 @@ class MapFrame(wx.Frame):
             if self.modes['verbose']:
                 print "Could not create node at (%s, %s). (Too close to node %s)" \
                         % (node_coords[0], node_coords[1], str(collision))
+                      
+            with self.canvas_lock:
+                a = self.Canvas.AddArc((node_coords[0]+(NODE_DIAM/2), node_coords[1]),
+                    (node_coords[0]+(NODE_DIAM/2), node_coords[1]), node_coords,                                   
+                    LineColor=ERROR_COLOR, LineWidth=NODE_BORDER_WIDTH+1, InForeground=True)
+                self.Canvas.Draw(True)
+                wx.Yield()
+                
+                if self.modes['redraw']:  
+                    time.sleep(0.5)
+                else:
+                    time.sleep(0.1)
+                
+                self.Canvas.RemoveObject(a)
+                self.Canvas.Draw(True)
             return -collision
         
 
@@ -930,6 +946,20 @@ class MapFrame(wx.Frame):
                                 st = ("Did not create edge between nodes "
                                       "%s and %s (too close to node %s)")
                                 print st % (node1.Name, node2.Name, md[0])
+                            with self.canvas_lock:
+                                l = self.Canvas.AddLine((node1.Coords, node2.Coords),
+                                    LineWidth=lw, LineColor=ERROR_COLOR, InForeground=True)
+                                self.Canvas.Draw(True)
+                                wx.Yield()
+                                
+                                if self.modes['redraw']:  
+                                    time.sleep(0.5)
+                                else:
+                                    time.sleep(0.1)
+
+                                self.Canvas.RemoveObject(l)
+                                self.Canvas.Draw(True)    
+                                
                             self.SelectOneEdge(self.graphics_edges[edge.id], True)
                             self.DeleteSelection(None)
                         else:
@@ -1218,6 +1248,23 @@ class MapFrame(wx.Frame):
                                 st = ("Auto-deleted edge %s between nodes %s and %s "
                                       "(too close to node %s)")
                                 print  st % (e2.id, e2.node1, e2.node2, -result)
+                                
+#                             if self.modes['redraw']:
+                            with self.canvas_lock:
+                                l = self.Canvas.AddLine(
+                                    (self.nodelist[int(e2.node1)].coords, 
+                                     self.nodelist[int(e2.node2)].coords),
+                                     LineWidth=EDGE_WIDTH, LineColor=ERROR_COLOR, 
+                                     InForeground=True)
+                                self.Canvas.Draw(True)
+                                wx.Yield()
+                                if self.modes['redraw']:  
+                                    time.sleep(0.5)
+                                else:
+                                    time.sleep(0.1)
+                                self.Canvas.RemoveObject(l)
+                                self.Canvas.Draw(True) 
+                                    
                             intersections = self.FindIntersections(e1)
                         else:
                             self.SelectOneEdge(self.graphics_edges[e1.id], True)
