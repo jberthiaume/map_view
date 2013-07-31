@@ -1,7 +1,7 @@
 map_view
 ========
 
-### Features:
+###Features:
 
 - View, open, and save ROS maps (OccupancyGrid)
 
@@ -13,7 +13,12 @@ map_view
 
 - Display robot pose and orientation in real-time (amcl_pose)
 
-### Notes:
+###Usage:
 
-For ROS Groovy, you need to replace your Navigation stack with the one located at http://github.com/jonbinney/navigation/tree/catkinized-groovy-devel. Otherwise map_view will not be able to access move_base.
+Use the following command to run the program:
+>rosrun map_view gui.py
+
+###Notes:
+
+For ROS Groovy, the default Navigation stack should be replaced by the one located at http://github.com/jonbinney/navigation/tree/catkinized-groovy-devel. Otherwise map_view will not be able to access move_base and the program will not run.
 

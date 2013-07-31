@@ -34,7 +34,6 @@ SIZER_BORDER    = 10
 
 #TODO: switch cursor causes sync errors?
 
-#TODO: graphical cues when obj creation fails
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
