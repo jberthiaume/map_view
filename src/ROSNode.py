@@ -85,27 +85,26 @@ class ROSNode():
         rospy.init_node('map_view', anonymous=False)
         rospy.Subscriber("map", OccupancyGrid, self.MapCB)
         rospy.Subscriber("amcl_pose", PoseWithCovarianceStamped, self.PoseCB)
-        rospy.Subscriber("cmd_vel", Twist, self.VelocityCB)
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
         rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
 #         rospy.Subscriber("move_base_node/local_costmap/obstacles", GridCells, self.ObsCB)
 #         rospy.Subscriber("move_base_node/local_costmap/inflated_obstacles", GridCells, self.ObsCB2)
-#         rospy.Subscriber("move_base/goal", MoveBaseActionGoal, self.GoalCB)
         
         if __name__ == '__main__':
             rospy.spin()       
 
 #---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/node_traveller/dest" topic                                   #
+#    Callback function for the "/node_traveller/dest" topic.                                  #
+#    -> Highlights the robot's current destination.                                           #
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
         dest = int(data.data) 
         self.mframe.q.put( (self.mframe.HighlightDestination, dest) )        
-#         self.mframe.HighlightDestination(dest)             
 
 #---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/amcl_pose" topic                                             #
+#    Callback function for the "/amcl_pose" topic.                                            #
+#    -> Moves the graphical robot representation to a new pose.                               #
 #---------------------------------------------------------------------------------------------#    
     def PoseCB(self, data):
         try:
@@ -117,48 +116,48 @@ class ROSNode():
             if not self.mframe.modes['running']:
                 self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
         except wx.PyDeadObjectError:
-            print "EXIT"
-               
-#         self.mframe.MoveRobotTo(destination, orient, True)
-        
+            print "EXIT"       
+
 #---------------------------------------------------------------------------------------------#    
-#    Callback function for the "/cmd_vel" topic                                               #
-#---------------------------------------------------------------------------------------------#    
-    def VelocityCB(self, data):
-        self.vel_linear = (data.linear.x, data.linear.y)
-        self.vel_angular = (data.angular.z)
-        
+#    Callback function for the "move_base/result" topic.                                      #
+#    -> Send a signal to the map viewer if the status is 'Destination Reached'                #
+#---------------------------------------------------------------------------------------------#        
     def StatusCB(self, data):
         status = int(data.status.status)
         if status == 3:
             self.mframe.q.put( (self.mframe.OnReachDestination) )
-#             self.mframe.OnReachDestination()
 
+#---------------------------------------------------------------------------------------------#    
+#    Callback function for the "node_traveller/route" topic.                                  #
+#    -> Draws the route in the map viewer.                                                    #
+#---------------------------------------------------------------------------------------------#
     def RouteCB(self, data):
         route = data.data
         self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
-#         self.mframe.DrawRoute(route, False)
         if route != []:
             self.parent.mp.ep.btn_rte.Enable(True)
         else:
             self.parent.mp.ep.btn_rte.Enable(False)
         wx.Yield()
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Callback functions for the "move_base/local_costmap/*obstacles" topics.                  #
+#    -> Draws the obstacles in the map viewer (currently unused)                              #
+#---------------------------------------------------------------------------------------------#        
     def ObsCB(self, data):
         if self.ok:
             self.obstacles_1 = data.cells
             self.mframe.q.put( (self.mframe.DrawObstacles, self.obstacles_1, 'obs') )
-#             self.mframe.DrawObstacles(self.obstacles_1, 'obs')
-            self.ok = False
-            
+            self.ok = False            
     def ObsCB2(self, data):
         if self.ok:
             self.obstacles_2 = data.cells
             self.mframe.DrawObstacles(self.obstacles_2, 'inf')
             self.ok = False
             
-#---------------------------------------------------------------------------------------------#    
-#    Turns the OccupancyGrid data received from "/map" into an image file.                    #
+#---------------------------------------------------------------------------------------------#
+#    Callback function for the "/map" topic.                                                  #
+#    Turns the OccupancyGrid map data into an image.                                          #
 #---------------------------------------------------------------------------------------------#   
     def MapCB(self, data):
         self.parent.mp.btn_rf.Enable(True)
@@ -226,8 +225,7 @@ class ROSNode():
 #    Returns the filename used by this listener when exporting map files.                     #
 #---------------------------------------------------------------------------------------------#    
     def GetDefaultFilename(self):
-        return self.filename     
-    
+        return self.filename    
     def SetAttributes(self):        
         self.mframe = self.parent.mp.mframe 
     

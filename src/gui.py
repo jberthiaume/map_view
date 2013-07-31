@@ -1127,14 +1127,13 @@ class ExplorePanel(wx.Panel):
         e=self.Parent.gg_const['e']
         
         self.mframe.GenerateGraph(n,k,d,w,e)        
+            
+#     def OnTour(self, event):       
+#         self.pf.mp.mframe.SaveCanvasImage("canvas.png")
                    
 #---------------------------------------------------------------------------------------------#    
-#    Publish some stuff                                                                       #
-#---------------------------------------------------------------------------------------------#             
-#     def OnTour(self, event):       
-#         self.pf.ros.PublishTour()
-#         self.pf.mp.mframe.SaveCanvasImage("canvas.png")
-
+#    Start node_traveller.                                                                    #
+#---------------------------------------------------------------------------------------------# 
     def OnTour(self, event):       
         if not self.mframe.modes['pose_est']:
             dlg = wx.MessageDialog(self,

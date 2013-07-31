@@ -190,7 +190,7 @@ class MapFrame(wx.Frame):
         self.mp.OnExit(event) 
     
 #---------------------------------------------------------------------------------------------#    
-#    Mouse click handler: left button                                                         #
+#    Mouse click handlers: left button                                                        #
 #---------------------------------------------------------------------------------------------# 
     def OnLeftDown(self, event):
         current_mode = self.Canvas.GetMode()        
@@ -218,7 +218,7 @@ class MapFrame(wx.Frame):
             pass   
     
 #---------------------------------------------------------------------------------------------#    
-#    Mouse click handler: right button (opening the menu)                                     #
+#    Mouse click handlers: right button (opening the menu)                                    #
 #---------------------------------------------------------------------------------------------#
     def OnRightDown(self, event):
         rc_menu = wx.Menu()
@@ -408,11 +408,7 @@ class MapFrame(wx.Frame):
         
         self.dx = (dest[0]-r.XY[0]) / self.NumTimeSteps
         self.dy = (dest[1]-r.XY[1]) / self.NumTimeSteps
-        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps  
-        
-#         print "Current t: %s  |  Destination t: %s  |  dt: %s" % (a.Theta, self.dest_theta, self.dt)
-#         print "Total diff t: %s" % (self.dest_theta - a.Theta)
-#         print "dt = %s" % (self.dt)
+        self.dt = (self.dest_theta - a.Theta) / self.NumTimeSteps
         
         self.arrow_drawn = False
         if (self.dest_theta-a.Theta > 180 or self.dest_theta-a.Theta <-180):
@@ -423,9 +419,6 @@ class MapFrame(wx.Frame):
         self.arrow_drawn = False
         self.TimeStep = 1
         self.Timer.Start(self.FrameDelay)
-        
-    def DoFrame(self):
-        self.q.put( (self.ShowFrame) )
              
 #---------------------------------------------------------------------------------------------#    
 #    Moves the animation forward 1 frame until the frame limit (NumTimeSteps) is reached.     #
@@ -451,8 +444,6 @@ class MapFrame(wx.Frame):
                 new_theta_rad = self.ToRadians(new_theta)
                 xy2 = ( x + (ROBOT_DIAM * math.cos(new_theta_rad)), 
                         y + (ROBOT_DIAM * math.sin(new_theta_rad)) )                
-        #                 print "Drew arrow from %s to %s. Angle: %s" % (r.XY, str(xy2), new_theta)
-                
                 
                 with self.canvas_lock:
                     a = self.Canvas.AddArrowLine((r.XY,xy2), LineWidth = ROBOT_BORDER_WIDTH,
@@ -499,13 +490,7 @@ class MapFrame(wx.Frame):
             a.Coords = r.XY
             a.Theta  = new_theta
             self.arrow = a            
-                   
-#             try:
-#                 with self.canvas_lock:
-#                     self.Canvas.RemoveObject(self.pe_graphic)
-#                 self.pe_graphic = None
-#             except (ValueError, AttributeError):
-#                 pass        
+                     
             self.robot.SetFillColor(ROBOT_FILL_2)
         
             self.Timer.Stop()
@@ -558,7 +543,9 @@ class MapFrame(wx.Frame):
             print "Created 2D nav goal at point (%s, %s)" % (x, y)
         self.ros.Publish2DNavGoal(pose, orient)
         
-        
+#---------------------------------------------------------------------------------------------#    
+#    Draws obstacles received from the robot's sensors. Unstable, currently unused.           #
+#---------------------------------------------------------------------------------------------#        
     def DrawObstacles(self, points, mode):
             if mode == 'inf': 
                 fc = OBSTACLE_COLOR_2
@@ -577,8 +564,6 @@ class MapFrame(wx.Frame):
                         x = int( self.MetersToPixels((point.x,0))[0] )
                         y = int( self.MetersToPixels((point.y,0))[0] )                   
                         d = 4
-        #                 p = self.Canvas.AddRectangle((x-(d/2), y-(d/2)), (d,d), LineWidth = lw, 
-        #                                           LineColor = lc, FillColor = fc)
                         p = FloatCanvas.Circle((x,y), d, FillColor=fc, LineColor=fc)
                         p.Coords = (x,y)
                         obs.AddObject(p)
@@ -634,7 +619,9 @@ class MapFrame(wx.Frame):
                 pass   
         self.curr_dest = dest     
             
-
+#---------------------------------------------------------------------------------------------#    
+#    Change the color of the last edge traveled to show that it has been visited.             #
+#---------------------------------------------------------------------------------------------#
     def OnReachDestination(self): 
         try:                  
             with self.canvas_lock:
@@ -656,7 +643,11 @@ class MapFrame(wx.Frame):
           
         with self.canvas_lock:   
             self.Canvas.Draw(True)
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Displays the route created by node_traveller as a set of arrows. The color of each arrow #
+#    depends on how close it is to the start or the end of the route. Red = Start, Blue = End #
+#---------------------------------------------------------------------------------------------#        
     def DrawRoute(self, route, show):
         if route[0] == -1:
             print "End of tour."
@@ -764,14 +755,16 @@ class MapFrame(wx.Frame):
             self.Canvas.Draw(True)
 #         self.RefreshNodes('normal')
         self.SetModes('Route', {'running':True})
-            
+
+#---------------------------------------------------------------------------------------------#    
+#    Functions to display or hide the route created in DrawRoute()                            #
+#---------------------------------------------------------------------------------------------#            
     def ShowRoute(self):
         with self.canvas_lock:            
             for edge in self.graphics_edges:
                 edge.Visible = False  
 
-        time.sleep(0.5)
-        
+        time.sleep(0.5)        
         with self.canvas_lock:
             for gr in self.graphics_route:
                 gr.Visible = True
@@ -782,8 +775,7 @@ class MapFrame(wx.Frame):
             for edge in self.graphics_edges:
                 edge.Visible = True  
 
-        time.sleep(0.5)
-        
+        time.sleep(0.5)        
         with self.canvas_lock:
             for gr in self.graphics_route:
                 gr.Visible = False
@@ -1312,23 +1304,19 @@ class MapFrame(wx.Frame):
             t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
             if t<0:
                 dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
-#                 print "edge %s distance to node %s: %s (t0 = %s)" % (edge.id, node.id, dist, t)
                 if dist < min_distance[1]:
                     min_distance = node.id, dist
                     break
             elif t>1:
                 dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
-#                 print "edge %s distance to node %s: %s (t1 = %s)" % (edge.id, node.id, dist, t)
                 if dist < min_distance[1]:
                     min_distance = node.id, dist
                     break
             else:
                 dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
-#                 print "edge %s distance to node %s: %s (t2 = %s)" % (edge.id, node.id, dist, t)
                 if dist < min_distance[1]:
                     min_distance = node.id, dist
                     break
-#         print "edge %s min distance is %s to node %s" % (edge.id, min_distance[1], min_distance[0])
         if min_distance[0] != -1:
             return min_distance
         else:
@@ -1356,23 +1344,19 @@ class MapFrame(wx.Frame):
             t = ( (nx-ex1)*(ex2-ex1) + (ny-ey1)*(ey2-ey1) ) / ln
             if t<0:
                 dist = math.sqrt( self.Distance2(node.coords, (ex1, ey1)) )
-#                 print "node %s distance to edge %s: %s (t0 = %s)" % (node.id, edge.id, dist, t)
                 if dist < thresh:
                     min_distance.append( (edge.id, dist) )
                 continue
             elif t>1:
                 dist = math.sqrt( self.Distance2(node.coords, (ex2, ey2)) )
-#                 print "node %s distance to edge %s: %s (t1 = %s)" % (node.id, edge.id, dist, t)
                 if dist < thresh:
                     min_distance.append( (edge.id, dist) )
                 continue
             else:
                 dist = math.sqrt( self.Distance2(node.coords, ( ex1+t*(ex2-ex1), ey1+t*(ey2-ey1) )) )
-#                 print "node %s distance to edge %s: %s (t2 = %s)" % (node.id, edge.id, dist, t)
                 if dist < thresh:
                     min_distance.append( (edge.id, dist) )
                 continue
-#         print "node %s min distance is %s to edge %s" % (node.id, min_distance[1], min_distance[0])
         return min_distance
             
 
@@ -1652,7 +1636,6 @@ class MapFrame(wx.Frame):
 #                                                                                            #
 #--------------------------------------------------------------------------------------------#       
     def GenerateConnectionMatrix(self): 
-        st = datetime.now()
         Shape = self.conn_matrix.shape
         conn_mtx = np.empty(shape=Shape)        
         conn_mtx[:] = -1 
@@ -1667,17 +1650,14 @@ class MapFrame(wx.Frame):
             conn_mtx[i][i] = 0
             
         self.conn_matrix = conn_mtx
-        et = datetime.now()
-        self.ttime = self.ttime + (et-st)
-#         print "Generated connection matrix. Time taken: %s" % (et-st)
 #         return conn_mtx     
 
+#---------------------------------------------------------------------------------------------#    
+#    Adds a single edge into the connection matrix.                                           #
+#---------------------------------------------------------------------------------------------#
     def AddConnectionEntry(self, edge):
-        st = datetime.now()
         self.conn_matrix[ int(edge.node1) ][ int(edge.node2) ] = edge.id
         self.conn_matrix[ int(edge.node2) ][ int(edge.node1) ] = edge.id
-        et = datetime.now()
-        self.ttime = self.ttime + (et-st)
         
 #--------------------------------------------------------------------------------------------#    
 #     For debugging purposes. Writes the connection matrix to a text file.                   #
@@ -1825,6 +1805,9 @@ class MapFrame(wx.Frame):
     def Truncate(self, f, n):
         return ('%.*f' % (n + 1, f))[:-1]     
 
+#---------------------------------------------------------------------------------------------#    
+#     Rounds a floating point number to the nearest integer                                   #
+#---------------------------------------------------------------------------------------------#
     def Round(self, flt):
         if flt % 1 >= 0.5:
             return int(flt)+1
@@ -1921,7 +1904,7 @@ class MapFrame(wx.Frame):
             self.Canvas.Draw(True)
         
 #--------------------------------------------------------------------------------------------#    
-#     Select/deselect everything                                                             #
+#     Select/deselect all nodes and edges                                                    #
 #--------------------------------------------------------------------------------------------#             
     def SelectAll(self, event):                    
         self.DeselectAll(event)   
@@ -2187,8 +2170,7 @@ class MapFrame(wx.Frame):
                 if (foundB and foundT and
                     foundL and foundR):
                     break     
-                
-        #badcodingpraticelol        
+                      
         elif self.image_data_format is 'byte':
             for i in range(w/d):
                 for j in range(w/d):
@@ -2278,12 +2260,20 @@ class MapFrame(wx.Frame):
         wx_img.SetData( pil_img.convert( 'RGB' ).tostring() )
         return wx_img   
           
-    
+#---------------------------------------------------------------------------------------------#    
+#    Saves the current modes and changes them.                                                #
+#                                                                                             #
+#    key: The current modes are saved as a dictionary entry. This is the key to that entry.   #
+#    state_dict: Input dictionary containing the modes to be changes and their new values.    #
+#---------------------------------------------------------------------------------------------#    
     def SetModes(self, key, state_dict):
         self.saved_modes[key] = (self.modes.copy())  
         for key,val in state_dict.iteritems():
             self.modes[key] = val
-            
+
+#---------------------------------------------------------------------------------------------#    
+#    Restores the saved modes located at index 'key'                                          #
+#---------------------------------------------------------------------------------------------#            
     def RestoreModes(self, key):
         self.modes = self.saved_modes[key].copy()
     
@@ -2293,7 +2283,10 @@ class MapFrame(wx.Frame):
     def Clear(self):
         with self.canvas_lock:
             self.Canvas.InitAll()  
-        
+
+#---------------------------------------------------------------------------------------------#    
+#    Erases route graphics if they exist. If not, erases all nodes and edges from the map.    #
+#---------------------------------------------------------------------------------------------#        
     def OnClear(self):
         if self.highlights != [] or self.graphics_route != []:
             with self.canvas_lock:
@@ -2316,7 +2309,10 @@ class MapFrame(wx.Frame):
 #             self.mp.ep.btn_stop.Enable(False)
         else:
             self.ClearGraph()
-                   
+
+#---------------------------------------------------------------------------------------------#    
+#    Erases all nodes and edges from the map                                                  #
+#---------------------------------------------------------------------------------------------#                   
     def ClearGraph(self):
         self.SetModes('ClearGraph', {                        
                         'verbose':False, 
@@ -2324,7 +2320,10 @@ class MapFrame(wx.Frame):
         self.SelectAll(None)
         self.DeleteSelection(None)  
         self.RestoreModes('ClearGraph')    
-    
+
+#---------------------------------------------------------------------------------------------#    
+#    Saves the content of the canvas as a .png image                                          #
+#---------------------------------------------------------------------------------------------#    
     def SaveCanvasImage(self, filename):
         # For some reason FloatCanvas doesn't save foreground objects
         # So, we need to draw some temporary nodes on the background
@@ -2358,7 +2357,10 @@ class MapFrame(wx.Frame):
         
         et = datetime.now()
         print "Saved canvas image. Time taken: %s" % (et-st)
-            
+
+#---------------------------------------------------------------------------------------------#    
+#    (-Debug-)                                                                                #
+#---------------------------------------------------------------------------------------------#           
     def Test(self):  
 #         self.DrawObstacles(self.ros.obstacles)
         route = [29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,
