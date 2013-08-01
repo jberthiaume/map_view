@@ -29,11 +29,11 @@ class NavCanvas(wx.Panel):
         self.parent = parent
         self.Canvas = FloatCanvas.FloatCanvas(self, **kwargs)
         
-        self.Utils = [
+        self.FileOps = [
           ("Open",      self.OnOpen,         Resources.getFolderIconBitmap()),
           ("Save",      self.OnSave,         Resources.getSaveIconBitmap()),
                       ]
-
+        
         self.Modes = [
           ("Add Nodes / Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
           ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
@@ -43,6 +43,12 @@ class NavCanvas(wx.Panel):
           ("Zoom In",             GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
           ("Zoom Out",            GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),          
           ("Pan",                 GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
+                      ]   
+             
+        self.Utils = [
+          ("Zoom to Fit",   self.ZoomToFit,     Resources.getZoomToFitIconBitmap()),
+          ("Clear Graph",   self.Clear,         Resources.getXIconBitmap()),
+#           ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
                       ]
         
                                       
@@ -71,17 +77,17 @@ class NavCanvas(wx.Panel):
 #         tb.SetBackgroundColour((155,155,145))
         self.ToolBar = tb
         tb.SetToolBitmapSize((24,24))
-        self.AddToolbarUtilButtons(tb, self.Utils)
+        self.AddToolbarFileButtons(tb, self.FileOps)
         self.AddToolbarModeButtons(tb, self.Modes)
-        self.AddToolbarZoomButton(tb)
+        self.AddToolbarUtilButtons(tb, self.Utils)
         tb.Realize()
     
-    def AddToolbarUtilButtons(self, tb, utils):
-        for util in utils:
-            button = wx.BitmapButton(tb, -1, util[2], size=(45,45), style=wx.NO_BORDER)
-            button.SetToolTip( wx.ToolTip(util[0]) )
+    def AddToolbarFileButtons(self, tb, fileops):
+        for fo in fileops:
+            button = wx.BitmapButton(tb, -1, fo[2], size=(45,45), style=wx.NO_BORDER)
+            button.SetToolTip( wx.ToolTip(fo[0]) )
             tb.AddControl(button)
-            button.Bind(wx.EVT_BUTTON, util[1])
+            button.Bind(wx.EVT_BUTTON, fo[1])
             button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus)       
             self.AddSpacer(tb)
     
@@ -99,35 +105,21 @@ class NavCanvas(wx.Panel):
         #self.ZoomOutTool = tb.AddRadioTool(wx.ID_ANY, bitmap=Resources.getMagMinusBitmap(), shortHelp = "Zoom Out")
         #self.Bind(wx.EVT_TOOL, lambda evt : self.SetMode(Mode=self.GUIZoomOut), self.ZoomOutTool)        
 
-    def AddToolbarZoomButton(self, tb):
+    def AddToolbarUtilButtons(self, tb, utils):
         self.AddSpacer(tb)        
         tb.AddSeparator()
-        self.AddSpacer(tb)    
-
-        self.ZoomButton = wx.BitmapButton(tb, -1, Resources.getZoomToFitIconBitmap(),
-                                         size=(45,45), style=wx.NO_BORDER)                                          
-        self.ZoomButton.SetToolTip( wx.ToolTip("Zoom to Fit") )
-        tb.AddControl(self.ZoomButton)
-        self.ZoomButton.Bind(wx.EVT_BUTTON, self.ZoomToFit)
-                 
-        self.XButton = wx.BitmapButton(tb, -1, Resources.getXIconBitmap(),
-                                         size=(45,45), style=wx.NO_BORDER)
-                                          
-        self.XButton.SetToolTip( wx.ToolTip("Clear Graph") )
-        tb.AddControl(self.XButton)
-        self.XButton.Bind(wx.EVT_BUTTON, self.Clear)
+        self.AddSpacer(tb)
         
-        self.TestButton = wx.Button(tb, label="Run Test", size=(90,30))
-        tb.AddControl(self.TestButton)
-        self.TestButton.Bind(wx.EVT_BUTTON, self.Test)
-        
-        self.Layout()
-        tb.Layout()
-#         try:            
-        self.GetParent().GetParent().buttons.append(self.TestButton)
-#             self.GetParent().GetParent().buttons.append(self.CanvasButton)
-#         except AttributeError:
-#             pass
+        for ut in utils:
+            if ut[2] is None:
+                button = wx.Button(tb, label=ut[0], size=(90,30))
+            else:
+                button = wx.BitmapButton(tb, -1, ut[2], size=(45,45), style=wx.NO_BORDER)  
+                button.SetToolTip( wx.ToolTip(ut[0]) )  
+            
+            tb.AddControl(button)    
+            button.Bind(wx.EVT_BUTTON, ut[1])             
+            button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus) 
 
     def AddSpacer(self, tb):
         spacer = wx.BitmapButton(tb, -1, Resources.getVSpacer10Bitmap(),
@@ -182,6 +174,7 @@ class NavCanvas(wx.Panel):
         self.Canvas.SetFocus()
         
     def Test(self, event):
+        print self.ToolBar.Children
         self.GetParent().Test()
         self.Canvas.SetFocus()
     
