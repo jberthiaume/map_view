@@ -134,10 +134,10 @@ class ROSNode():
     def RouteCB(self, data):
         route = data.data
         self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
-        if route != []:
-            self.parent.mp.ep.btn_rte.Enable(True)
-        else:
-            self.parent.mp.ep.btn_rte.Enable(False)
+#         if route != []:
+#             self.parent.mp.ep.btn_rte.Enable(True)
+#         else:
+#             self.parent.mp.ep.btn_rte.Enable(False)
         wx.Yield()
 
 #---------------------------------------------------------------------------------------------#    

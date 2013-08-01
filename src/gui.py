@@ -13,7 +13,7 @@ import subprocess
 from datetime import datetime
 from MapFrame import MapFrame
 
-APP_SIZE        = (240,425)
+APP_SIZE        = (240,395)
 APP_SIZE_EXP    = (240,620)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
@@ -949,14 +949,14 @@ class ExplorePanel(wx.Panel):
         vbox10.Add(self.btn_tour)        
         self.sizer.Add(vbox10,1,wx.TOP,10) 
         
-        # Show/Hide map viewer button
-        vbox13 = wx.BoxSizer(wx.VERTICAL)  
-        self.btn_rte = wx.Button(self, label="Hide Route", size=BUTTON_SIZE)        
-        self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
-        self.btn_rte.Enable(False)
-        self.Parent.buttons.append(self.btn_rte)   
-        vbox13.Add(self.btn_rte)        
-        self.sizer.Add(vbox13,1, wx.TOP,10)  
+#         # Show/Hide map viewer button
+#         vbox13 = wx.BoxSizer(wx.VERTICAL)  
+#         self.btn_rte = wx.Button(self, label="Hide Route", size=BUTTON_SIZE)        
+#         self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
+#         self.btn_rte.Enable(False)
+#         self.Parent.buttons.append(self.btn_rte)   
+#         vbox13.Add(self.btn_rte)        
+#         self.sizer.Add(vbox13,1, wx.TOP,10)  
         
 #         # Show/Hide map viewer button  
 #         self.btn_stop = wx.Button(self, label="Abort Travel", size=BUTTON_SIZE)        

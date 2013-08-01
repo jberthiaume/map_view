@@ -327,8 +327,8 @@ class MapFrame(wx.Frame):
                 self.Canvas.RemoveObject(self.graphics_edges[edge_id])            
                 e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
                 e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-#                 e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
-#                 e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
+                e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
+                e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
                 e.Name = str(edge_id)
                 self.graphics_edges[edge_id] = e 
         
@@ -655,7 +655,9 @@ class MapFrame(wx.Frame):
                 with self.canvas_lock:
                     self.robot.Visible = True
                     self.arrow.Visible = True
-                   
+                
+                self.route = []  
+                self.curr_dest = None 
                 self.Enable(True)
                 try:
                     self.RestoreModes('Route') 
@@ -665,6 +667,9 @@ class MapFrame(wx.Frame):
             except IndexError:
                 pass
             return
+        
+        if self.graphics_route != []:
+            self.OnClear()
                 
         self.route = route
         tmp_edges = []   
@@ -809,8 +814,8 @@ class MapFrame(wx.Frame):
                 c = self.Canvas.AddCircle(xy, diam, LineWidth=lw, LineColor=lc, FillColor=fc,
                                           InForeground = True)
                 c.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickNode)    # Make the node 'clickable'
-#                 c.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
-#                 c.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
+                c.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterNode)
+                c.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveNode)
                 self.graphics_nodes.append(c)
                 c.Name = ID
                 c.Coords = node_coords    
@@ -923,8 +928,8 @@ class MapFrame(wx.Frame):
                             e = self.Canvas.AddLine([points[j], points[j+1]], 
                                                     LineWidth = lw, LineColor = cl)
                             e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-#                             e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
-#                             e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
+                            e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
+                            e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
                             self.graphics_edges.append(e)                        
                             e.Name = str(edge.id)
                         
@@ -2278,7 +2283,7 @@ class MapFrame(wx.Frame):
         self.modes = self.saved_modes[key].copy()
     
 #--------------------------------------------------------------------------------------------#    
-#     Clears the entire canvas                                                               #
+#     Clears the entire canvas (including the map)                                           #
 #--------------------------------------------------------------------------------------------#   
     def Clear(self):
         with self.canvas_lock:
@@ -2304,8 +2309,8 @@ class MapFrame(wx.Frame):
                     obj.Visible = True                
                 self.Canvas.Draw(True)
 #                 self.RefreshNodes('normal')
-            self.mp.ep.btn_rte.SetLabel('Show Route')
-            self.mp.ep.btn_rte.Enable(False)
+#             self.mp.ep.btn_rte.SetLabel('Show Route')
+#             self.mp.ep.btn_rte.Enable(False)
 #             self.mp.ep.btn_stop.Enable(False)
         else:
             self.ClearGraph()
@@ -2369,12 +2374,13 @@ class MapFrame(wx.Frame):
 #         tt.start()
     
         self.DrawRoute(route, True)
-        self.GetParent().ep.btn_rte.Enable(True)
+#         self.GetParent().ep.btn_rte.Enable(True)
 #         self.GetParent().ep.btn_stop.Enable(True)
                    
         for n in route:
             self.q.put( (self.HighlightDestination,n) )
             time.sleep(0.1)
+            wx.Yield()
             self.q.put( (self.OnReachDestination) )
             self.q.put( (self.OnReachDestination) )
             time.sleep(0.1)
