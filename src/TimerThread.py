@@ -15,11 +15,10 @@ class TimerThread(Thread):
     def run(self):
         while not self.stopped:
             time.sleep(self.interval)
-            try:
-#                 self.DoStuff()
-#                 print "moved robot"
-                
-                self.parent.ok = True
+            try:                
+#                 self.parent.ok = True
+                self.DoStuff()
+                print "moved robot"
             except AttributeError:
                 pass
 
@@ -27,7 +26,7 @@ class TimerThread(Thread):
         self.interval = interval
         
     def DoStuff(self):
-#         wx.CallAfter(self.parent.MoveRobotTo, (random.randrange(1900,2100,1), 
-#                              random.randrange(1900,2100,1)), (0,1), False)
+        wx.CallAfter(self.parent.MoveRobotTo, (random.randrange(1900,2100,1), 
+                             random.randrange(1700,1900,1)), (0,1), False)
         pass
                 

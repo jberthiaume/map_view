@@ -47,8 +47,8 @@ class NavCanvas(wx.Panel):
              
         self.Utils = [
           ("Zoom to Fit",   self.ZoomToFit,     Resources.getZoomToFitIconBitmap()),
-          ("Clear Graph",   self.Clear,         Resources.getXIconBitmap()),
-        ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
+          ("Clear Route /\nClear Graph",        self.Clear,     Resources.getXIconBitmap()),
+          ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
                       ]
         
                                       

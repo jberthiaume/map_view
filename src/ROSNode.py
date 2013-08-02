@@ -22,6 +22,7 @@ from move_base_msgs.msg import MoveBaseActionGoal           #@UnresolvedImport
 from move_base_msgs.msg import MoveBaseActionResult         #@UnresolvedImport      
 
 FILENAME = "map.png"
+MAX_COUNT = 3
 
 class ROSNode():
     
@@ -43,15 +44,16 @@ class ROSNode():
         
         self.vel_linear = None
         self.vel_angular = None
-        self.obstacles = []
+        self.obstacles_1 = None
+        self.obstacles_2 = None
                  
         self.image_width = 1000
         self.resolution = None
         self.refresh = False
         self.ok = True
         self.image = None
-        self.filename = FILENAME  
-        self.q = Queue.Queue()     
+        self.filename = FILENAME 
+        self.count = 0 
         
         self.parent = parent
 #         self.tt = TimerThread(self, 3)
@@ -89,8 +91,8 @@ class ROSNode():
         rospy.Subscriber("node_traveller/dest", UInt32, self.DestCB)
         rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
-#         rospy.Subscriber("move_base_node/local_costmap/obstacles", GridCells, self.ObsCB)
-#         rospy.Subscriber("move_base_node/local_costmap/inflated_obstacles", GridCells, self.ObsCB2)
+        rospy.Subscriber("move_base_node/local_costmap/obstacles", GridCells, self.ObsCB)
+        rospy.Subscriber("move_base_node/local_costmap/inflated_obstacles", GridCells, self.ObsCB2)
         
         if __name__ == '__main__':
             rospy.spin()       
@@ -101,7 +103,6 @@ class ROSNode():
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
         dest = int(data.data) 
-#         self.mframe.q.put( (self.mframe.HighlightDestination, dest) ) 
         wx.CallAfter(self.mframe.HighlightDestination, dest)      
 
 #---------------------------------------------------------------------------------------------#    
@@ -116,8 +117,8 @@ class ROSNode():
             orient = self.pose_orient
             wx.CallAfter(self.mframe.MoveRobotTo, destination, orient, True)
             
-#             if not self.mframe.modes['running']:
-#                 self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
+#             if self.mframe.modes['obstacles']:
+            
         except wx.PyDeadObjectError:
             print "EXIT"       
 
@@ -129,7 +130,6 @@ class ROSNode():
         status = int(data.status.status)
         if status == 3:
             wx.CallAfter(self.mframe.OnReachDestination)
-#             self.mframe.q.put( (self.mframe.OnReachDestination) )
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "node_traveller/route" topic.                                  #
@@ -138,11 +138,10 @@ class ROSNode():
     def RouteCB(self, data):
         route = data.data
         wx.CallAfter(self.mframe.DrawRoute, route, False)
-#         self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
-#         if route != []:
-#             self.parent.mp.ep.btn_rte.Enable(True)
-#         else:
-#             self.parent.mp.ep.btn_rte.Enable(False)
+        if route[0] != -1:
+            self.parent.mp.ep.btn_rte.Enable(True)
+        else:
+            self.parent.mp.ep.btn_rte.Enable(False)
         wx.Yield()
 
 #---------------------------------------------------------------------------------------------#    
@@ -150,15 +149,15 @@ class ROSNode():
 #    -> Draws the obstacles in the map viewer (currently unused)                              #
 #---------------------------------------------------------------------------------------------#        
     def ObsCB(self, data):
-        if self.ok:
-            self.obstacles_1 = data.cells
+        self.obstacles_1 = data.cells        
+        
+        if self.count % MAX_COUNT == 0:
+            wx.CallAfter(self.mframe.DrawObstacles, self.obstacles_2, 'inf')
             wx.CallAfter(self.mframe.DrawObstacles, self.obstacles_1, 'obs')
-            self.ok = False
+        self.count = self.count+1
+        
     def ObsCB2(self, data):
-        if self.ok:
-            self.obstacles_2 = data.cells
-#             self.mframe.DrawObstacles(self.obstacles_2, 'inf')
-            self.ok = False
+        self.obstacles_2 = data.cells
             
 #---------------------------------------------------------------------------------------------#
 #    Callback function for the "/map" topic.                                                  #
@@ -195,8 +194,6 @@ class ROSNode():
         self.image_data = data.data
         wx.CallAfter(self.mframe.SetMapMetadata, self.image_width,
                      self.resolution,self.origin_pos)
-#         self.mframe.q.put( (self.mframe.SetMapMetadata, self.image_width,
-#                      self.resolution,self.origin_pos) )
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #

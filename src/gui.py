@@ -14,8 +14,8 @@ import subprocess
 from datetime import datetime
 from MapFrame import MapFrame
 
-APP_SIZE        = (240,395)
-APP_SIZE_EXP    = (240,620)
+APP_SIZE        = (240,425)
+APP_SIZE_EXP    = (240,652)
 BUTTON_COLOR    = (119,41,83)
 BUTTON_SIZE     = (180,30)
 BUTTON_SIZE_SM  = (85,30)
@@ -27,15 +27,13 @@ V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
 
-#TODO: stop travel button?
-
-#TODO: Find a way to re-integrate ShowFrame() while tour is running (hard)
-
-#TODO: switch cursor causes sync errors?
+#TODO: abort travel button?
 
 #TODO: guiEdges start on left down
 
-#TODO: fix gui threading. (wx.CallAfter?)
+#TODO: disable buttons on run
+
+#TODO: semaphore for obs cb count?
 
 
 class MainFrame(wx.Frame):
@@ -728,19 +726,24 @@ class SettingsPanel(wx.Panel):
         self.lbl_st.SetFont(title_font)
         self.lbl_titles.append(self.lbl_st) 
         
+        # Obstacles Checkbox
+        self.chk_obs = wx.CheckBox(self, label="Show obstacles",
+                                  pos=(10,453))
+        self.chk_obs.SetValue(True)
+        
         # Edge Creation Checkbox
         self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes",
-                                  pos=(10,453))
+                                  pos=(10,485))
         self.chk_ec.SetValue(True)
         
         # Intersection Checkbox
         self.chk_int = wx.CheckBox(self, label="Automatically create nodes\nat edge intersections",
-                                  pos=(10,485))
+                                  pos=(10,517))
         self.chk_int.SetValue(True)
         
         # Console Output Checkbox
         self.chk_co = wx.CheckBox(self, label="Enable console output",
-                                  pos=(10,530))
+                                  pos=(10,562))
         self.chk_co.SetValue(True)
                 
         # Ok button
@@ -843,9 +846,10 @@ class SettingsPanel(wx.Panel):
                                  'auto_edges': self.chk_ec.GetValue(),
                                  'auto_intersections': self.chk_int.GetValue(),
                                  'unknown_edges': self.chk_uk.GetValue(),  
-                                 'verbose': (self.chk_co.GetValue()),                               
+                                 'verbose': (self.chk_co.GetValue()),
+                                 'obstacles': self.chk_obs.GetValue()                               
                                })  
-        self.pf.SuppressOutput(not self.chk_co.GetValue())
+#         self.pf.SuppressOutput(not self.chk_co.GetValue())
         
         try:
             n = int( self.txt_n.GetValue() )
@@ -866,6 +870,8 @@ class SettingsPanel(wx.Panel):
             dlg.ShowModal() 
             dlg.Destroy()
             return
+        
+        wx.CallAfter(self.pf.mp.mframe.ShowObstacles, self.chk_obs.GetValue() )
          
         self.pf.mp.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}
         self.pf.mp.mframe.gg_const = {'n':n, 'k':k, 'd':d, 'w':w, 'e':e}      
@@ -955,14 +961,14 @@ class ExplorePanel(wx.Panel):
         vbox10.Add(self.btn_tour)        
         self.sizer.Add(vbox10,1,wx.TOP,10) 
         
-#         # Show/Hide map viewer button
-#         vbox13 = wx.BoxSizer(wx.VERTICAL)  
-#         self.btn_rte = wx.Button(self, label="Hide Route", size=BUTTON_SIZE)        
-#         self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
-#         self.btn_rte.Enable(False)
-#         self.Parent.buttons.append(self.btn_rte)   
-#         vbox13.Add(self.btn_rte)        
-#         self.sizer.Add(vbox13,1, wx.TOP,10)  
+#         # Show/Hide map route button
+        vbox13 = wx.BoxSizer(wx.VERTICAL)  
+        self.btn_rte = wx.Button(self, label="Hide Route", size=BUTTON_SIZE)        
+        self.btn_rte.Bind(wx.EVT_BUTTON, self.OnShowHideRoute) 
+        self.btn_rte.Enable(False)
+        self.Parent.buttons.append(self.btn_rte)   
+        vbox13.Add(self.btn_rte)        
+        self.sizer.Add(vbox13,1, wx.TOP,10)  
         
 #         # Show/Hide map viewer button  
 #         self.btn_stop = wx.Button(self, label="Abort Travel", size=BUTTON_SIZE)        
