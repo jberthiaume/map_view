@@ -554,6 +554,7 @@ class MapFrame(wx.Frame):
         
         if mode == 'inf': 
             fc = OBSTACLE_COLOR_2
+            d = 4
             if self.obstacles_2 is not None: 
                 try: 
                     self.Canvas.RemoveObject(self.obstacles_2)                 
@@ -561,6 +562,7 @@ class MapFrame(wx.Frame):
                     self.obstacles_2 = None   
         else:
             fc = OBSTACLE_COLOR_1  
+            d = 6
             if self.obstacles_1 is not None: 
                 try:
                     self.Canvas.RemoveObject(self.obstacles_1) 
@@ -571,8 +573,7 @@ class MapFrame(wx.Frame):
         try:
             for point in points:      
                     x = int( self.MetersToPixels((point.x,0))[0] )
-                    y = int( self.MetersToPixels((point.y,0))[0] )                   
-                    d = 4
+                    y = int( self.MetersToPixels((point.y,0))[0] )
                     p = FloatCanvas.Circle((x,y), d, FillColor=fc, LineColor=fc)
                     p.Coords = (x,y)
                     obs.AddObject(p)                    
@@ -666,6 +667,9 @@ class MapFrame(wx.Frame):
                 self.route = []  
                 self.curr_dest = None 
                 self.Enable(True)
+                for btn in self.mp.buttons:
+                    btn.Enable(True)
+                self.mp.btn_exit.SetLabel('Exit')
                 try:
                     self.RestoreModes('Route') 
                 except KeyError:
@@ -679,7 +683,15 @@ class MapFrame(wx.Frame):
             self.OnClear()
                 
         self.route = route
-        tmp_edges = []   
+        tmp_edges = []  
+        
+        self.Enable(False) 
+        for btn in self.mp.buttons:
+            btn.Enable(False)
+        wx.Yield()
+        self.mp.btn_exit.SetLabel('Abort')
+        self.mp.btn_exit.Enable(True)
+        wx.Yield()
         
         sat = 255
         desat = 0     
@@ -689,7 +701,6 @@ class MapFrame(wx.Frame):
         steps = len(route)-2
         incr = min((2.25*sat)/steps, 30)
         phase = 0        
-        self.Enable(False)
         
         for idx,node in reversed(list(enumerate(route))):            
             if (idx-1) >= 0:
@@ -2329,8 +2340,8 @@ class MapFrame(wx.Frame):
 #         print t.activeCount()
         route = [29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,
                  62,56,1,55,56,62,30,3,48,50,25,35,11,27,59,2,47,37,28,57,5,40,24]
-        tt = TimerThread(self, 1)
-        tt.start()
+#         tt = TimerThread(self, 1)
+#         tt.start()
     
         self.DrawRoute(route, True)
         self.GetParent().ep.btn_rte.Enable(True)
@@ -2347,8 +2358,8 @@ class MapFrame(wx.Frame):
 #         
         self.DrawRoute([-1], True)
          
-        tt.stopped = True
-        tt.join()
+#         tt.stopped = True
+#         tt.join()
 
 #     def DrawTest(self):
 #         print "MF %s" % t.current_thread()

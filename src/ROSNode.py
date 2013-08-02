@@ -4,7 +4,6 @@ import wx
 import os, time
 import rospy                                                #@UnresolvedImport
 import numpy as np
-import Queue
 import threading as t
 from datetime import datetime
 from TimerThread import TimerThread
@@ -53,7 +52,7 @@ class ROSNode():
         self.ok = True
         self.image = None
         self.filename = FILENAME 
-        self.count = 0 
+        self.count = 0
         
         self.parent = parent
 #         self.tt = TimerThread(self, 3)
@@ -152,7 +151,7 @@ class ROSNode():
         self.obstacles_1 = data.cells        
         
         if self.count % MAX_COUNT == 0:
-            wx.CallAfter(self.mframe.DrawObstacles, self.obstacles_2, 'inf')
+#             wx.CallAfter(self.mframe.DrawObstacles, self.obstacles_2, 'inf')
             wx.CallAfter(self.mframe.DrawObstacles, self.obstacles_1, 'obs')
         self.count = self.count+1
         

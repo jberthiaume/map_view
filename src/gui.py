@@ -33,9 +33,6 @@ SIZER_BORDER    = 10
 
 #TODO: disable buttons on run
 
-#TODO: semaphore for obs cb count?
-
-
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=APP_SIZE,
@@ -235,10 +232,10 @@ class MainPanel(wx.Panel):
         # Exit button
         hbox20 = wx.BoxSizer(wx.HORIZONTAL)             
         hbox20.AddSpacer(H_SPACER_WIDTH)
-        btn_exit = wx.Button(self, label="Exit", size=BUTTON_SIZE)  
-        self.buttons.append(btn_exit)      
-        hbox20.Add(btn_exit)           
-        btn_exit.Bind(wx.EVT_BUTTON, self.OnExit)
+        self.btn_exit = wx.Button(self, label="Exit", size=BUTTON_SIZE)  
+        self.buttons.append(self.btn_exit)      
+        hbox20.Add(self.btn_exit)           
+        self.btn_exit.Bind(wx.EVT_BUTTON, self.OnExit)
         self.sizer_menu.Add(hbox20,0,wx.TOP|wx.LEFT|wx.RIGHT,SIZER_BORDER)   
                       
         self.PaintButtons( (255,255,255),BUTTON_COLOR )
@@ -530,22 +527,27 @@ class MainPanel(wx.Panel):
 #    Exits the application. If the current map is unsaved, user is asked to save first.       #
 #---------------------------------------------------------------------------------------------#    
     def OnExit(self, event):
-        if not self.saved:
-            dlg = wx.MessageDialog(self,
-            "The current map is unsaved.\nWould you like to save it before exiting?", 
-            "Warning", wx.YES_NO)
+        if self.btn_exit.GetLabel() == 'Exit':
+            if not self.saved:
+                dlg = wx.MessageDialog(self,
+                "The current map is unsaved.\nWould you like to save it before exiting?", 
+                "Warning", wx.YES_NO)
+                
+                if dlg.ShowModal() == wx.ID_YES:
+                    # User has chosen to save the map
+                    self.OnSaveAs(event)
+                dlg.Destroy()        
             
-            if dlg.ShowModal() == wx.ID_YES:
-                # User has chosen to save the map
-                self.OnSaveAs(event)
-            dlg.Destroy()        
-        
-#         self.ros.tt.stopped = True
-#         self.ros.tt.join()  
-#         self.mframe.qt.stopped = True 
-#         self.mframe.qt.join(0) 
-        self.mframe.Close()
-        self.pf.Close()
+#             self.ros.tt.stopped = True
+#             self.ros.tt.join()  
+#             self.mframe.qt.stopped = True 
+#             self.mframe.qt.join(0) 
+            self.mframe.Close()
+            self.pf.Close()        
+        else:
+            
+            self.ep.proc.send_signal(signal.SIGINT)
+            self.btn_exit.SetLabel('Exit')
                 
 
 #---------------------------------------------------------------------------------------------#    
@@ -1048,13 +1050,8 @@ class ExplorePanel(wx.Panel):
             self.btn_rte.SetLabel('Hide Route')
         else:
             self.mframe.HideRoute()
-            self.btn_rte.SetLabel('Show Route')
-            
-    def OnAbort(self, event):
-        try:
-            os.kill(self.travel_pid, 9)
-        except AttributeError:
-            pass
+            self.btn_rte.SetLabel('Show Route')           
+    
         
     def OnFind(self, event):
         txt = self.txt.GetValue()
@@ -1170,8 +1167,8 @@ class ExplorePanel(wx.Panel):
         graph_file = "%sgraph" % map_file.rstrip("png")        
         term = """gnome-terminal -e 'bash -c \
         "rosrun node_traveller travel.py _graph:=%s; exec bash\"'"""
-        proc = subprocess.Popen(term % graph_file, shell=True)
-        self.travel_pid = proc.pid        
+        self.proc = subprocess.Popen(term % graph_file, shell=True)
+        self.travel_pid = self.proc.pid        
     
 if __name__ == '__main__':
     app = wx.App(False)
