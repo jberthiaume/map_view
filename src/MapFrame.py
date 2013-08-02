@@ -78,7 +78,6 @@ class MapFrame(wx.Frame):
         self.graphics_route = []
         
         self.canvas_lock = t.Lock()
-        self.canvas_lock2 = t.Lock()
         
         self.sel_nodes = []
         self.sel_edges = [] 
@@ -95,15 +94,14 @@ class MapFrame(wx.Frame):
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
         self.conn_matrix = np.empty(shape=(150,150))
-        self.conn_matrix[:] = -1   
-        self.ttime = datetime(1000,1,1,0,0,0)       
+        self.conn_matrix[:] = -1      
        
         self.mp = self.GetParent()
         self.ros = self.mp.ros
-        self.q = Queue()
-        self.qt = qt.QueueThread(self)
-        self.qt.daemon = True
-        self.qt.start()
+#         self.q = Queue()
+#         self.qt = qt.QueueThread(self)
+#         self.qt.daemon = True
+#         self.qt.start()
             
         # Add the Canvas
         self.NavCanvas = NavCanvas.NavCanvas(self, 
@@ -111,6 +109,7 @@ class MapFrame(wx.Frame):
                                      BackgroundColor = "DARK GREY", 
                                      )
         self.Canvas = self.NavCanvas.Canvas
+#         self.Canvas.Debug = True
 
         
         # Bind canvas mouse events
@@ -296,9 +295,8 @@ class MapFrame(wx.Frame):
                 xy = node.coords[0]+step, node.coords[1]
                 dxy = step,0
             else:
-                self.RestoreModes('KeyPress')                
-                with self.canvas_lock:
-                    self.Canvas.Draw(True)
+                self.RestoreModes('KeyPress')  
+                self.Canvas.Draw(True)  
                 return    
                  
             node.coords = xy
@@ -309,33 +307,34 @@ class MapFrame(wx.Frame):
                 if idx > len(self.nodelist):
                     break
                 if edge_id != -1 and idx != int(ID):
-                    edges_to_redraw.append( int(edge_id) )                    
-            
-            with self.canvas_lock:
-                self.graphics_nodes[int(ID)].Move(dxy)
-                self.graphics_text[ int(ID)].Move(dxy)
+                    edges_to_redraw.append( int(edge_id) )   
+                    
+            self.graphics_nodes[int(ID)].Move(dxy)
+            self.graphics_text[ int(ID)].Move(dxy)
             
             if self.modes['verbose']:
                 print "Moved node %s to location %s" % ( str(node.id), str(xy) )
             self.SelectOneNode(self.graphics_nodes[int(ID)],False)
     
-        # Redraw edges to correspond to the new coordinates of their endpoints            
+        # Redraw edges to correspond to the new coordinates of their endpoints 
         for edge_id in edges_to_redraw: 
             n1 = self.nodelist[ int(self.edgelist[edge_id].node1) ]  
             n2 = self.nodelist[ int(self.edgelist[edge_id].node2) ]
-            with self.canvas_lock:
-                self.Canvas.RemoveObject(self.graphics_edges[edge_id])            
-                e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
-                e.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge)
-                e.Bind(FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge)
-                e.Bind(FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
-                e.Name = str(edge_id)
-                self.graphics_edges[edge_id] = e 
+            
+            self.Canvas.RemoveObject( self.graphics_edges[edge_id] )         
+            e = self.Canvas.AddLine((n1.coords, n2.coords), LineWidth=ew, LineColor=EDGE_COLOR)
+            e.Name = str(edge_id)
+            self.graphics_edges[edge_id] = e 
+            self.BindEvents( e, 'edge')
         
-        with self.canvas_lock:        
-            self.Canvas.Draw(True)       
+        self.Canvas.Draw(True)   
         self.RestoreModes('KeyPress')       
-        
+     
+    def BindEvents(self, obj, obj_type):
+        if obj_type == 'edge':
+            obj.Bind( FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickEdge) 
+            obj.Bind( FloatCanvas.EVT_FC_ENTER_OBJECT, self.OnMouseEnterEdge) 
+            obj.Bind( FloatCanvas.EVT_FC_LEAVE_OBJECT, self.OnMouseLeaveEdge)
               
 #---------------------------------------------------------------------------------------------#    
 #    Adds a representation of the robot to the canvas. A grey robot means that its pose info  #
@@ -355,20 +354,18 @@ class MapFrame(wx.Frame):
         lw = ROBOT_BORDER_WIDTH
         lc = ROBOT_BORDER   
         
-        with self.canvas_lock:
-            r = self.Canvas.AddCircle(xy, diam, LineWidth = lw,
-                LineColor = lc, FillColor = fc, InForeground = True)
-            r.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
+        r = self.Canvas.AddCircle(xy, diam, LineWidth = lw,
+            LineColor = lc, FillColor = fc, InForeground = True)
+        r.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)
         r.Coords = xy
         self.robot = r
         
 #             theta = self.ToDegrees( self.Angle(zw) )
-        theta = zw    
-        with self.canvas_lock:            
-            a = self.Canvas.AddArrowLine( (xy, (xy[0]+diam, xy[1]) ), LineWidth = lw,
-                LineColor = lc, ArrowHeadSize=10, InForeground = True)   
-            a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)         
-            self.Canvas.Draw(True)
+        theta = zw                
+        a = self.Canvas.AddArrowLine( (xy, (xy[0]+diam, xy[1]) ), LineWidth = lw,
+            LineColor = lc, ArrowHeadSize=10, InForeground = True)   
+        a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)         
+        self.Canvas.Draw(True)
         a.Coords = xy
         a.Theta  = theta
         self.arrow = a
@@ -553,10 +550,10 @@ class MapFrame(wx.Frame):
                     with self.canvas_lock:
                         self.Canvas.RemoveObject(self.obstacles_2)
             else:
-                fc = OBSTACLE_COLOR_1
-                if self.obstacles_1 is not None:                         
-                    with self.canvas_lock:
-                        self.Canvas.RemoveObject(self.obstacles_1)    
+                fc = OBSTACLE_COLOR_1 
+                print self.obstacles_1   
+                if self.obstacles_1 is not None: 
+                    self.Canvas.RemoveObject(self.obstacles_1)    
                                 
             obs = FloatCanvas.Group()
             try:
@@ -566,12 +563,10 @@ class MapFrame(wx.Frame):
                         d = 4
                         p = FloatCanvas.Circle((x,y), d, FillColor=fc, LineColor=fc)
                         p.Coords = (x,y)
-                        obs.AddObject(p)
+                        obs.AddObject(p)                    
                 
-                     
-                with self.canvas_lock:
-                    self.Canvas.AddObject(obs)  
-                    self.Canvas.Draw(True)
+                self.Canvas.AddObject(obs)  
+                self.Canvas.Draw(True)
                 if mode == 'inf':
                     self.obstacles_2 = obs 
                 else:
@@ -750,15 +745,14 @@ class MapFrame(wx.Frame):
                     phase = phase+1
                     
 
-        with self.canvas_lock:
-            if not show:
-                for gr in self.graphics_route:
-                    gr.Visible = True
-            
-            self.robot.Visible = False
-            self.arrow.Visible = False
-            self.Canvas.Draw(True)
-#         self.RefreshNodes('normal')
+        if not show:
+            for gr in self.graphics_route:
+                gr.Visible = True
+        
+        self.robot.Visible = False
+        self.arrow.Visible = False
+        self.Canvas.Draw(True)
+        self.RefreshNodes()
         self.SetModes('Route', {'running':True})
 
 #---------------------------------------------------------------------------------------------#    
@@ -984,12 +978,13 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#    
 #    -deprecated-                                                                            #
 #--------------------------------------------------------------------------------------------#             
-    def RefreshNodes(self):                   
-        with self.canvas_lock: 
-            old_robot, old_arrow = self.robot, self.arrow
-            self.AddRobot(self.robot.Coords, self.arrow.Theta)
-            self.Canvas.RemoveObject(old_robot)
-            self.Canvas.RemoveObject(old_arrow)
+    def RefreshNodes(self):     
+        old_robot, old_arrow = self.robot, self.arrow
+        self.AddRobot(self.robot.Coords, self.arrow.Theta)
+        self.Canvas.RemoveObject(old_robot)
+        self.Canvas.RemoveObject(old_arrow)
+        if self.modes['verbose']:
+            print "Refreshed robot graphic."
              
 #             for node in self.nodelist:               
 #                 ID = str(node.id)
@@ -2368,28 +2363,32 @@ class MapFrame(wx.Frame):
 #---------------------------------------------------------------------------------------------#           
     def Test(self):  
 #         self.DrawObstacles(self.ros.obstacles)
+#         print t.activeCount()
         route = [29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,
                  62,56,1,55,56,62,30,3,48,50,25,35,11,27,59,2,47,37,28,57,5,40,24]
-#         tt = TimerThread(self, 0.5)
-#         tt.start()
+        tt = TimerThread(self, 1)
+        tt.start()
     
         self.DrawRoute(route, True)
 #         self.GetParent().ep.btn_rte.Enable(True)
 #         self.GetParent().ep.btn_stop.Enable(True)
                    
         for n in route:
-            self.q.put( (self.HighlightDestination,n) )
+            self.HighlightDestination(n)
             time.sleep(0.1)
             wx.Yield()
-            self.q.put( (self.OnReachDestination) )
-            self.q.put( (self.OnReachDestination) )
+            self.OnReachDestination()
+            self.OnReachDestination()
             time.sleep(0.1)
             wx.Yield()
-        
+#         
         self.DrawRoute([-1], True)
          
-#         tt.stopped = True
-#         tt.join()
+        tt.stopped = True
+        tt.join()
+
+#     def DrawTest(self):
+#         print "MF %s" % t.current_thread()
 
     
 #--------------------------------------------------------------------------------------------#    

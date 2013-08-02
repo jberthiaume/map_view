@@ -48,7 +48,7 @@ class NavCanvas(wx.Panel):
         self.Utils = [
           ("Zoom to Fit",   self.ZoomToFit,     Resources.getZoomToFitIconBitmap()),
           ("Clear Graph",   self.Clear,         Resources.getXIconBitmap()),
-#           ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
+        ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
                       ]
         
                                       
@@ -174,7 +174,6 @@ class NavCanvas(wx.Panel):
         self.Canvas.SetFocus()
         
     def Test(self, event):
-        print self.ToolBar.Children
         self.GetParent().Test()
         self.Canvas.SetFocus()
     

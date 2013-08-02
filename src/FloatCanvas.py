@@ -11,6 +11,7 @@ except ImportError:
 
 from time import clock
 import wx
+import threading
 
 from wx.lib.floatcanvas.Utilities import BBox
 import GUIMode
@@ -2354,6 +2355,7 @@ class FloatCanvas(wx.Panel):
         self.BackgroundBrush = wx.Brush(BackgroundColor,wx.SOLID)
 
         self.Debug = Debug
+        self.c_lock = threading.Lock()
 
         wx.EVT_PAINT(self, self.OnPaint)
         wx.EVT_SIZE(self, self.OnSize)
@@ -2766,8 +2768,8 @@ class FloatCanvas(wx.Panel):
         background to get re-drawn. This can be used to support simple
         animation, for instance.
 
-        """
-
+        """        
+        
         if N.sometrue(self.PanelSize <= 2 ):
             # it's possible for this to get called before being properly initialized.
             return
@@ -2778,7 +2780,6 @@ class FloatCanvas(wx.Panel):
                                      )
         self.ViewPortBB = N.array( ( N.minimum.reduce(ViewPortWorld),
                               N.maximum.reduce(ViewPortWorld) ) )
-
         dc = wx.MemoryDC()
         dc.SelectObject(self._Buffer)
         if self._BackgroundDirty or Force:
@@ -2801,7 +2802,6 @@ class FloatCanvas(wx.Panel):
             if self._ForegroundBuffer is None:
                 self._ForegroundBuffer = wx.EmptyBitmap(self.PanelSize[0],
                                                         self.PanelSize[1])
-
             dc = wx.MemoryDC() ## I got some strange errors (linewidths wrong) if I didn't make a new DC here
             dc.SelectObject(self._ForegroundBuffer)
             dc.DrawBitmap(self._Buffer,0,0)
@@ -2827,17 +2827,18 @@ class FloatCanvas(wx.Panel):
         ##fixme: maybe GUIModes should never be None, and rather have a Do-nothing GUI-Mode.
         if self.GUIMode is not None:
             self.GUIMode.UpdateScreen()
-
         if self.Debug:
             print "Drawing took %f seconds of CPU time"%(clock()-start)
-            if self._HTBitmap is not None:
-                self._HTBitmap.SaveFile('junk.png', wx.BITMAP_TYPE_PNG)
+#             if self._HTBitmap is not None:
+#                 self._HTBitmap.SaveFile('junk.png', wx.BITMAP_TYPE_PNG)
         
         ## Clear the font cache. If you don't do this, the X font server
         ## starts to take up Massive amounts of memory This is mostly a
         ## problem with very large fonts, that you get with scaled text
         ## when zoomed in.
-        DrawObject.FontList = {}
+        DrawObject.FontList = {}        
+#         print "FC %s" % threading.current_thread()
+#         wx.CallAfter(self.Parent.Parent.DrawTest)
 
     def _ShouldRedraw(DrawList, ViewPortBB): 
         # lrk: Returns the objects that should be redrawn

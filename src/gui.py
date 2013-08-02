@@ -7,6 +7,7 @@ Created on May 30, 2013
 import wx
 import os, time, shutil
 import math
+import signal, sys
 import ROSNode
 import Resources
 import subprocess
@@ -30,9 +31,11 @@ SIZER_BORDER    = 10
 
 #TODO: Find a way to re-integrate ShowFrame() while tour is running (hard)
 
-#TODO: Generate graph without GUI
-
 #TODO: switch cursor causes sync errors?
+
+#TODO: guiEdges start on left down
+
+#TODO: fix gui threading. (wx.CallAfter?)
 
 
 class MainFrame(wx.Frame):
@@ -65,6 +68,9 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_LEFT_DOWN, self.OnLeftDown)
         self.Bind(wx.EVT_LEFT_UP, self.OnLeftUp) 
         self.Bind(wx.EVT_SIZE, self.OnResize)
+        
+#         signal.signal(signal.SIGINT, self.sigint_hdlr)
+#         signal.signal(signal.SIGTERM, self.sigterm_hdlr)
         
         self.SetPosition((0,0))  
         self.Layout() 
@@ -539,7 +545,7 @@ class MainPanel(wx.Panel):
 #         self.ros.tt.stopped = True
 #         self.ros.tt.join()  
 #         self.mframe.qt.stopped = True 
-        self.mframe.qt.join(0) 
+#         self.mframe.qt.join(0) 
         self.mframe.Close()
         self.pf.Close()
                 

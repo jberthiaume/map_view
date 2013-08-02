@@ -5,6 +5,7 @@ import os, time
 import rospy                                                #@UnresolvedImport
 import numpy as np
 import Queue
+import threading as t
 from datetime import datetime
 from TimerThread import TimerThread
 from std_msgs.msg import String                             #@UnresolvedImport
@@ -53,7 +54,7 @@ class ROSNode():
         self.q = Queue.Queue()     
         
         self.parent = parent
-#         self.tt = TimerThread(self, 10)
+#         self.tt = TimerThread(self, 3)
 #         self.tt.start()
         self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
@@ -100,7 +101,8 @@ class ROSNode():
 #---------------------------------------------------------------------------------------------#                
     def DestCB(self, data):
         dest = int(data.data) 
-        self.mframe.q.put( (self.mframe.HighlightDestination, dest) )        
+#         self.mframe.q.put( (self.mframe.HighlightDestination, dest) ) 
+        wx.CallAfter(self.mframe.HighlightDestination, dest)      
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "/amcl_pose" topic.                                            #
@@ -112,9 +114,10 @@ class ROSNode():
             self.pose_orient = data.pose.pose.orientation                
             destination = (self.pose_pos.x, self.pose_pos.y)
             orient = self.pose_orient
+            wx.CallAfter(self.mframe.MoveRobotTo, destination, orient, True)
             
-            if not self.mframe.modes['running']:
-                self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
+#             if not self.mframe.modes['running']:
+#                 self.mframe.q.put( (self.mframe.MoveRobotTo, destination, orient, True) )
         except wx.PyDeadObjectError:
             print "EXIT"       
 
@@ -125,7 +128,8 @@ class ROSNode():
     def StatusCB(self, data):
         status = int(data.status.status)
         if status == 3:
-            self.mframe.q.put( (self.mframe.OnReachDestination) )
+            wx.CallAfter(self.mframe.OnReachDestination)
+#             self.mframe.q.put( (self.mframe.OnReachDestination) )
 
 #---------------------------------------------------------------------------------------------#    
 #    Callback function for the "node_traveller/route" topic.                                  #
@@ -133,7 +137,8 @@ class ROSNode():
 #---------------------------------------------------------------------------------------------#
     def RouteCB(self, data):
         route = data.data
-        self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
+        wx.CallAfter(self.mframe.DrawRoute, route, False)
+#         self.mframe.q.put( (self.mframe.DrawRoute, route, False) )
 #         if route != []:
 #             self.parent.mp.ep.btn_rte.Enable(True)
 #         else:
@@ -147,12 +152,12 @@ class ROSNode():
     def ObsCB(self, data):
         if self.ok:
             self.obstacles_1 = data.cells
-            self.mframe.q.put( (self.mframe.DrawObstacles, self.obstacles_1, 'obs') )
-            self.ok = False            
+            wx.CallAfter(self.mframe.DrawObstacles, self.obstacles_1, 'obs')
+            self.ok = False
     def ObsCB2(self, data):
         if self.ok:
             self.obstacles_2 = data.cells
-            self.mframe.DrawObstacles(self.obstacles_2, 'inf')
+#             self.mframe.DrawObstacles(self.obstacles_2, 'inf')
             self.ok = False
             
 #---------------------------------------------------------------------------------------------#
@@ -188,8 +193,10 @@ class ROSNode():
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)
         self.image_data = data.data
-        self.mframe.q.put( (self.mframe.SetMapMetadata, self.image_width,
-                     self.resolution,self.origin_pos) )
+        wx.CallAfter(self.mframe.SetMapMetadata, self.image_width,
+                     self.resolution,self.origin_pos)
+#         self.mframe.q.put( (self.mframe.SetMapMetadata, self.image_width,
+#                      self.resolution,self.origin_pos) )
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #
