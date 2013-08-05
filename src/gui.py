@@ -7,7 +7,7 @@ Created on May 30, 2013
 import wx
 import os, time, shutil
 import math
-import signal, sys
+import signal
 import ROSNode
 import Resources
 import subprocess
@@ -26,12 +26,6 @@ H_SPACER_WIDTH  = 20
 V_SPACER_SMALL  = 10
 V_SPACER_LARGE  = 15
 SIZER_BORDER    = 10
-
-#TODO: abort travel button?
-
-#TODO: guiEdges start on left down
-
-#TODO: disable buttons on run
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, title):
@@ -492,7 +486,6 @@ class MainPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#         
     def SetSaveStatus(self, bool_save):
         self.saved = bool_save
-
     
     def OnSettings(self, event):
         self.Hide()    
@@ -527,27 +520,22 @@ class MainPanel(wx.Panel):
 #    Exits the application. If the current map is unsaved, user is asked to save first.       #
 #---------------------------------------------------------------------------------------------#    
     def OnExit(self, event):
-        if self.btn_exit.GetLabel() == 'Exit':
-            if not self.saved:
-                dlg = wx.MessageDialog(self,
-                "The current map is unsaved.\nWould you like to save it before exiting?", 
-                "Warning", wx.YES_NO)
-                
-                if dlg.ShowModal() == wx.ID_YES:
-                    # User has chosen to save the map
-                    self.OnSaveAs(event)
-                dlg.Destroy()        
+        if not self.saved:
+            dlg = wx.MessageDialog(self,
+            "The current map is unsaved.\nWould you like to save it before exiting?", 
+            "Warning", wx.YES_NO)
             
+            if dlg.ShowModal() == wx.ID_YES:
+                # User has chosen to save the map
+                self.OnSaveAs(event)
+            dlg.Destroy()        
+        
 #             self.ros.tt.stopped = True
 #             self.ros.tt.join()  
 #             self.mframe.qt.stopped = True 
 #             self.mframe.qt.join(0) 
-            self.mframe.Close()
-            self.pf.Close()        
-        else:
-            
-            self.ep.proc.send_signal(signal.SIGINT)
-            self.btn_exit.SetLabel('Exit')
+        self.mframe.Close()
+        self.pf.Close()        
                 
 
 #---------------------------------------------------------------------------------------------#    
@@ -705,47 +693,47 @@ class SettingsPanel(wx.Panel):
         self.txtbxs['w'] = self.txt_w
         self.txtbxs['e'] = self.txt_e
         
-        # Edges Checkbox
-        self.chk_edge = wx.CheckBox(self, label="Allow edge generation\nwithin 5 px of obstacles",
-                                    pos=(20,280))
-        self.chk_edge.SetValue(False)
+#         # Edges Checkbox
+#         self.chk_edge = wx.CheckBox(self, label="Allow edge generation within\n5 px of obstacles",
+#                                     pos=(10,280))
+#         self.chk_edge.SetValue(False)
         
         # Unknown Edges Checkbox
         self.chk_uk = wx.CheckBox(self, label="Allow edge generation\nthrough unknown map areas",
-                                    pos=(20,325))
+                                    pos=(10,290))
         self.chk_uk.SetValue(True)
         
         # Clear Checkbox
-        self.chk_clr = wx.CheckBox(self, label="Clear nodes and edges\nwhen generating new graph",
-                                    pos=(20,370))
+        self.chk_clr = wx.CheckBox(self, label="Clear nodes and edges when\ngenerating new graph",
+                                    pos=(10,335))
         self.chk_clr.SetValue(True)
         
         
         # Title Label 2 
         self.lbl_st = wx.StaticText(self, label="Other Settings", 
-                                    size=(240,30), pos=(10,425), style=wx.CENTER)
+                                    size=(240,30), pos=(10,405), style=wx.CENTER)
         
         self.lbl_st.SetFont(title_font)
         self.lbl_titles.append(self.lbl_st) 
         
         # Obstacles Checkbox
-        self.chk_obs = wx.CheckBox(self, label="Show obstacles",
-                                  pos=(10,453))
+        self.chk_obs = wx.CheckBox(self, label="Show obstacles on map",
+                                  pos=(10,438))
         self.chk_obs.SetValue(True)
         
         # Edge Creation Checkbox
         self.chk_ec = wx.CheckBox(self, label="Automatically connect nodes",
-                                  pos=(10,485))
+                                  pos=(10,470))
         self.chk_ec.SetValue(True)
         
         # Intersection Checkbox
-        self.chk_int = wx.CheckBox(self, label="Automatically create nodes\nat edge intersections",
-                                  pos=(10,517))
+        self.chk_int = wx.CheckBox(self, label="Automatically convert edge\nintersections into nodes",
+                                  pos=(10,502))
         self.chk_int.SetValue(True)
         
         # Console Output Checkbox
         self.chk_co = wx.CheckBox(self, label="Enable console output",
-                                  pos=(10,562))
+                                  pos=(10,547))
         self.chk_co.SetValue(True)
                 
         # Ok button

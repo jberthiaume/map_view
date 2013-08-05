@@ -250,7 +250,7 @@ class GUISelect(GUIBase):
             xy_c = (xy0 + xy1) / 2
             dc = wx.ClientDC(self.Canvas)
             dc.BeginDrawing()
-            dc.SetPen(wx.Pen('WHITE', 2, wx.SHORT_DASH))
+            dc.SetPen(wx.Pen("GRAY", 2, wx.SHORT_DASH))
             dc.SetBrush(wx.TRANSPARENT_BRUSH)
             dc.SetLogicalFunction(wx.XOR)
             if self.PrevRBBox:

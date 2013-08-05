@@ -35,20 +35,43 @@ class NavCanvas(wx.Panel):
                       ]
         
         self.Modes = [
-          ("Add Nodes / Select",  GUIMode.GUIMouse(),   Resources.getAeroArrowBitmap()),
-          ("Box Selection Tool",  GUIMode.GUISelect(),  Resources.getSelectButtonBitmap()),
-          ("Add Edges",           GUIMode.GUIEdges(),   Resources.getEdgeIconBitmap()),
-          ("2D Pose Estimate",    GUIMode.GUIPoseEst(),   Resources.getOrangeDiagArrowBitmap()),
-          ("2D Nav Goal",         GUIMode.GUINavGoal(),   Resources.getPurpleDiagArrowBitmap()),
-          ("Zoom In",             GUIMode.GUIZoomIn(),  Resources.getZoomInIconBitmap()),
-          ("Zoom Out",            GUIMode.GUIZoomOut(), Resources.getZoomOutIconBitmap()),          
-          ("Pan",                 GUIMode.GUIPan(),     Resources.getAeroMoveIconBitmap()),
+          ("Node Creation /\nSelection Tool", 
+            GUIMode.GUIMouse(),     
+            Resources.getNodeIconBitmap()),
+                      
+          ("Edge Creation Tool",  
+            GUIMode.GUIEdges(),     
+            Resources.getEdgeIconBitmap()),
+                      
+          ("Box Selection Tool",  
+            GUIMode.GUISelect(),    
+            Resources.getSelectIconBitmap()),
+                      
+          ("Create 2D Pose Estimate",   
+            GUIMode.GUIPoseEst(),  
+            Resources.getOrangeDiagArrowBitmap()),
+                      
+          ("Create 2D Nav Goal",         
+            GUIMode.GUINavGoal(),   
+            Resources.getPurpleDiagArrowBitmap()),
+                      
+          ("Zoom In",            
+             GUIMode.GUIZoomIn(),   
+             Resources.getZoomInIconBitmap()),
+                      
+          ("Zoom Out",            
+            GUIMode.GUIZoomOut(),   
+            Resources.getZoomOutIconBitmap()), 
+                               
+          ("Pan",                 
+            GUIMode.GUIPan(),       
+            Resources.getAeroMoveIconBitmap()),
                       ]   
              
         self.Utils = [
           ("Zoom to Fit",   self.ZoomToFit,     Resources.getZoomToFitIconBitmap()),
           ("Clear Route /\nClear Graph",        self.Clear,     Resources.getXIconBitmap()),
-          ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
+#           ("Run Test",      self.Test,          Resources.getTestIconBitmap()),    
                       ]
         
                                       
@@ -89,7 +112,7 @@ class NavCanvas(wx.Panel):
             tb.AddControl(button)
             button.Bind(wx.EVT_BUTTON, fo[1])
             button.Bind(wx.EVT_SET_FOCUS, self.OnReceiveFocus)       
-            self.AddSpacer(tb)
+#             self.AddSpacer(tb)
     
     def AddToolbarModeButtons(self, tb, Modes): 
         tb.AddSeparator()
@@ -99,8 +122,7 @@ class NavCanvas(wx.Panel):
         for Mode in Modes:
             tool = tb.AddRadioTool(wx.ID_ANY, shortHelp=Mode[0], bitmap=Mode[2])
             self.Bind(wx.EVT_TOOL, self.SetMode, tool)            
-            self.ModesDict[tool.GetId()]=Mode[1]
-            
+            self.ModesDict[tool.GetId()]=Mode[1]            
             self.tools.append(tool)
         #self.ZoomOutTool = tb.AddRadioTool(wx.ID_ANY, bitmap=Resources.getMagMinusBitmap(), shortHelp = "Zoom Out")
         #self.Bind(wx.EVT_TOOL, lambda evt : self.SetMode(Mode=self.GUIZoomOut), self.ZoomOutTool)        
@@ -137,7 +159,7 @@ class NavCanvas(wx.Panel):
         self.parent.OnSave(event) 
                 
     def OnSaveAs(self, event):
-        self.parent.OnSaveAs(event)         
+        self.parent.OnSaveAs(event)     
         
     def OnSettings(self, event):
         self.parent.OnSettings(event)  

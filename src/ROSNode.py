@@ -26,44 +26,38 @@ MAX_COUNT = 3
 class ROSNode():
     
     def __init__(self, parent): 
-        # pos -> geometry_msgs/Point: 
-        #     float64 x
-        #     float64 y
-        #     float64 z       
+        # pos : geometry_msgs/Point 
+        #     float x
+        #     float y
+        #     float z       
         self.origin_pos = None
         self.pose_pos = None
         
-        # orient -> geometry_msgs/Quaternion: 
-        #     float64 x
-        #     float64 y
-        #     float64 z
-        #     float64 w 
+        # orient : geometry_msgs/Quaternion: 
+        #     float x
+        #     float y
+        #     float z
+        #     float w 
         self.origin_orient = None        
         self.pose_orient = None 
         
-        self.vel_linear = None
-        self.vel_angular = None
+        # obstacles : geometry_msgs/Point[]:
+        #     float x
+        #     float y
+        #     float z
         self.obstacles_1 = None
         self.obstacles_2 = None
                  
         self.image_width = 1000
         self.resolution = None
         self.refresh = False
-        self.ok = True
         self.image = None
         self.filename = FILENAME 
         self.count = 0
         
         self.parent = parent
-#         self.tt = TimerThread(self, 3)
-#         self.tt.start()
-        self.tour_pub = rospy.Publisher('tour', String)
         self.pose_pub = rospy.Publisher('initialpose', PoseWithCovarianceStamped)
-        self.goal_pub = rospy.Publisher('move_base/goal', MoveBaseActionGoal)
-        
-    def PublishTour(self):  
-        msg = "Tour %s" % rospy.get_time()
-        self.tour_pub.publish(String(msg))        
+        self.goal_pub = rospy.Publisher('move_base/goal', MoveBaseActionGoal)              
     
     def Publish2DPoseEstimate(self, point, orient):
         pwc = PoseWithCovarianceStamped()
@@ -91,7 +85,7 @@ class ROSNode():
         rospy.Subscriber("node_traveller/route", Int32MultiArray, self.RouteCB)
         rospy.Subscriber("move_base/result", MoveBaseActionResult, self.StatusCB)
         rospy.Subscriber("move_base_node/local_costmap/obstacles", GridCells, self.ObsCB)
-        rospy.Subscriber("move_base_node/local_costmap/inflated_obstacles", GridCells, self.ObsCB2)
+#         rospy.Subscriber("move_base_node/local_costmap/inflated_obstacles", GridCells, self.ObsCB2)
         
         if __name__ == '__main__':
             rospy.spin()       
@@ -115,8 +109,6 @@ class ROSNode():
             destination = (self.pose_pos.x, self.pose_pos.y)
             orient = self.pose_orient
             wx.CallAfter(self.mframe.MoveRobotTo, destination, orient, True)
-            
-#             if self.mframe.modes['obstacles']:
             
         except wx.PyDeadObjectError:
             print "EXIT"       

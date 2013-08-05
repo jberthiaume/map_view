@@ -11,6 +11,7 @@ import pickle
 import math
 import time
 import Image
+import subprocess
 import numpy as np
 import random as rand
 import threading as t
@@ -185,7 +186,7 @@ class MapFrame(wx.Frame):
         self.mp.OnSave(event) 
                 
     def OnSaveAs(self, event):
-        self.mp.OnSaveAs(event)         
+        self.mp.OnSaveAs(event)        
         
     def OnSettings(self, event):
         self.mp.OnSettings(event)  
@@ -203,10 +204,20 @@ class MapFrame(wx.Frame):
         current_mode = self.Canvas.GetMode()        
         if current_mode=='GUIMouse':
             self.CreateNode(event.Coords)
-        elif current_mode == 'GUIEdges':
+            
+        elif current_mode == 'GUIEdges':            
             if self.started_edge:
                 self.CreateNode(event.Coords)
-                self.started_edge = False           
+                self.started_edge = False   
+            else:                
+#                 self.SetModes('LeftDown', {'auto_edges':False})
+                if int(self.CreateNode( event.Coords )) == 1:
+                    if not self.modes['auto_edges']:
+                        self.Canvas.GUIMode.SetStartNode(self.graphics_nodes[-1].Name, 
+                                                         self.nodelist[-1].coords)
+                        self.started_edge = True 
+#                 self.RestoreModes('LeftDown') 
+            
         elif current_mode=='GUISelect':
             pass               
     
@@ -669,7 +680,6 @@ class MapFrame(wx.Frame):
                 self.Enable(True)
                 for btn in self.mp.buttons:
                     btn.Enable(True)
-                self.mp.btn_exit.SetLabel('Exit')
                 try:
                     self.RestoreModes('Route') 
                 except KeyError:
@@ -689,7 +699,6 @@ class MapFrame(wx.Frame):
         for btn in self.mp.buttons:
             btn.Enable(False)
         wx.Yield()
-        self.mp.btn_exit.SetLabel('Abort')
         self.mp.btn_exit.Enable(True)
         wx.Yield()
         
@@ -852,7 +861,7 @@ class MapFrame(wx.Frame):
                         self.SelectOneEdge(self.graphics_edges[entry[0]], False)
                     self.DeleteSelection(None)                 
                 
-                if self.modes['auto_edges']:                    
+                if self.modes['auto_edges']:      
                     self.ConnectNeighbors(node.id, self.gg_const['k'], self.gg_const['e'], True)
                      
                 
@@ -2338,6 +2347,7 @@ class MapFrame(wx.Frame):
     def Test(self):  
 #         self.DrawObstacles(self.ros.obstacles)
 #         print t.activeCount()
+
         route = [29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,30,3,48,50,4,0,46,49,29,
                  62,56,1,55,56,62,30,3,48,50,25,35,11,27,59,2,47,37,28,57,5,40,24]
 #         tt = TimerThread(self, 1)
