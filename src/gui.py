@@ -162,7 +162,7 @@ class MainPanel(wx.Panel):
         # Refresh map button
         hbox00 = wx.BoxSizer(wx.HORIZONTAL)     
         hbox00.AddSpacer(H_SPACER_WIDTH)
-        self.btn_rf = wx.Button(self, label="Update Map", size=BUTTON_SIZE)
+        self.btn_rf = wx.Button(self, label="View Live Map", size=BUTTON_SIZE)
         self.btn_rf.Enable(False)        
         self.btn_rf.Bind(wx.EVT_BUTTON, self.OnRefreshMap)
         self.buttons.append(self.btn_rf) 
@@ -376,50 +376,64 @@ class MainPanel(wx.Panel):
                 self.OnOpen(event)
                       
         else:
-            # Open a file dialog for the user to select a file            
-            filters = 'Image files (*.png)|*.png'
-            dlg = wx.FileDialog(self, message="Open Map File", defaultDir=os.getcwd(), 
-                                defaultFile="", wildcard=filters, style=wx.FD_OPEN)
-            
-            if dlg.ShowModal() == wx.ID_OK: 
-                st = datetime.now()
-                msg = "Loading map..."
-                self.mframe.SetBusyDialog(msg)
-                wx.BeginBusyCursor()
-                wx.Yield()
-#                 self.mframe.NavCanvas.Hide()
-                self.mframe.Hide()  
-                wx.Yield() 
-                self.mframe.ClearGraph()
+            ok = False
+            while not ok:
+                # Open a file dialog for the user to select a file            
+                filters = 'Image files (*.png)|*.png'
+                dlg = wx.FileDialog(self, message="Open Map File", defaultDir=os.getcwd(), 
+                                    defaultFile="", wildcard=filters, style=wx.FD_OPEN)
                 
-                # Set the viewer image to the selected file
-                filename = dlg.GetPath()  
-                self.mframe.SetTitle("Map Viewer    |    %s" % dlg.GetFilename()) 
-                
-                # Import the node data. For this to work, the node file must have the same
-                # name as the map file, but with the extension ".graph"
-                try:
-                    graph_filename = "%sgraph" % filename.rstrip("png")
-                    graph_file = open(graph_filename, "r")
-                    self.mframe.ImportGraph(graph_file)
-                    graph_file.close()
-                except IOError:
+                if dlg.ShowModal() == wx.ID_OK: 
+                    filename = dlg.GetPath() 
+                    basename = os.path.basename(filename)
+                    if basename == self.ros.GetDefaultFilename():
+                        msg = """\'%s\' is reserved for the live map.
+                            \nPlease choose another file."""
+                        dlg2 = wx.MessageDialog(self, msg % self.ros.GetDefaultFilename(), 
+                                "Error", wx.ICON_ERROR|wx.OK)
+                        dlg2.ShowModal()
+                        dlg2.Destroy()                
+                        dlg.Destroy()
+                        continue
+                    
+                    st = datetime.now()
+                    msg = "Loading map..."
+                    self.mframe.SetBusyDialog(msg)
+                    wx.BeginBusyCursor()
+                    wx.Yield()
+    #                 self.mframe.NavCanvas.Hide()
+                    self.mframe.Hide()  
+                    wx.Yield() 
                     self.mframe.ClearGraph()
-                    self.mframe.ImportGraph(None)
-                                  
-                self.mframe.SetImage(filename)  
-                wx.EndBusyCursor()  
-                self.mframe.KillBusyDialog()  
-                self.EnableButtons(self.btn_disabled, True)              
-                self.SetSaveStatus(True)
+                    
+                    # Set the viewer image to the selected file 
+                    self.mframe.SetTitle("Map Viewer    |    %s" % dlg.GetFilename()) 
+                    
+                    # Import the node data. For this to work, the node file must have the same
+                    # name as the map file, but with the extension ".graph"
+                    try:
+                        graph_filename = "%sgraph" % filename.rstrip("png")
+                        graph_file = open(graph_filename, "r")
+                        self.mframe.ImportGraph(graph_file)
+                        graph_file.close()
+                    except IOError:
+                        self.mframe.ClearGraph()
+                        self.mframe.ImportGraph(None)
+                                      
+                    self.mframe.SetImage(filename)  
+                    wx.EndBusyCursor()  
+                    self.mframe.KillBusyDialog()  
+                    self.EnableButtons(self.btn_disabled, True)              
+                    self.SetSaveStatus(True)
+                    
+                    et = datetime.now()
+                    self.mframe.Show()
+    #                 self.mframe.NavCanvas.Show()
+    #                 if self.verbose:
+                    print "Loaded map %s. Time taken: %s" % (filename, (et-st))
                 
-                et = datetime.now()
-                self.mframe.Show()
-#                 self.mframe.NavCanvas.Show()
-#                 if self.verbose:
-                print "Loaded map %s. Time taken: %s" % (filename, (et-st))
-                            
-            dlg.Destroy()
+                ok = True             
+                dlg.Destroy()
      
             
 #---------------------------------------------------------------------------------------------#    
@@ -450,36 +464,59 @@ class MainPanel(wx.Panel):
 #    image, and the graph data is stored as a *.graph file with the same name as the map.     #
 #---------------------------------------------------------------------------------------------# 
     def OnSaveAs(self, event):
-        filters = 'Image files (*.png)|*.png'
-        dlg = wx.FileDialog(self, message="Save Map File", defaultDir=os.getcwd(), 
-                            defaultFile="", wildcard=filters, style=wx.FD_SAVE|
-                            wx.FD_OVERWRITE_PROMPT)
-        
-        if dlg.ShowModal() == wx.ID_OK:   
-            st = datetime.now()   
-            # Save the file to the path given by the user         
-            current_map = self.mframe.current_map
-            filename = dlg.GetPath()
+        ok = False
+        while not ok:
+            filters = 'Map files (*.png)|*.png'
+            dlg = wx.FileDialog(self, message="Save Map File", defaultDir=os.getcwd(), 
+                                defaultFile="", wildcard=filters, style=wx.FD_SAVE|
+                                wx.FD_OVERWRITE_PROMPT)
             
-            try:
-                shutil.copy(current_map,filename)
-            except shutil.Error:
-                shutil.move(filename, filename)
-            
-            # The graph filename must be the same as the map filename (except the extension)
-            graph_filename = "%sgraph" % filename.rstrip("png")
-            graph_file = open(graph_filename, "w")
-            self.mframe.ExportGraph(graph_file)
-            graph_file.close()            
-            self.mframe.current_map = filename
-            
-#             if self.verbose:  
-            et = datetime.now()
-            print "Saved map %s. Time taken: %s" % (filename, (et-st))         
-            self.SetSaveStatus(True) 
-            self.mframe.SetTitle("Map Viewer    |    %s" % dlg.GetFilename())
-                        
-        dlg.Destroy()
+            if dlg.ShowModal() == wx.ID_OK:   
+                st = datetime.now()   
+                # Save the file to the path given by the user         
+                current_map = self.mframe.current_map
+                filename = dlg.GetPath()
+                basename = os.path.basename(filename)
+                
+                if basename[-4:] != ".png":
+                    dlg2 = wx.MessageDialog(self,
+                    "Filename \'%s\' is invalid.\nMust end with \'.png\'" % basename, 
+                    "Error", wx.ICON_ERROR|wx.OK)
+                    dlg2.ShowModal()
+                    dlg2.Destroy()                
+                    dlg.Destroy()
+                    continue
+                
+                if basename == self.ros.GetDefaultFilename():
+                    msg = """Filename \'%s\' is reserved for the live map.
+                            \nPlease choose a different name."""
+                    dlg2 = wx.MessageDialog(self, msg % self.ros.GetDefaultFilename(), 
+                    "Error", wx.ICON_ERROR|wx.OK, pos=(500,500))
+                    dlg2.ShowModal()
+                    dlg2.Destroy()                
+                    dlg.Destroy()
+                    continue
+                
+                try:
+                    shutil.copy(current_map,filename)
+                except shutil.Error:
+                    shutil.move(filename, filename)
+                
+                # The graph filename must be the same as the map filename (except the extension)
+                graph_filename = "%sgraph" % filename.rstrip("png")
+                graph_file = open(graph_filename, "w")
+                self.mframe.ExportGraph(graph_file)
+                graph_file.close()            
+                self.mframe.current_map = filename
+                
+                if self.mframe.modes['verbose']:  
+                    et = datetime.now()
+                    print "Saved map %s. Time taken: %s" % (filename, (et-st))         
+                self.SetSaveStatus(True) 
+                self.mframe.SetTitle("Map Viewer    |    %s" % dlg.GetFilename())
+                
+            ok = True               
+            dlg.Destroy()
         
 #---------------------------------------------------------------------------------------------#    
 #    Accessor function for the current save state (Saved/Unsaved)                            #
