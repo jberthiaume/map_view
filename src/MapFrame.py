@@ -107,10 +107,6 @@ class MapFrame(wx.Frame):
        
         self.mp = self.GetParent()
         self.ros = self.mp.ros
-#         self.q = Queue()
-#         self.qt = qt.QueueThread(self)
-#         self.qt.daemon = True
-#         self.qt.start()
             
         # Add the Canvas
         self.NavCanvas = NavCanvas.NavCanvas(self, 
@@ -118,8 +114,6 @@ class MapFrame(wx.Frame):
                                      BackgroundColor = "DARK GREY", 
                                      )
         self.Canvas = self.NavCanvas.Canvas
-#         self.Canvas.Debug = True
-
         
         # Bind canvas mouse events
         self.Bind(wx.EVT_CLOSE, self.OnClose)

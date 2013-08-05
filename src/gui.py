@@ -133,7 +133,7 @@ class MainPanel(wx.Panel):
         self.buttons = []
         self.btn_disabled = []
         self.contents = []        
-        self.gg_const = {'n':100, 'k':5, 'd':20, 'w':5, 'e':80}
+        self.gg_const = {'n':100, 'k':5, 'd':20, 'w':8, 'e':80}
         
         # Set parent frame value
         self.pf = parent 
@@ -523,17 +523,16 @@ class MainPanel(wx.Panel):
         if not self.saved:
             dlg = wx.MessageDialog(self,
             "The current map is unsaved.\nWould you like to save it before exiting?", 
-            "Warning", wx.YES_NO)
+            "Warning", wx.CANCEL|wx.YES|wx.NO)
             
-            if dlg.ShowModal() == wx.ID_YES:
-                # User has chosen to save the map
+            result = dlg.ShowModal()
+            if result == wx.ID_YES:
                 self.OnSaveAs(event)
-            dlg.Destroy()        
-        
-#             self.ros.tt.stopped = True
-#             self.ros.tt.join()  
-#             self.mframe.qt.stopped = True 
-#             self.mframe.qt.join(0) 
+            elif result == wx.ID_CANCEL:
+                dlg.Destroy()
+                return
+            dlg.Destroy()   
+            
         self.mframe.Close()
         self.pf.Close()        
                 
@@ -778,7 +777,7 @@ class SettingsPanel(wx.Panel):
         dc.DrawLine(20, 70,220, 70)
         dc.DrawLine(20,125,220,125)
         dc.DrawLine(20,180,220,180)
-        dc.DrawLine(20,215,220,215)
+        dc.DrawLine(20,216,220,216)
         dc.DrawLine(20,270,220,270)
         
         return wx.StaticBitmap(self, -1, bmp, (0, 0))
@@ -959,14 +958,6 @@ class ExplorePanel(wx.Panel):
         self.Parent.buttons.append(self.btn_rte)   
         vbox13.Add(self.btn_rte)        
         self.sizer.Add(vbox13,1, wx.TOP,10)  
-        
-#         # Show/Hide map viewer button  
-#         self.btn_stop = wx.Button(self, label="Abort Travel", size=BUTTON_SIZE)        
-#         self.btn_stop.Bind(wx.EVT_BUTTON, self.OnAbort) 
-#         self.btn_stop.Enable(False)
-#         self.Parent.buttons.append(self.btn_stop)   
-#         vbox13.Add(self.btn_stop)        
-#         self.sizer.Add(vbox13,1, wx.TOP,10) 
 
         vbox03 = wx.BoxSizer(wx.VERTICAL)
         lbl_font = self.pf.font
