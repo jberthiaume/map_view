@@ -830,7 +830,7 @@ class SettingsPanel(wx.Panel):
 #---------------------------------------------------------------------------------------------#
     def OnOk(self, event):
         self.pf.mp.mframe.SetModes('Settings', {
-                                 'spaced_edges': (not self.chk_edge.GetValue()),  
+#                                  'spaced_edges': (not self.chk_edge.GetValue()),  
                                  'clear_graph': self.chk_clr.GetValue(),
                                  'auto_edges': self.chk_ec.GetValue(),
                                  'auto_intersections': self.chk_int.GetValue(),

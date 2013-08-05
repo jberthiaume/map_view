@@ -179,12 +179,14 @@ class ROSNode():
             if self.mframe.modes['verbose']:         
                 print "Map file created. (%s)" % self.filename
             self.refresh = True
-
+        
         # Creates the wx.Image to be passed to the ZoomPanel
         self.image = self.PilImageToWxImage(img_mirror)
         self.image_data = data.data
         wx.CallAfter(self.mframe.SetMapMetadata, self.image_width,
                      self.resolution,self.origin_pos)
+        if self.mframe.current_map == self.GetDefaultFilename():
+            wx.CallAfter(self.mframe.SetImage, self.image)
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #

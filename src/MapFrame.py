@@ -55,20 +55,20 @@ class MapFrame(wx.Frame):
         
         # Initialize data structures                
         self.modes = {
-                      'export':False, 
-                      'auto_erase':True, 
-                      'verbose':True, 
-                      'redraw':True, 
-                      'auto_edges':True, 
-                      'spaced_edges':True,  
-                      'unknown_edges':True, 
-                      'clear_graph':True, 
-                      'auto_intersections':True, 
-                      'manual_edges':False,
-                      'pose_est':False, 
                       'load':False, 
+                      'redraw':True,  
+                      'export':False, 
+                      'verbose':True,
                       'running':False, 
-                      'obstacles':True,
+                      'pose_est':False, 
+                      'obstacles':True, 
+                      'auto_edges':True, 
+                      'auto_erase':True,
+                      'clear_graph':True, 
+                      'spaced_edges':True,  
+                      'manual_edges':False,
+                      'unknown_edges':True, 
+                      'auto_intersections':True, 
                       }
         self.saved_modes = {}
         
@@ -86,11 +86,11 @@ class MapFrame(wx.Frame):
         self.graphics_nodes = []
         self.graphics_edges = []
         self.graphics_text = []
-        self.graphics_route = []
-        
+        self.graphics_route = []        
         self.sel_nodes = []
         self.sel_edges = [] 
         self.route = []
+        
         self.obstacles_1 = None
         self.obstacles_2 = None
         self.arrows = None
@@ -98,7 +98,8 @@ class MapFrame(wx.Frame):
         self.ng_graphic = None
         self.curr_dest = None   
         self.curr_edge = None
-        self.started_edge = False    
+        self.started_edge = False 
+        self.known_px = 0   
         
         # Connection matrix data structure
         # See GenerateConnectionMatrix()
@@ -377,8 +378,9 @@ class MapFrame(wx.Frame):
         theta = zw                
         a = self.Canvas.AddArrowLine( (xy, (xy[0]+diam, xy[1]) ), LineWidth = lw,
             LineColor = lc, ArrowHeadSize=10, InForeground = True)   
-        a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)         
-        self.Canvas.Draw(True)
+        a.Bind(FloatCanvas.EVT_FC_LEFT_DOWN, self.OnClickRobot)  
+        if self.modes['redraw']:       
+            self.Canvas.Draw(True)
         a.Coords = xy
         a.Theta  = theta
         self.arrow = a
@@ -2416,7 +2418,7 @@ class MapFrame(wx.Frame):
         self.GenerateConnectionMatrix()
          
         if self.robot is None:        
-            self.AddRobot(-1,-1) 
+            self.AddRobot(-1,-1)
         else:
             self.AddRobot(self.robot.Coords, self.arrow.Theta)  
              
@@ -2427,6 +2429,7 @@ class MapFrame(wx.Frame):
         
         et = datetime.now()
         self.RestoreModes('SetImage')
+        self.Canvas.Draw(True)
 
         if self.modes['verbose']:
             print "Set map image. Time taken: %s" % str(et-st)
