@@ -155,17 +155,19 @@ class ROSNode():
 #    Turns the OccupancyGrid map data into an image.                                          #
 #---------------------------------------------------------------------------------------------#   
     def MapCB(self, data):
-        self.parent.mp.btn_rf.Enable(True)
-          
+        wx.Yield()       
+        self.parent.mp.btn_rf.Enable(False)
+        self.parent.mp.btn_rf.SetLabel("Updating Map...")  
+               
         array_length = len(data.data)
         self.image_width = int(np.sqrt(array_length))
         self.resolution = self.Truncate(data.info.resolution, 5)
         self.origin_pos = data.info.origin.position
         self.origin_orient = data.info.origin.orientation        
-
-        color_data = self.TranslateToRGB(data.data)             
+        
+        color_data = self.TranslateToRGB(data.data)    
         img=Image.new('RGB', (self.image_width,self.image_width))
-        img.putdata(color_data)        
+        img.putdata(color_data)  
         # Rotate and flip image (otherwise it won't match the real map)
         img = img.rotate(180)
         img_mirror = ImageOps.mirror(img)
@@ -186,7 +188,11 @@ class ROSNode():
         wx.CallAfter(self.mframe.SetMapMetadata, self.image_width,
                      self.resolution,self.origin_pos)
         if self.mframe.current_map == self.GetDefaultFilename():
-            wx.CallAfter(self.mframe.SetImage, self.image)
+            print "set image"
+            wx.CallAfter(self.mframe.SetImage, self.image)  
+            
+        self.parent.mp.btn_rf.SetLabel("View Live Map")       
+        self.parent.mp.btn_rf.Enable(True)
 
 #---------------------------------------------------------------------------------------------#    
 #    Creates a wx.Image object from the data in a PIL Image                                   #

@@ -11,7 +11,6 @@ import pickle
 import math
 import time
 import Image
-import subprocess
 import numpy as np
 import random as rand
 import threading as t
@@ -2382,8 +2381,8 @@ class MapFrame(wx.Frame):
                         'auto_edges':False
                         }) 
         self.Clear()
-        st = datetime.now()    
-                 
+        st = datetime.now()  
+                  
         try:
             # Creates the image from a file (used when loading a .png map file)
             self.image_data = []
@@ -2420,7 +2419,7 @@ class MapFrame(wx.Frame):
         if self.robot is None:        
             self.AddRobot(-1,-1)
         else:
-            self.AddRobot(self.robot.Coords, self.arrow.Theta)  
+            self.AddRobot(self.robot.Coords, self.arrow.Theta) 
              
         self.SetCurrentMapPath(image_file)
         self.Show() 

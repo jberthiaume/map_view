@@ -7,7 +7,6 @@ Created on May 30, 2013
 import wx
 import os, time, shutil
 import math
-import signal
 import ROSNode
 import Resources
 import subprocess
@@ -337,12 +336,7 @@ class MainPanel(wx.Panel):
             self.SetSaveStatus(False)     
             
             while self.ros.image is None:
-                time.sleep(0.5) 
-#             wait_time = 0
-#             while self.ros.obstacles == [] and wait_time < 6:
-#                 print "sleeping 0.5"
-#                 time.sleep(0.5)
-#                 wait_time += 1                 
+                time.sleep(0.5)          
             self.mframe.SetImage(self.ros.image)
             
         except IndexError:
