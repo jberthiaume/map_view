@@ -22,4 +22,9 @@ Use the following command to run the program:
 
 ###Notes:
 
-For ROS Groovy, the default Navigation stack should be replaced by the [catkinized version](http://github.com/jonbinney/navigation/tree/catkinized-groovy-devel). Otherwise MapView will not be able to access move_base and the program will not run.
+- For ROS Groovy, the default Navigation stack should be replaced by the [catkinized version](http://github.com/jonbinney/navigation/tree/catkinized-groovy-devel). Otherwise MapView will not be able to access move_base and the program will not run.
+
+- The HELP file contains instructions for using the map editing tools, as well as a list of useful hotkeys
+
+======
+_Questions? jberthiaume4(at)gmail.com_
