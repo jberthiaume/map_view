@@ -1120,7 +1120,7 @@ class MapFrame(wx.Frame):
                     return False
         for node2 in self.nodelist:
             if self.Distance(coords, node2.coords) < d:
-                return False        
+                return False      
         return True
         
 #--------------------------------------------------------------------------------------------#
@@ -1435,7 +1435,7 @@ class MapFrame(wx.Frame):
 #--------------------------------------------------------------------------------------------#                    
     def GenerateGraph(self, n, k, d, w, e):
         wx.BeginBusyCursor()
-        st = datetime.now() 
+        start = int(round(time.time()))
         self.ttime = datetime(100,1,1,0,0,0) 
         self.SetModes('GenerateGraph', {
                         'auto_edges':False, 
@@ -1455,10 +1455,20 @@ class MapFrame(wx.Frame):
         r = lim[3]
                 
         while len(self.nodelist) < n:
+            now = int(round(time.time()))
+            if now-start > 10:
+                msg = """Graph generation timed out.
+                \nThis usually means that you are trying to generate too many nodes."""
+                dlg = wx.MessageDialog(self,msg, "Warning", wx.ICON_EXCLAMATION)
+                dlg.ShowModal() 
+                dlg.Destroy()
+                break
+                    
             x = int( l + ((r-l)*rand.random()) )
             y = int( b + ((t-b)*rand.random()) )
             
-            if self.CheckNodeLocation(data, (x,y), w, d):
+            result = self.CheckNodeLocation(data, (x,y), w, d)
+            if result is True:
                 if int(self.CreateNode( (x,y) )) == 1: # Node successfully created                  
                     self.ConnectNeighbors(len(self.nodelist)-1, k, e, False)
                        
@@ -1466,10 +1476,10 @@ class MapFrame(wx.Frame):
         
         # Restore saved states
         wx.EndBusyCursor()
-        et = datetime.now()
+        end = time.time()
         self.RestoreModes('GenerateGraph')
         if self.modes['verbose']:
-            print "Total time to generate graph: %s" % str(et-st)
+            print "Total time to generate graph: %s" % str((end-start))
 
 #--------------------------------------------------------------------------------------------#
 #     Find the distances from a given node 'node1' to all other nodes in the graph.          # 
