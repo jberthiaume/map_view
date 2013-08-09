@@ -1,5 +1,5 @@
-map_view
-========
+#MapView
+######A map viewer and editor for ROS
 
 ###Features:
 
@@ -7,11 +7,13 @@ map_view
 
 - Add nodes and edges to maps
 
-- Automatically generate PRM graphs on top of maps
+- Automatically generate PRMs on top of a map
 
 - Create and publish 2D pose estimates and 2D nav goals
 
-- Display robot pose and orientation in real-time (amcl_pose)
+- Display robot pose and orientation in real-time (from amcl_pose)
+
+- Integrated with [node_traveller](https://github.com/uobirlab/node_traveller) to display live route info and status when performing a tour of a map
 
 ###Usage:
 
@@ -20,5 +22,4 @@ Use the following command to run the program:
 
 ###Notes:
 
-For ROS Groovy, the default Navigation stack should be replaced by the one located at http://github.com/jonbinney/navigation/tree/catkinized-groovy-devel. Otherwise map_view will not be able to access move_base and the program will not run.
-
+For ROS Groovy, the default Navigation stack should be replaced by the [catkinized version](http://github.com/jonbinney/navigation/tree/catkinized-groovy-devel). Otherwise MapView will not be able to access move_base and the program will not run.
