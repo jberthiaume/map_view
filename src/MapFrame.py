@@ -31,8 +31,8 @@ ERROR_COLOR         = (255,45,45)
 SELECT_COLOR        = (255,106,54)
 HIGHLIGHT_COLOR     = (255,106,54)
 DESTINATION_COLOR   = (30,230,40)
-OBSTACLE_COLOR_1    = (255,106,20)
-OBSTACLE_COLOR_2    = (240,210,20)
+OBSTACLE_COLOR_1    = (255,156,20)
+OBSTACLE_COLOR_2    = (0,0,0)
 ROUTE_COLOR         = (20,165,0)
 TEXT_COLOR          = (119,41,83)
 
@@ -105,7 +105,8 @@ class MapFrame(wx.Frame):
         self.conn_matrix = np.empty(shape=(150,150))
         self.conn_matrix[:] = -1   
        
-        self.mp = self.GetParent()
+        self.mp = self.Parent
+        self.mf = self.Parent.Parent
         self.ros = self.mp.ros
             
         # Add the Canvas
@@ -129,34 +130,78 @@ class MapFrame(wx.Frame):
         id_sel_nodes = wx.NewId()
         id_sel_edges = wx.NewId()
         id_create_edges = wx.NewId()
+        id_robot = wx.NewId()
         id_connect = wx.NewId()
         id_del = wx.NewId()
+        id_open = wx.NewId()
+        id_save = wx.NewId()
         id_close = wx.NewId()
         id_quit = wx.NewId()
+        id_obs = wx.NewId()
+        id_auto_conn = wx.NewId()
+        id_console = wx.NewId()
         
         wx.EVT_MENU(self, id_sel_all, self.SelectAll) 
         wx.EVT_MENU(self, id_desel_all, self.DeselectAll) 
         wx.EVT_MENU(self, id_sel_nodes, self.SelectNodes)
         wx.EVT_MENU(self, id_sel_edges, self.SelectEdges)
         wx.EVT_MENU(self, id_create_edges, self.CreateEdges)
+        wx.EVT_MENU(self, id_robot, self.ClickRobot)
         wx.EVT_MENU(self, id_connect, self.OnConnectNeighbors)
         wx.EVT_MENU(self, id_del, self.DeleteSelection)
+        wx.EVT_MENU(self, id_open, self.OnOpen)
+        wx.EVT_MENU(self, id_save, self.OnSave)
         wx.EVT_MENU(self, id_close, self.OnCloseMap)
         wx.EVT_MENU(self, id_quit, self.OnExit)
+        wx.EVT_MENU(self, id_obs, self.SetObstacles)
+        wx.EVT_MENU(self, id_auto_conn, self.SetAutoConnect)
+        wx.EVT_MENU(self, id_console, self.SetConsoleOutput)
         
         # Accelerator table for hotkeys
-        self.accel_tbl = wx.AcceleratorTable([(wx.ACCEL_CTRL, ord('A'), id_sel_all),
+        self.accel_tbl = wx.AcceleratorTable([
+                                              (wx.ACCEL_ALT, ord('B'), id_obs),
+                                              (wx.ACCEL_ALT, ord('C'), id_console),
+                                              (wx.ACCEL_ALT, ord('K'), id_auto_conn),
+                                              (wx.ACCEL_CTRL, ord('A'), id_sel_all),
                                               (wx.ACCEL_CTRL, ord('D'), id_desel_all),
-                                              (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('N'), id_sel_nodes),
-                                              (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('E'), id_sel_edges),
                                               (wx.ACCEL_CTRL, ord('E'), id_create_edges),
                                               (wx.ACCEL_CTRL, ord('K'), id_connect),
-                                              (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_del),
+                                              (wx.ACCEL_CTRL, ord('O'), id_open),
+                                              (wx.ACCEL_CTRL, ord('Q'), id_quit),
+                                              (wx.ACCEL_CTRL, ord('R'), id_robot),
+                                              (wx.ACCEL_CTRL, ord('S'), id_save),
                                               (wx.ACCEL_CTRL, ord('W'), id_close),
-                                              (wx.ACCEL_CTRL, ord('Q'), id_quit)
+                                              (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('E'), id_sel_edges),
+                                              (wx.ACCEL_CTRL|wx.ACCEL_SHIFT, ord('N'), id_sel_nodes),
+                                              (wx.ACCEL_NORMAL, wx.WXK_DELETE, id_del),
                                              ])
         self.SetAcceleratorTable(self.accel_tbl)  
         self.Layout()
+        
+    def SetObstacles(self, event):
+        new_val = not self.modes['obstacles']
+        if self.modes['verbose']:
+            print "Obstacle display {status}.".format(status="disabled" if new_val==False else "enabled")
+            
+        self.SetModes('*', {'obstacles': new_val })
+        self.ShowObstacles(new_val)
+        self.mf.sp.chk_obs.SetValue(new_val)
+        
+    def SetAutoConnect(self, event):
+        new_val = not self.modes['auto_edges']
+        if self.modes['verbose']:
+            print "Automatic edge creation {status}.".format(status="disabled" if new_val==False else "enabled")
+            
+        self.SetModes('*', {'auto_edges': new_val })
+        self.mf.sp.chk_ec.SetValue(new_val)
+        
+    def SetConsoleOutput(self, event):
+        new_val = not self.modes['verbose']
+        if self.modes['verbose']:
+            print "Console output {status}.".format(status="disabled" if new_val==False else "enabled")
+            
+        self.SetModes('*', {'verbose': new_val })
+        self.mf.sp.chk_co.SetValue(new_val)
         
 #---------------------------------------------------------------------------------------------#    
 #    Hides the window instead of closing it when the X button is pressed                      #
@@ -568,7 +613,7 @@ class MapFrame(wx.Frame):
                     self.obstacles_2 = None   
         else:
             fc = OBSTACLE_COLOR_1  
-            d = 6
+            d = 5
             if self.obstacles_1 is not None: 
                 try:
                     self.Canvas.RemoveObject(self.obstacles_1) 
@@ -596,19 +641,32 @@ class MapFrame(wx.Frame):
     def ShowObstacles(self, boolean):
         try:
             self.obstacles_1.Visible = boolean
-            self.obstacles_2.Visible = boolean
+#             self.obstacles_2.Visible = boolean
             self.Canvas.Draw(True)
         except (ValueError, AttributeError):
             pass
 #---------------------------------------------------------------------------------------------#    
 #    Event handler when the user clicks on the robot graphic.                                 #
 #---------------------------------------------------------------------------------------------#    
+    def ClickRobot(self, event):
+        print "1"
+        try:
+            print "2"
+            self.OnClickRobot(self.robot)
+        except AttributeError:
+            pass            
+
     def OnClickRobot(self, obj):
+#         if self.modes['verbose']:
+#             print "Robot location:" 
+#             print "\t Pixels: (%s, %s)" % (int(obj.Coords[0]), int(obj.Coords[1]))
+#             m_Coords = self.PixelsToMeters(obj.Coords)
+#             print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
         if self.modes['verbose']:
-            print "Robot location:" 
-            print "\t Pixels: (%s, %s)" % (int(obj.Coords[0]), int(obj.Coords[1]))
-            m_Coords = self.PixelsToMeters(obj.Coords)
-            print "\t Metric: (%s, %s)" % (m_Coords[0], m_Coords[1])
+            print "Creating node at robot location..."
+        self.SetModes('Robot', {'manual_edges':True})
+        self.CreateNode(obj.Coords)
+        self.RestoreModes('Robot')
                         
 #---------------------------------------------------------------------------------------------#    
 #    Marks the robot's current goal node                                                      #
