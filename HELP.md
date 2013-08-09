@@ -2,22 +2,16 @@
 
 ##_Tools_
 
-####Map Editing Tools
-__Node Creation__: Left-clicking on the map creates a node. Left-clicking on an existing node or edge selects/deselects it.
+####Map Tools
+__Node Creation Tool__: Left-clicking on the map creates a node. Left-clicking on an existing node or edge selects/deselects it.
 
-__Edge Creation__: Left-clicking on an existing node starts an edge from that node. Moving the cursor to another node and left-clicking that node creates between the two nodes. Left-clicking in open space (not on an existing node) creates a new node at that location.
+__Edge Creation Tool__: Left-clicking on an existing node starts an edge from that node. Moving the cursor to another node and left-clicking that node creates between the two nodes. Left-clicking in open space (not on an existing node) creates a new node at that location.
 
-__Box Selection__: Left-clicking and dragging draws a box on the screen. All nodes and edges within the box are selected.
+__Box Selection Tool__: Left-clicking and dragging draws a box on the screen. All nodes and edges within the box are selected.
 
 __2D Pose Estimate__: Left-clicking gives the position, then dragging the arrow gives the orientation. Releasing the cursor publishes the pose estimate to _/initialpose_. Right-clicking cancels the operation without publishing.
 
 __2D Nav Goal__: Left-clicking gives the position, then dragging the arrow gives the orientation. Releasing the cursor publishes the nav goal to _/move_base/goal_. Right-clicking cancels the operation without publishing.
-
-__Zoom In__: Left-clicking zooms in 50%. Alternatively, left-clicking and dragging draws a box on the screen. The map will be zoomed in to the given box.
-
-__Zoom Out__: Left-clicking zooms out 50%.
-
-__Pan__: Left-clicking and dragging moves the map around
 
 ======
 ####Action Buttons
