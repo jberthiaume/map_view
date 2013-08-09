@@ -723,31 +723,32 @@ class SettingsPanel(wx.Panel):
         self.txtbxs['w'] = self.txt_w
         self.txtbxs['e'] = self.txt_e
         
-#         # Edges Checkbox
-#         self.chk_edge = wx.CheckBox(self, label="Allow edge generation within\n5 px of obstacles",
-#                                     pos=(10,280))
-#         self.chk_edge.SetValue(False)
+        txt = wx.StaticText(self, label="(1 pixel = 5 centimeters)",
+                                   size=(160,20), pos=(40,275))
+        txt.SetForegroundColour((150,150,150))
         
         # Unknown Edges Checkbox
         self.chk_uk = wx.CheckBox(self, label="Allow edge generation\nthrough unknown map areas",
-                                    pos=(10,290))
+                                    pos=(10,305))
         self.chk_uk.SetValue(True)
         
         # Clear Checkbox
         self.chk_clr = wx.CheckBox(self, label="Clear nodes and edges when\ngenerating new graph",
-                                    pos=(10,335))
+                                    pos=(10,350))
         self.chk_clr.SetValue(True)
+        
+        
         
         
         # Title Label 2 
         self.lbl_st = wx.StaticText(self, label="Other Settings", 
-                                    size=(240,30), pos=(10,405), style=wx.CENTER)
+                                    size=(150,30), pos=(10,410), style=wx.CENTER)
         
         self.lbl_st.SetFont(title_font)
         self.lbl_titles.append(self.lbl_st) 
         
         # Obstacles Checkbox
-        self.chk_obs = wx.CheckBox(self, label="Show obstacles on map",
+        self.chk_obs = wx.CheckBox(self, label="Show obstacles on the map",
                                   pos=(10,438))
         self.chk_obs.SetValue(True)
         
@@ -837,8 +838,7 @@ class SettingsPanel(wx.Panel):
                 txt.Bind(wx.EVT_SET_FOCUS, self.OnTxtFocus)
                 txt.Bind(wx.EVT_KILL_FOCUS, self.OnTxtLoseFocus)
         except IOError:
-            print "Invalid argument: expected (R,G,B) value"
-            
+            print "Invalid argument: expected (R,G,B) value"            
     
     def OnTxtFocus(self, event):
         event.GetEventObject().Clear()   
@@ -868,9 +868,7 @@ class SettingsPanel(wx.Panel):
                                  'unknown_edges': self.chk_uk.GetValue(),  
                                  'verbose': (self.chk_co.GetValue()),
                                  'obstacles': self.chk_obs.GetValue()                               
-                               })  
-#         self.pf.SuppressOutput(not self.chk_co.GetValue())
-        
+                               })          
         try:
             n = int( self.txt_n.GetValue() )
             k = int( self.txt_k.GetValue() )
